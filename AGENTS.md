@@ -92,19 +92,22 @@ When adding a new segment (e.g., `git`, `model`, `duration`):
 Always follow test-first development for behavioural changes:
 
 ```bash
-# 1. Run all unit tests
+# 1. Check code formatting
+cargo fmt --check
+
+# 2. Run all unit tests
 cargo test
 
-# 2. Run linter
+# 3. Run linter
 cargo clippy --all-targets -- -D warnings
 
-# 3. Test with a sample Copilot CLI stdin payload
+# 4. Test with a sample Copilot CLI stdin payload
 echo '{"context_window":{"current_context_tokens":0,"displayed_context_limit":200000,"current_context_used_percentage":0},"ai_used":{"total_nano_aiu":0}}' | cargo run --
 
-# 4. Test style overrides
+# 5. Test style overrides
 echo '{"context_window":{"current_context_tokens":120000,"displayed_context_limit":200000,"current_context_used_percentage":60},"ai_used":{"total_nano_aiu":500000000000}}' | cargo run -- --style capsule --theme nord
 
-# 5. Build optimized release binary
+# 6. Build optimized release binary
 cargo build --release
 ```
 
@@ -117,5 +120,7 @@ Use Conventional Commits:
 - `fix(<scope>): <description>` — Bug fixes or edge-case handling
 - `perf(<scope>): <description>` — Performance optimizations
 - `test(<scope>): <description>` — Adding or updating unit tests
+- `style: <description>` — Code formatting or stylistic improvements
+- `ci: <description>` — CI/CD workflow configuration
 - `docs: <description>` — Documentation or README updates
 - `chore: <description>` — Maintenance, dependency bumps, or metadata changes

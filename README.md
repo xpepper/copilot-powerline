@@ -1,5 +1,6 @@
 # copilot-powerline
 
+[![CI](https://github.com/xpepper/copilot-powerline/actions/workflows/ci.yml/badge.svg)](https://github.com/xpepper/copilot-powerline/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/copilot-powerline.svg)](https://crates.io/crates/copilot-powerline)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
