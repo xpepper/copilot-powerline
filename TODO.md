@@ -36,5 +36,5 @@ Migrate Python status line to a standalone, configurable Rust tool (`copilot-pow
 - [x] Clippy & cargo test verification
 - [x] Update README.md, AGENTS.md, bump version to 0.2.0
 - [x] Build & reinstall binary to ~/.cargo/bin
-- [ ] Commit, push, and publish to crates.io
+- [x] Commit, push, and publish to crates.io
 
