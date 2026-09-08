@@ -29,16 +29,11 @@ fn read_stdin() -> String {
 
 fn detect_copilot_theme() -> Option<String> {
     let settings_path = dirs::home_dir()?.join(".copilot").join("settings.json");
-    if settings_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&settings_path) {
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(theme_str) = val.get("theme").and_then(|t| t.as_str()) {
-                    return Some(theme_str.to_string());
-                }
-            }
-        }
-    }
-    None
+    let content = std::fs::read_to_string(settings_path).ok()?;
+    let val: serde_json::Value = serde_json::from_str(&content).ok()?;
+    val.get("theme")
+        .and_then(|t| t.as_str())
+        .map(ToString::to_string)
 }
 
 fn main() {
@@ -70,10 +65,8 @@ fn main() {
 
     let mut config = Config::load_from_file_or_default(cli.config.as_deref());
 
-    if let Some(style_override) = cli.style {
-        if let Ok(s) = style_override.parse::<Style>() {
-            config.style = s;
-        }
+    if let Some(s) = cli.style.and_then(|s| s.parse::<Style>().ok()) {
+        config.style = s;
     }
 
     if let Some(theme_override) = cli.theme {

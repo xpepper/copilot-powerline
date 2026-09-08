@@ -188,17 +188,10 @@ impl Config {
             .map(PathBuf::from)
             .or_else(Self::default_config_path);
 
-        if let Some(p) = config_path {
-            if p.exists() {
-                if let Ok(content) = std::fs::read_to_string(&p) {
-                    if let Ok(config) = Self::from_toml(&content) {
-                        return config;
-                    }
-                }
-            }
-        }
-
-        Self::default()
+        config_path
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .and_then(|content| Self::from_toml(&content).ok())
+            .unwrap_or_default()
     }
 }
 
@@ -218,10 +211,18 @@ mod tests {
 
     #[test]
     fn test_serialize_and_deserialize_roundtrip() {
-        let mut original = Config::default();
-        original.style = Style::Powerline;
-        original.session_cost.show_aic = true;
-        original.month_cost.show_aic = true;
+        let original = Config {
+            style: Style::Powerline,
+            session_cost: CostConfig {
+                show_aic: true,
+                ..Default::default()
+            },
+            month_cost: MonthCostConfig {
+                show_aic: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
 
         let toml_str = original.to_toml_string().expect("serialize should succeed");
         let parsed: Config = Config::from_toml(&toml_str).expect("deserialize should succeed");

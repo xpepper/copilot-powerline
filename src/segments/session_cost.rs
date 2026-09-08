@@ -51,8 +51,10 @@ mod tests {
 
     #[test]
     fn test_spend_with_show_aic_enabled() {
-        let mut cfg = CostConfig::default();
-        cfg.show_aic = true;
+        let cfg = CostConfig {
+            show_aic: true,
+            ..Default::default()
+        };
         let p = Palette::for_theme("plain");
 
         // 500 billion nano AIU = 500 AIC = $5.00
@@ -62,8 +64,10 @@ mod tests {
 
     #[test]
     fn test_spend_with_show_aic_disabled() {
-        let mut cfg = CostConfig::default();
-        cfg.show_aic = false;
+        let cfg = CostConfig {
+            show_aic: false,
+            ..Default::default()
+        };
         let p = Palette::for_theme("plain");
 
         let rendered = render_session_cost_segment(500_000_000_000, &cfg, &p).unwrap();

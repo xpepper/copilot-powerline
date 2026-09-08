@@ -51,8 +51,10 @@ mod tests {
 
     #[test]
     fn test_month_cost_with_aic() {
-        let mut cfg = MonthCostConfig::default();
-        cfg.show_aic = true;
+        let cfg = MonthCostConfig {
+            show_aic: true,
+            ..Default::default()
+        };
         let p = Palette::for_theme("plain");
 
         let rendered = render_month_cost_segment(25_938_000_000_000, &cfg, &p).unwrap();
