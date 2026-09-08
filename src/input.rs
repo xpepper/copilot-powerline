@@ -7,6 +7,7 @@ pub struct CopilotInput {
     pub context_window: ContextWindow,
     #[serde(default)]
     pub ai_used: AiUsed,
+    #[allow(dead_code)]
     pub model: Option<ModelInfo>,
 }
 
@@ -27,7 +28,9 @@ pub struct AiUsed {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ModelInfo {
+    #[allow(dead_code)]
     pub id: Option<String>,
+    #[allow(dead_code)]
     pub name: Option<String>,
 }
 
