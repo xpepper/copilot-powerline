@@ -1,5 +1,8 @@
 # copilot-powerline
 
+[![Crates.io](https://img.shields.io/crates/v/copilot-powerline.svg)](https://crates.io/crates/copilot-powerline)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A fast, modular, and customizable powerline status line for GitHub Copilot CLI, written in Rust. Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 
 ## Features
@@ -16,14 +19,19 @@ A fast, modular, and customizable powerline status line for GitHub Copilot CLI, 
 
 ## Quick Start
 
-### 1. Build and Install
+### 1. Install
+
+Install directly via Cargo:
 
 ```bash
-# Clone the repository
-git clone https://github.com/<username>/copilot-powerline.git
-cd copilot-powerline
+cargo install copilot-powerline
+```
 
-# Build and install to ~/.cargo/bin
+Or build from source:
+
+```bash
+git clone https://github.com/xpepper/copilot-powerline.git
+cd copilot-powerline
 cargo install --path .
 ```
 
