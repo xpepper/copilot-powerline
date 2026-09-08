@@ -18,6 +18,18 @@ pub struct ContextWindow {
     #[serde(default)]
     pub displayed_context_limit: Option<u64>,
     pub current_context_used_percentage: Option<f64>,
+    #[serde(default)]
+    pub total_input_tokens: Option<u64>,
+    #[serde(default)]
+    pub total_output_tokens: Option<u64>,
+    #[serde(default)]
+    pub total_cache_read_tokens: Option<u64>,
+    #[serde(default)]
+    pub total_cache_write_tokens: Option<u64>,
+    #[serde(default)]
+    pub total_reasoning_tokens: Option<u64>,
+    #[serde(default)]
+    pub total_tokens: Option<u64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -51,7 +63,13 @@ mod tests {
             "context_window": {
                 "current_context_tokens": 1250,
                 "displayed_context_limit": 200000,
-                "current_context_used_percentage": 0.6
+                "current_context_used_percentage": 0.6,
+                "total_input_tokens": 50000,
+                "total_output_tokens": 12000,
+                "total_cache_read_tokens": 35000,
+                "total_cache_write_tokens": 8000,
+                "total_reasoning_tokens": 3200,
+                "total_tokens": 62000
             },
             "ai_used": {
                 "total_nano_aiu": 500000000000
@@ -67,6 +85,10 @@ mod tests {
         assert_eq!(input.context_window.current_context_tokens, Some(1250));
         assert_eq!(input.context_window.displayed_context_limit, Some(200000));
         assert_eq!(input.context_window.current_context_used_percentage, Some(0.6));
+        assert_eq!(input.context_window.total_cache_read_tokens, Some(35000));
+        assert_eq!(input.context_window.total_cache_write_tokens, Some(8000));
+        assert_eq!(input.context_window.total_reasoning_tokens, Some(3200));
+        assert_eq!(input.context_window.total_tokens, Some(62000));
         assert_eq!(input.ai_used.total_nano_aiu, 500000000000);
         assert_eq!(input.model.as_ref().and_then(|m| m.id.as_deref()), Some("claude-3-7-sonnet"));
     }

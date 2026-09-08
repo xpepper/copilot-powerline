@@ -22,6 +22,7 @@ pub fn format_tokens(n: Option<u64>) -> String {
 pub fn render_tokens_segment(
     ctx: &ContextWindow,
     config: &TokensConfig,
+    icon_set: crate::config::IconSet,
     palette: &Palette,
 ) -> Option<String> {
     if !config.enabled {
@@ -60,15 +61,18 @@ pub fn render_tokens_segment(
         String::new()
     };
 
+    let icon = crate::icons::tokens_icon(icon_set, config.prefix.as_deref());
+
     Some(format!(
-        "{}Tokens:{} {}{}/{}{}",
-        lbl, r, alert_icon, curr_styled, max_styled, pct_styled
+        "{}{}{} {}{}/{}{}",
+        lbl, icon, r, alert_icon, curr_styled, max_styled, pct_styled
     ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::IconSet;
 
     #[test]
     fn test_format_tokens() {
@@ -87,12 +91,28 @@ mod tests {
             current_context_tokens: Some(0),
             displayed_context_limit: Some(200_000),
             current_context_used_percentage: Some(0.0),
+            ..Default::default()
         };
         let cfg = TokensConfig::default();
         let p = Palette::for_theme("plain");
 
-        let rendered = render_tokens_segment(&ctx, &cfg, &p).unwrap();
+        let rendered = render_tokens_segment(&ctx, &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Tokens: 0/200k (0%)");
+    }
+
+    #[test]
+    fn test_render_tokens_emoji() {
+        let ctx = ContextWindow {
+            current_context_tokens: Some(0),
+            displayed_context_limit: Some(200_000),
+            current_context_used_percentage: Some(0.0),
+            ..Default::default()
+        };
+        let cfg = TokensConfig::default();
+        let p = Palette::for_theme("plain");
+
+        let rendered = render_tokens_segment(&ctx, &cfg, IconSet::Emoji, &p).unwrap();
+        assert_eq!(rendered, "🪙 0/200k (0%)");
     }
 
     #[test]
@@ -101,11 +121,12 @@ mod tests {
             current_context_tokens: Some(150_000),
             displayed_context_limit: Some(200_000),
             current_context_used_percentage: Some(75.0),
+            ..Default::default()
         };
         let cfg = TokensConfig::default();
         let p = Palette::for_theme("plain");
 
-        let rendered = render_tokens_segment(&ctx, &cfg, &p).unwrap();
+        let rendered = render_tokens_segment(&ctx, &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Tokens: ⚠️ 150k/200k (75%)");
     }
 }

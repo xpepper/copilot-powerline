@@ -27,8 +27,9 @@ copilot-powerline/
 ├── LICENSE                    # MIT License
 ├── src/
 │   ├── main.rs                # Entry point, CLI orchestration, and stdin reading
-│   ├── cli.rs                 # Clap CLI arguments (--init, --style, --theme, --config)
+│   ├── cli.rs                 # Clap CLI arguments (--init, --style, --theme, --icon-set, --config)
 │   ├── config.rs              # TOML config structures, defaults, and file loading
+│   ├── icons.rs               # Icon set resolver (Nerd, Emoji, Plain)
 │   ├── input.rs               # Deserialization of Copilot CLI stdin JSON payloads
 │   ├── db.rs                  # Read-only SQLite query helper for session-store.db
 │   ├── renderer.rs            # Separators and powerline/capsule glyph formatting
@@ -37,7 +38,10 @@ copilot-powerline/
 │       ├── mod.rs             # Module declarations
 │       ├── tokens.rs          # Token counts, formatting (e.g. 150k, 1.2M), and alert thresholds
 │       ├── session_cost.rs    # Real-time session spend calculation (USD and optional AIC)
-│       └── month_cost.rs      # Month-to-date spend calculation (USD and optional AIC)
+│       ├── month_cost.rs      # Month-to-date spend calculation (USD and optional AIC)
+│       ├── cache.rs           # Prompt cache hit rate or token counts
+│       ├── reasoning.rs       # Model reasoning/thinking token tracking
+│       └── total_tokens.rs    # Accumulated session token volume
 ```
 
 ---

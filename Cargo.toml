@@ -1,6 +1,6 @@
 [package]
 name = "copilot-powerline"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "A fast, customizable powerline status line for GitHub Copilot CLI"
 license = "MIT"

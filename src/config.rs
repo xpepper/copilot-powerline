@@ -24,10 +24,33 @@ impl std::str::FromStr for Style {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum IconSet {
+    #[default]
+    Plain,
+    Nerd,
+    Emoji,
+}
+
+impl std::str::FromStr for IconSet {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "plain" => Ok(IconSet::Plain),
+            "nerd" => Ok(IconSet::Nerd),
+            "emoji" => Ok(IconSet::Emoji),
+            other => Err(format!("Unknown icon set: {other}")),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub style: Style,
+    #[serde(default)]
+    pub icon_set: IconSet,
     #[serde(default = "default_theme")]
     pub theme: String,
     #[serde(default = "default_segments")]
@@ -38,6 +61,12 @@ pub struct Config {
     pub session_cost: CostConfig,
     #[serde(default)]
     pub month_cost: MonthCostConfig,
+    #[serde(default)]
+    pub cache: CacheConfig,
+    #[serde(default)]
+    pub reasoning: ReasoningConfig,
+    #[serde(default)]
+    pub total_tokens: TotalTokensConfig,
 }
 
 fn default_theme() -> String {
@@ -49,6 +78,9 @@ fn default_segments() -> Vec<String> {
         "tokens".to_string(),
         "session_cost".to_string(),
         "month_cost".to_string(),
+        "cache".to_string(),
+        "reasoning".to_string(),
+        "total_tokens".to_string(),
     ]
 }
 
@@ -56,6 +88,7 @@ fn default_segments() -> Vec<String> {
 pub struct TokensConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
+    pub prefix: Option<String>,
     #[serde(default = "default_true")]
     pub show_percentage: bool,
     #[serde(default = "default_alert_threshold")]
@@ -68,6 +101,7 @@ impl Default for TokensConfig {
     fn default() -> Self {
         Self {
             enabled: true,
+            prefix: None,
             show_percentage: true,
             alert_threshold: 100_000,
             alert_icon: "⚠️ ".to_string(),
@@ -87,8 +121,7 @@ fn default_alert_icon() -> String {
 pub struct CostConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
-    #[serde(default = "default_session_prefix")]
-    pub prefix: String,
+    pub prefix: Option<String>,
     #[serde(default = "default_currency")]
     pub currency_symbol: String,
     #[serde(default)]
@@ -101,16 +134,12 @@ impl Default for CostConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            prefix: default_session_prefix(),
+            prefix: None,
             currency_symbol: default_currency(),
             show_aic: false,
             decimal_places: 2,
         }
     }
-}
-
-fn default_session_prefix() -> String {
-    "Session:".to_string()
 }
 
 fn default_currency() -> String {
@@ -129,8 +158,7 @@ fn default_true() -> bool {
 pub struct MonthCostConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
-    #[serde(default = "default_month_prefix")]
-    pub prefix: String,
+    pub prefix: Option<String>,
     #[serde(default = "default_currency")]
     pub currency_symbol: String,
     #[serde(default)]
@@ -144,7 +172,7 @@ impl Default for MonthCostConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            prefix: default_month_prefix(),
+            prefix: None,
             currency_symbol: default_currency(),
             show_aic: false,
             decimal_places: 2,
@@ -153,19 +181,76 @@ impl Default for MonthCostConfig {
     }
 }
 
-fn default_month_prefix() -> String {
-    "Month:".to_string()
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub prefix: Option<String>,
+    #[serde(default = "default_true")]
+    pub show_as_percentage: bool,
+    #[serde(default = "default_true")]
+    pub auto_hide_zero: bool,
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            prefix: None,
+            show_as_percentage: true,
+            auto_hide_zero: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReasoningConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub prefix: Option<String>,
+    #[serde(default = "default_true")]
+    pub auto_hide_zero: bool,
+}
+
+impl Default for ReasoningConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            prefix: None,
+            auto_hide_zero: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TotalTokensConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub prefix: Option<String>,
+}
+
+impl Default for TotalTokensConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            prefix: None,
+        }
+    }
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             style: Style::Minimal,
+            icon_set: IconSet::Plain,
             theme: default_theme(),
             segments: default_segments(),
             tokens: TokensConfig::default(),
             session_cost: CostConfig::default(),
             month_cost: MonthCostConfig::default(),
+            cache: CacheConfig::default(),
+            reasoning: ReasoningConfig::default(),
+            total_tokens: TotalTokensConfig::default(),
         }
     }
 }
@@ -203,8 +288,19 @@ mod tests {
     fn test_default_config() {
         let cfg = Config::default();
         assert_eq!(cfg.style, Style::Minimal);
+        assert_eq!(cfg.icon_set, IconSet::Plain);
         assert_eq!(cfg.theme, "colorblind");
-        assert_eq!(cfg.segments, vec!["tokens", "session_cost", "month_cost"]);
+        assert_eq!(
+            cfg.segments,
+            vec![
+                "tokens",
+                "session_cost",
+                "month_cost",
+                "cache",
+                "reasoning",
+                "total_tokens"
+            ]
+        );
         assert!(!cfg.session_cost.show_aic);
         assert!(!cfg.month_cost.show_aic);
     }
@@ -213,6 +309,7 @@ mod tests {
     fn test_serialize_and_deserialize_roundtrip() {
         let original = Config {
             style: Style::Powerline,
+            icon_set: IconSet::Nerd,
             session_cost: CostConfig {
                 show_aic: true,
                 ..Default::default()
@@ -228,6 +325,7 @@ mod tests {
         let parsed: Config = Config::from_toml(&toml_str).expect("deserialize should succeed");
 
         assert_eq!(parsed.style, Style::Powerline);
+        assert_eq!(parsed.icon_set, IconSet::Nerd);
         assert!(parsed.session_cost.show_aic);
         assert!(parsed.month_cost.show_aic);
     }
@@ -237,6 +335,7 @@ mod tests {
         let toml_str = r#"
             style = "capsule"
             theme = "nord"
+            icon_set = "emoji"
 
             [session_cost]
             show_aic = true
@@ -244,6 +343,7 @@ mod tests {
         let parsed = Config::from_toml(toml_str).expect("partial TOML should parse");
         assert_eq!(parsed.style, Style::Capsule);
         assert_eq!(parsed.theme, "nord");
+        assert_eq!(parsed.icon_set, IconSet::Emoji);
         assert!(parsed.session_cost.show_aic);
         // month_cost was omitted, should take default
         assert!(!parsed.month_cost.show_aic);

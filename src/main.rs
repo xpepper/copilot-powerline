@@ -5,18 +5,22 @@ use std::path::PathBuf;
 mod cli;
 mod config;
 mod db;
+mod icons;
 mod input;
 mod renderer;
 mod segments;
 mod theme;
 
 use cli::Cli;
-use config::{Config, Style};
+use config::{Config, IconSet, Style};
 use input::CopilotInput;
 use renderer::render_segments;
+use segments::cache::render_cache_segment;
 use segments::month_cost::render_month_cost_segment;
+use segments::reasoning::render_reasoning_segment;
 use segments::session_cost::render_session_cost_segment;
 use segments::tokens::render_tokens_segment;
+use segments::total_tokens::render_total_tokens_segment;
 use theme::Palette;
 
 fn read_stdin() -> String {
@@ -69,6 +73,10 @@ fn main() {
         config.style = s;
     }
 
+    if let Some(i) = cli.icon_set.and_then(|i| i.parse::<IconSet>().ok()) {
+        config.icon_set = i;
+    }
+
     if let Some(theme_override) = cli.theme {
         config.theme = theme_override;
     } else if config.theme == "colorblind" {
@@ -103,17 +111,32 @@ fn main() {
     for seg in &config.segments {
         match seg.as_str() {
             "tokens" => {
-                if let Some(s) = render_tokens_segment(&input.context_window, &config.tokens, &palette) {
+                if let Some(s) = render_tokens_segment(&input.context_window, &config.tokens, config.icon_set, &palette) {
                     rendered_segments.push(s);
                 }
             }
             "session_cost" => {
-                if let Some(s) = render_session_cost_segment(session_nano, &config.session_cost, &palette) {
+                if let Some(s) = render_session_cost_segment(session_nano, &config.session_cost, config.icon_set, &palette) {
                     rendered_segments.push(s);
                 }
             }
             "month_cost" => {
-                if let Some(s) = render_month_cost_segment(total_month_nano, &config.month_cost, &palette) {
+                if let Some(s) = render_month_cost_segment(total_month_nano, &config.month_cost, config.icon_set, &palette) {
+                    rendered_segments.push(s);
+                }
+            }
+            "cache" => {
+                if let Some(s) = render_cache_segment(&input.context_window, &config.cache, config.icon_set, &palette) {
+                    rendered_segments.push(s);
+                }
+            }
+            "reasoning" => {
+                if let Some(s) = render_reasoning_segment(&input.context_window, &config.reasoning, config.icon_set, &palette) {
+                    rendered_segments.push(s);
+                }
+            }
+            "total_tokens" => {
+                if let Some(s) = render_total_tokens_segment(&input.context_window, &config.total_tokens, config.icon_set, &palette) {
                     rendered_segments.push(s);
                 }
             }

@@ -24,3 +24,17 @@ Migrate Python status line to a standalone, configurable Rust tool (`copilot-pow
   - [x] Compare output against Python statusline
   - [x] Build release binary and install to ~/.cargo/bin
   - [x] Create comprehensive README.md for Git publishing
+
+## v0.2.0 Enhancements
+- [x] Extend `ContextWindow` input model (`cache_read`, `cache_write`, `reasoning`, `total_tokens`)
+- [x] Add `icon_set` configuration (`nerd`, `emoji`, `plain`) and segment configs
+- [x] Implement `cache` segment (cache read tokens / hit rate)
+- [x] Implement `reasoning` segment (reasoning tokens, auto-hidden when 0)
+- [x] Implement `total_tokens` segment (accumulated session token volume)
+- [x] Update existing segments with icon support
+- [x] Unit tests for new segments and icon sets
+- [x] Clippy & cargo test verification
+- [x] Update README.md, AGENTS.md, bump version to 0.2.0
+- [x] Build & reinstall binary to ~/.cargo/bin
+- [ ] Commit, push, and publish to crates.io
+

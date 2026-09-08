@@ -17,6 +17,10 @@ pub struct Cli {
     #[arg(short, long)]
     pub theme: Option<String>,
 
+    /// Override the icon set (plain, nerd, emoji)
+    #[arg(short = 'i', long = "icon-set")]
+    pub icon_set: Option<String>,
+
     /// Generate a default powerline.toml configuration file
     #[arg(long)]
     pub init: bool,
