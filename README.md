@@ -85,16 +85,22 @@ Update your `~/.copilot/settings.json` to use `copilot-powerline`:
 
 ---
 
-## Available Segments
+## Status Line Legend & Segments
 
-| Segment | Icon (`nerd`) | Icon (`emoji`) | Description |
-|---|:---:|:---:|---|
-| `tokens` | `󰮚` | `🪙` | Active context window tokens vs limit (with percentage and alert icon) |
-| `session_cost` | `󰄬` | `💰` | Current session cost in USD (optional AIC suffix) |
-| `month_cost` | `󰠠` | `📅` | Month-to-date spend read from `~/.copilot/session-store.db` |
-| `cache` | `󰘸` | `⚡` | Prompt cache hit percentage or read token count (auto-hides when 0) |
-| `reasoning` | `󰚩` | `🧠` | Model reasoning/thinking tokens (auto-hides when 0) |
-| `total_tokens` | `󰓅` | `📊` | Total accumulated tokens exchanged across the entire session |
+Here is a real-world example from a running GitHub Copilot CLI session:
+
+```text
+⚠️ 145k/400k (36%)  │  󰄬 $8.64  │  󰠠 $281.66  │  󰘸 95%  │  󰚩 6.2k  │  󰓅 4.5M
+```
+
+| Segment | Icon (`nerd`) | Icon (`emoji`) | Text (`plain`) | Example Value | Description |
+|---|:---:|:---:|---|---|---|
+| `tokens` | `󰮚` / `⚠️` | `🪙` / `⚠️` | `Tokens:` | `145k/400k (36%)` | **Context Window**: Active context tokens vs model limit (and percentage used). Automatically switches to `⚠️` when crossing the configured alert threshold (default `>100k`). |
+| `session_cost` | `󰄬` | `💰` | `Session:` | `$8.64` | **Current Session Cost**: Real-time spend accumulated in the active session in USD (optional AIC credit display). |
+| `month_cost` | `󰠠` | `📅` | `Month:` | `$281.66` | **Month-to-Date Cost**: Total cumulative monthly spend across all sessions, queried directly from Copilot's `~/.copilot/session-store.db`. |
+| `cache` | `󰘸` | `⚡` | `Cache:` | `95%` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Automatically hidden when 0. |
+| `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative tokens used by thinking models (e.g. o3-mini, Claude 3.7 Sonnet). Automatically hidden when 0. |
+| `total_tokens` | `󰓅` | `📊` | `Total:` | `4.5M` | **Total Session Tokens**: Total cumulative token throughput (input + output + cached) exchanged across all turns and compactions in the session. |
 
 ---
 
