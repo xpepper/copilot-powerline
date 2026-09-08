@@ -18,7 +18,12 @@ pub fn render_segments(segments: &[String], style: Style, palette: &Palette) -> 
             // Rounded capsule style for each segment
             segments
                 .iter()
-                .map(|s| format!("{}{}{} {}{}", palette.dim, palette.reset, s, palette.dim, palette.reset))
+                .map(|s| {
+                    format!(
+                        "{}{}{} {}{}",
+                        palette.dim, palette.reset, s, palette.dim, palette.reset
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join(" ")
         }

@@ -84,13 +84,19 @@ mod tests {
         assert_eq!(input.session_id.as_deref(), Some("sess-123"));
         assert_eq!(input.context_window.current_context_tokens, Some(1250));
         assert_eq!(input.context_window.displayed_context_limit, Some(200000));
-        assert_eq!(input.context_window.current_context_used_percentage, Some(0.6));
+        assert_eq!(
+            input.context_window.current_context_used_percentage,
+            Some(0.6)
+        );
         assert_eq!(input.context_window.total_cache_read_tokens, Some(35000));
         assert_eq!(input.context_window.total_cache_write_tokens, Some(8000));
         assert_eq!(input.context_window.total_reasoning_tokens, Some(3200));
         assert_eq!(input.context_window.total_tokens, Some(62000));
         assert_eq!(input.ai_used.total_nano_aiu, 500000000000);
-        assert_eq!(input.model.as_ref().and_then(|m| m.id.as_deref()), Some("claude-3-7-sonnet"));
+        assert_eq!(
+            input.model.as_ref().and_then(|m| m.id.as_deref()),
+            Some("claude-3-7-sonnet")
+        );
     }
 
     #[test]

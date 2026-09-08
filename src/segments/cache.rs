@@ -43,7 +43,10 @@ pub fn render_cache_segment(
         format_tokens(Some(cache_read))
     };
 
-    Some(format!("{}{}{} {}{}{}", lbl, icon, r, palette.tokens_normal, value_str, r))
+    Some(format!(
+        "{}{}{} {}{}{}",
+        lbl, icon, r, palette.tokens_normal, value_str, r
+    ))
 }
 
 #[cfg(test)]

@@ -98,6 +98,9 @@ mod tests {
 
     #[test]
     fn test_custom_override() {
-        assert_eq!(cache_icon(IconSet::Emoji, Some("CustomCache:")), "CustomCache:");
+        assert_eq!(
+            cache_icon(IconSet::Emoji, Some("CustomCache:")),
+            "CustomCache:"
+        );
     }
 }

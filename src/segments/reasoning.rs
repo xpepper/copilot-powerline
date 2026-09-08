@@ -25,7 +25,10 @@ pub fn render_reasoning_segment(
     let lbl = palette.label;
     let val_str = format_tokens(Some(reasoning));
 
-    Some(format!("{}{}{} {}{}{}", lbl, icon, r, palette.tokens_normal, val_str, r))
+    Some(format!(
+        "{}{}{} {}{}{}",
+        lbl, icon, r, palette.tokens_normal, val_str, r
+    ))
 }
 
 #[cfg(test)]

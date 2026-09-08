@@ -70,7 +70,8 @@ mod tests {
         let p = Palette::for_theme("plain");
 
         // 500 billion nano AIU = 500 AIC = $5.00
-        let rendered = render_session_cost_segment(500_000_000_000, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered =
+            render_session_cost_segment(500_000_000_000, &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Session: $5.00 (500.0 AIC)");
     }
 
@@ -82,7 +83,8 @@ mod tests {
         };
         let p = Palette::for_theme("plain");
 
-        let rendered = render_session_cost_segment(500_000_000_000, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered =
+            render_session_cost_segment(500_000_000_000, &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Session: $5.00");
     }
 }

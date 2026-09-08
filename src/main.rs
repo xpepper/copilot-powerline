@@ -111,32 +111,62 @@ fn main() {
     for seg in &config.segments {
         match seg.as_str() {
             "tokens" => {
-                if let Some(s) = render_tokens_segment(&input.context_window, &config.tokens, config.icon_set, &palette) {
+                if let Some(s) = render_tokens_segment(
+                    &input.context_window,
+                    &config.tokens,
+                    config.icon_set,
+                    &palette,
+                ) {
                     rendered_segments.push(s);
                 }
             }
             "session_cost" => {
-                if let Some(s) = render_session_cost_segment(session_nano, &config.session_cost, config.icon_set, &palette) {
+                if let Some(s) = render_session_cost_segment(
+                    session_nano,
+                    &config.session_cost,
+                    config.icon_set,
+                    &palette,
+                ) {
                     rendered_segments.push(s);
                 }
             }
             "month_cost" => {
-                if let Some(s) = render_month_cost_segment(total_month_nano, &config.month_cost, config.icon_set, &palette) {
+                if let Some(s) = render_month_cost_segment(
+                    total_month_nano,
+                    &config.month_cost,
+                    config.icon_set,
+                    &palette,
+                ) {
                     rendered_segments.push(s);
                 }
             }
             "cache" => {
-                if let Some(s) = render_cache_segment(&input.context_window, &config.cache, config.icon_set, &palette) {
+                if let Some(s) = render_cache_segment(
+                    &input.context_window,
+                    &config.cache,
+                    config.icon_set,
+                    &palette,
+                ) {
                     rendered_segments.push(s);
                 }
             }
             "reasoning" => {
-                if let Some(s) = render_reasoning_segment(&input.context_window, &config.reasoning, config.icon_set, &palette) {
+                if let Some(s) = render_reasoning_segment(
+                    &input.context_window,
+                    &config.reasoning,
+                    config.icon_set,
+                    &palette,
+                ) {
                     rendered_segments.push(s);
                 }
             }
             "total_tokens" => {
-                if let Some(s) = render_total_tokens_segment(&input.context_window, &config.total_tokens, config.icon_set, &palette) {
+                if let Some(s) = render_total_tokens_segment(
+                    &input.context_window,
+                    &config.total_tokens,
+                    config.icon_set,
+                    &palette,
+                ) {
                     rendered_segments.push(s);
                 }
             }

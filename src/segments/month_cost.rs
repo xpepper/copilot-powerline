@@ -48,7 +48,8 @@ mod tests {
         let p = Palette::for_theme("plain");
 
         // 25938000000000 nano aiu = 25938 AIC = $259.38
-        let rendered = render_month_cost_segment(25_938_000_000_000, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered =
+            render_month_cost_segment(25_938_000_000_000, &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Month: $259.38");
     }
 
@@ -57,7 +58,8 @@ mod tests {
         let cfg = MonthCostConfig::default();
         let p = Palette::for_theme("plain");
 
-        let rendered = render_month_cost_segment(25_938_000_000_000, &cfg, IconSet::Emoji, &p).unwrap();
+        let rendered =
+            render_month_cost_segment(25_938_000_000_000, &cfg, IconSet::Emoji, &p).unwrap();
         assert_eq!(rendered, "📅 $259.38");
     }
 
@@ -69,7 +71,8 @@ mod tests {
         };
         let p = Palette::for_theme("plain");
 
-        let rendered = render_month_cost_segment(25_938_000_000_000, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered =
+            render_month_cost_segment(25_938_000_000_000, &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Month: $259.38 (25938 AIC)");
     }
 }

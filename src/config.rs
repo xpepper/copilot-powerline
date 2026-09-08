@@ -269,9 +269,7 @@ impl Config {
     }
 
     pub fn load_from_file_or_default(path: Option<&Path>) -> Self {
-        let config_path = path
-            .map(PathBuf::from)
-            .or_else(Self::default_config_path);
+        let config_path = path.map(PathBuf::from).or_else(Self::default_config_path);
 
         config_path
             .and_then(|p| std::fs::read_to_string(p).ok())
