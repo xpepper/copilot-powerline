@@ -196,6 +196,12 @@ copilot-powerline --config /path/to/custom-powerline.toml
 
 ---
 
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, verification commands, supported scope, and the pull-request workflow.
+
+---
+
 ## License
 
 MIT
