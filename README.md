@@ -4,72 +4,19 @@
 [![Crates.io](https://img.shields.io/crates/v/copilot-powerline.svg)](https://crates.io/crates/copilot-powerline)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A blazingly fast, modular, and customizable powerline status line for GitHub Copilot CLI, written in Rust. Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
+> **A fast, beautiful status line for GitHub Copilot CLI.**
+>
+> Keep context usage, session and monthly spend, prompt-cache efficiency, reasoning tokens, and total session activity visible while you work. `copilot-powerline` is a native Copilot CLI `statusLine` command: a small Rust executable with bundled SQLite that reads the data Copilot already provides.
 
----
+## Install and connect it to Copilot CLI
 
-## Previews
-
-```text
-# Minimal Style (Nerd Icons)
-󰮚 129k/400k (32%)  │  󰄬 $2.20  │  󰠠 $273.88  │  󰘸 80%  │  󰚩 4.2k  │  󰓅 175k
-
-# Minimal Style (Emoji Icons)
-🪙 129k/400k (32%)  │  💰 $2.20  │  📅 $273.88  │  ⚡ 80%  │  🧠 4.2k  │  📊 175k
-
-# Capsule Style (Nerd Icons)
-󰮚 129k/400k (32%)  󰄬 $2.20  󰠠 $273.88  󰘸 80%  󰚩 4.2k  󰓅 175k 
-
-# Plain Style (Text Labels)
-Tokens: 129k/400k (32%)  │  Session: $2.20  │  Month: $273.88  │  Cache: 80%  │  Think: 4.2k  │  Total: 175k
-```
-
----
-
-## Features
-
-- ⚡️ **Sub-5ms Execution**: Compiled Rust binary with bundled SQLite; zero terminal latency or lag.
-- 🎯 **Context Window Monitoring**: Real-time context tracking with percentage and warning alert threshold (`>100k`).
-- 🧠 **Prompt Cache Tracking**: Real-time cache hit rate (or token count), automatically hidden when zero.
-- 💡 **Reasoning Tokens**: Tracks thinking tokens for reasoning models (e.g. o3-mini, Claude 3.7 Sonnet thinking).
-- 📊 **Total Session Tokens**: Displays total accumulated token volume across all turns and compactions.
-- 💰 **Spend Tracking**: Real-time session spend and month-to-date aggregation (read directly from Copilot's local SQLite database).
-- ⚙️ **Configurable AIC Display**: Easily toggle whether AI Credits (`... AIC`) are displayed alongside dollar amounts.
-- 🎨 **Multiple Styles & Icon Sets**: Choose from `minimal`, `powerline`, `capsule`, or `plain`, with `nerd`, `emoji`, or `plain` icons.
-- 🌈 **Themes**: Built-in support for `colorblind`, `github`, `nord`, `tokyo-night`, and `plain`. Automatically syncs with your Copilot CLI theme if set to default.
-- 🛠 **Zero Dependencies**: Bundles SQLite and JSON parsing directly into a single static binary.
-
----
-
-## Quick Start
-
-### 1. Install
-
-Install directly via Cargo:
+Install from crates.io:
 
 ```bash
 cargo install copilot-powerline
 ```
 
-Or build from source:
-
-```bash
-git clone https://github.com/xpepper/copilot-powerline.git
-cd copilot-powerline
-cargo install --path .
-```
-
-### 2. Generate Default Configuration
-
-```bash
-copilot-powerline --init
-```
-
-This creates a default configuration file at `~/.copilot/powerline.toml`.
-
-### 3. Connect to GitHub Copilot CLI
-
-Update your `~/.copilot/settings.json` to use `copilot-powerline`:
+Then add it to `~/.copilot/settings.json`:
 
 ```json
 {
@@ -81,17 +28,75 @@ Update your `~/.copilot/settings.json` to use `copilot-powerline`:
 }
 ```
 
-*(If `~/.cargo/bin` is not in your global system `PATH`, specify `~/.cargo/bin/copilot-powerline`)*.
+If Cargo's bin directory is not on your `PATH`, use `~/.cargo/bin/copilot-powerline` as the command. Run `copilot-powerline --init` at any time to create the default configuration at `~/.copilot/powerline.toml`.
 
----
-
-## Status Line Legend & Segments
-
-Here is a real-world example from a running GitHub Copilot CLI session:
+## See it in action
 
 ```text
 ⚠️ 145k/400k (36%)  │  󰄬 $8.64  │  󰠠 $281.66  │  󰘸 95%  │  󰚩 6.2k  │  󰓅 4.5M
 ```
+
+Text preview: a Copilot CLI status line showing a context warning, current-session and month-to-date spend, prompt-cache hit rate, reasoning tokens, and total session tokens.
+
+Choose the presentation that fits your terminal:
+
+```text
+# Minimal (Nerd icons)
+󰮚 129k/400k (32%)  │  󰄬 $2.20  │  󰠠 $273.88  │  󰘸 80%  │  󰚩 4.2k  │  󰓅 175k
+
+# Capsule (Nerd icons)
+󰮚 129k/400k (32%)  󰄬 $2.20  󰠠 $273.88  󰘸 80%  󰚩 4.2k  󰓅 175k 
+
+# Plain (text labels)
+Tokens: 129k/400k (32%)  │  Session: $2.20  │  Month: $273.88  │  Cache: 80%  │  Think: 4.2k  │  Total: 175k
+```
+
+## Why copilot-powerline?
+
+- **Stay in flow.** See context pressure before it becomes disruptive, with configurable warnings and a choice of compact layouts.
+- **Understand usage.** Follow session spend, month-to-date spend, cache hits, reasoning tokens, and total token volume in the terminal.
+- **Make it yours.** Select `minimal`, `powerline`, `capsule`, or `plain` layouts; `nerd`, `emoji`, or text icons; and a built-in color theme.
+- **Keep it lightweight.** A compiled Rust executable runs as Copilot refreshes the native status line and queries Copilot's local session database read-only.
+
+Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
+
+---
+
+## Features
+
+- **Context Window Monitoring**: Real-time context tracking with percentage and warning alert threshold (`>100k`).
+- **Prompt Cache Tracking**: Real-time cache hit rate (or token count), automatically hidden when zero.
+- **Reasoning Tokens**: Tracks thinking tokens for reasoning models (e.g. o3-mini, Claude 3.7 Sonnet thinking).
+- **Total Session Tokens**: Displays total accumulated token volume across all turns and compactions.
+- **Spend Tracking**: Real-time session spend and month-to-date aggregation from Copilot's local SQLite database.
+- **Configurable AIC Display**: Toggle whether AI Credits (`... AIC`) appear alongside dollar amounts.
+- **Multiple Styles & Icon Sets**: Choose from `minimal`, `powerline`, `capsule`, or `plain`, with `nerd`, `emoji`, or `plain` icons.
+- **Themes**: Built-in support for `colorblind`, `github`, `nord`, `tokyo-night`, and `plain`. Automatically syncs with your Copilot CLI theme if set to default.
+- **Bundled SQLite**: SQLite and JSON parsing ship with the executable; no status-line service is required.
+
+---
+
+## Installation
+
+The [quick start](#install-and-connect-it-to-copilot-cli) uses crates.io. To build the current source instead:
+
+```bash
+git clone https://github.com/xpepper/copilot-powerline.git
+cd copilot-powerline
+cargo install --path .
+```
+
+To configure a generated default, run:
+
+```bash
+copilot-powerline --init
+```
+
+This creates `~/.copilot/powerline.toml`.
+
+---
+
+## Status Line Legend & Segments
 
 | Segment | Icon (`nerd`) | Icon (`emoji`) | Text (`plain`) | Example Value | Description |
 |---|:---:|:---:|---|---|---|
