@@ -32,6 +32,14 @@ If Cargo's bin directory is not on your `PATH`, use `~/.cargo/bin/copilot-powerl
 
 ## See it in action
 
+![Animated Copilot CLI status line updating context usage, session and monthly spend, cache rate, reasoning tokens, and total tokens](assets/copilot-powerline-demo.gif)
+
+<details>
+<summary>View a static status-line preview</summary>
+
+![Copilot CLI status line showing context usage, session and monthly spend, cache rate, reasoning tokens, and total tokens](assets/copilot-powerline-statusline.png)
+</details>
+
 ```text
 ⚠️ 145k/400k (36%)  │  󰄬 $8.64  │  󰠠 $281.66  │  󰘸 95%  │  󰚩 6.2k  │  󰓅 4.5M
 ```
