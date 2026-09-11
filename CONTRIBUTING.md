@@ -44,6 +44,8 @@ Segments must handle missing input gracefully. Database access must remain read-
 
 Keep changes small and avoid unrelated refactors. Required CI checks must pass, and review conversations must be resolved before merging.
 
+Maintainers should follow [RELEASING.md](RELEASING.md) when publishing a new version.
+
 ## Reporting issues
 
 Use the bug-report template for reproducible problems and the feature-request template for proposals. Include only information needed to investigate; do not attach session databases, credentials, or other sensitive data.

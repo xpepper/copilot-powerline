@@ -84,9 +84,27 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 
 ---
 
-## Installation
+## Installation and compatibility
 
-The [quick start](#install-and-connect-it-to-copilot-cli) uses crates.io. To build the current source instead:
+### Recommended: install with Cargo
+
+The [quick start](#install-and-connect-it-to-copilot-cli) uses the supported installation path:
+
+```bash
+cargo install copilot-powerline
+```
+
+It requires a current stable Rust toolchain with Cargo. The installed executable runs locally during Copilot CLI status-line refreshes and makes no network requests.
+
+### Verified environments and terminal support
+
+CI tests and builds release binaries on GitHub Actions' current macOS and Ubuntu runner images. Other platforms are not currently verified in CI.
+
+The default `nerd` icon set requires a [Nerd Font](https://www.nerdfonts.com/). Use `--icon-set emoji` or `--icon-set plain` when your terminal does not support Nerd Font glyphs.
+
+### Build from source
+
+For local development or unreleased changes:
 
 ```bash
 git clone https://github.com/xpepper/copilot-powerline.git
