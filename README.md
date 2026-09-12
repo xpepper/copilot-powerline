@@ -122,6 +122,39 @@ This creates `~/.copilot/powerline.toml`.
 
 ---
 
+## Experimental: exact GitHub usage refresh
+
+The `month_cost` segment calculates an estimate from the local Copilot CLI
+database. GitHub's **Settings > Copilot > Features** page can show a more
+complete personal usage counter, including usage that is absent from the local
+database.
+
+The experimental helper fetches that displayed counter through a dedicated
+local browser profile. It never sends the profile or cookies anywhere, and it
+does not run as part of the status-line refresh loop.
+
+```bash
+# Install the browser dependency once.
+npm install --global agent-browser
+agent-browser install
+
+# Open a visible browser once and complete GitHub login, SSO, and 2FA.
+./scripts/fetch-github-copilot-usage --login
+
+# Fetch the current value and save a private local cache.
+./scripts/fetch-github-copilot-usage
+# {"ai_credits_used":49854,"usd":"498.54","cycle":"September 1-30, 2026"}
+```
+
+By default, browser state is stored in
+`~/.copilot/github-usage-profile` and the output cache in
+`~/.copilot/github-usage.json`. Set `COPILOT_USAGE_BROWSER_PROFILE` or
+`COPILOT_USAGE_CACHE_FILE` to use different paths. The helper depends on an
+undocumented GitHub settings page and may need updating if GitHub changes its
+markup.
+
+---
+
 ## Status Line Legend & Segments
 
 | Segment | Icon (`nerd`) | Icon (`emoji`) | Text (`plain`) | Example Value | Description |
