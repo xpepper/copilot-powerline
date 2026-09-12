@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly FEATURES_URL="https://github.com/settings/copilot/features"
+readonly SESSION_NAME="copilot-powerline-github-usage"
+
+profile="${COPILOT_USAGE_BROWSER_PROFILE:-${HOME}/.copilot/github-usage-profile}"
+cache_file="${COPILOT_USAGE_CACHE_FILE:-${HOME}/.copilot/github-usage.json}"
+html_file=""
+login=false
+write_cache=true
+
+usage() {
+    cat <<'EOF'
+Usage: fetch-github-copilot-usage [--login] [--html-file FILE] [--no-cache]
+
+Fetch the signed-in user's GitHub Copilot usage counter and print JSON.
+
+  --login             Open a persistent browser profile for one-time GitHub login.
+  --html-file FILE    Parse a saved page text fixture instead of opening a browser.
+  --no-cache          Do not write the result to ~/.copilot/github-usage.json.
+
+Environment:
+  COPILOT_USAGE_BROWSER_PROFILE  Persistent browser profile location.
+  COPILOT_USAGE_CACHE_FILE       Output cache location.
+EOF
+}
+
+while (($#)); do
+    case "$1" in
+        --login)
+            login=true
+            ;;
+        --html-file)
+            shift
+            html_file="${1:-}"
+            [[ -n "$html_file" ]] || {
+                echo "--html-file requires a path" >&2
+                exit 2
+            }
+            ;;
+        --no-cache)
+            write_cache=false
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+    shift
+done
+
+if "$login"; then
+    command -v agent-browser >/dev/null || {
+        echo "agent-browser is required. Install it before running --login." >&2
+        exit 1
+    }
+
+    agent-browser --session "$SESSION_NAME" --profile "$profile" --headed open "$FEATURES_URL"
+    cat <<'EOF'
+Sign in to GitHub in the browser window, including SSO or two-factor authentication if required.
+Close the window when finished, then run this command again without --login.
+EOF
+    exit 0
+fi
+
+if [[ -n "$html_file" ]]; then
+    [[ -r "$html_file" ]] || {
+        echo "Cannot read page text: $html_file" >&2
+        exit 1
+    }
+    page_text="$(<"$html_file")"
+else
+    command -v agent-browser >/dev/null || {
+        echo "agent-browser is required. Run this script with --login after installing it." >&2
+        exit 1
+    }
+
+    agent-browser --session "$SESSION_NAME" --profile "$profile" open "$FEATURES_URL" >/dev/null
+    page_text="$(agent-browser --session "$SESSION_NAME" read)"
+    agent-browser --session "$SESSION_NAME" close >/dev/null
+fi
+
+if [[ "$page_text" == *"Sign in to GitHub"* ]]; then
+    echo "GitHub login is required. Run: $0 --login" >&2
+    exit 1
+fi
+
+if ! credits="$(printf '%s\n' "$page_text" |
+    grep -Em1 -o '[0-9][0-9,]* AI credits used' |
+    tr -cd '0-9')"; then
+    credits=""
+fi
+
+if ! cycle="$(printf '%s\n' "$page_text" |
+    grep -Em1 -o '[A-Z][a-z]+ [0-9]{1,2}-[0-9]{1,2}, [0-9]{4}')"; then
+    cycle=""
+fi
+
+[[ -n "$credits" && -n "$cycle" ]] || {
+    echo "Could not find Copilot usage on the features page. GitHub may have changed the page." >&2
+    exit 1
+}
+
+usd="$(awk -v credits="$credits" 'BEGIN { printf "%.2f", credits / 100 }')"
+result="$(printf '{"ai_credits_used":%s,"usd":"%s","cycle":"%s"}' "$credits" "$usd" "$cycle")"
+
+if "$write_cache"; then
+    umask 077
+    mkdir -p "$(dirname "$cache_file")"
+    temporary_cache="$(mktemp "${cache_file}.tmp.XXXXXX")"
+    printf '%s\n' "$result" >"$temporary_cache"
+    mv "$temporary_cache" "$cache_file"
+fi
+
+printf '%s\n' "$result"
