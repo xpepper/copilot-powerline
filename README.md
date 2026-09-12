@@ -77,6 +77,7 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 - **Reasoning Tokens**: Tracks thinking tokens for reasoning models (e.g. o3-mini, Claude 3.7 Sonnet thinking).
 - **Total Session Tokens**: Displays total accumulated token volume across all turns and compactions.
 - **Spend Tracking**: Real-time session spend and month-to-date aggregation from Copilot's local SQLite database.
+- **GitHub Usage Refresh**: An experimental helper scrapes the authenticated GitHub Copilot features page to cache the more complete personal AI-credit counter outside the status-line refresh loop.
 - **Configurable AIC Display**: Toggle whether AI Credits (`... AIC`) appear alongside dollar amounts.
 - **Multiple Styles & Icon Sets**: Choose from `minimal`, `powerline`, `capsule`, or `plain`, with `nerd`, `emoji`, or `plain` icons.
 - **Themes**: Built-in support for `colorblind`, `github`, `nord`, `tokyo-night`, and `plain`. Automatically syncs with your Copilot CLI theme if set to default.
