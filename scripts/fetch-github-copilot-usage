@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly FEATURES_URL="https://github.com/settings/copilot/features"
-readonly SESSION_NAME="copilot-powerline-github-usage"
+readonly SESSION_NAME="copilot-powerline-github-usage-$$"
 
 profile="${COPILOT_USAGE_BROWSER_PROFILE:-${HOME}/.copilot/github-usage-profile}"
 cache_file="${COPILOT_USAGE_CACHE_FILE:-${HOME}/.copilot/github-usage.json}"
@@ -82,8 +82,13 @@ else
     }
 
     agent-browser --session "$SESSION_NAME" --profile "$profile" open "$FEATURES_URL" >/dev/null
+    cleanup_browser_session() {
+        agent-browser --session "$SESSION_NAME" close >/dev/null 2>&1 || true
+    }
+    trap cleanup_browser_session EXIT
     page_text="$(agent-browser --session "$SESSION_NAME" read)"
     agent-browser --session "$SESSION_NAME" close >/dev/null
+    trap - EXIT
 fi
 
 if [[ "$page_text" == *"Sign in to GitHub"* ]]; then
