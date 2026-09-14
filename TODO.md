@@ -35,6 +35,16 @@ Migrate Python status line to a standalone, configurable Rust tool (`copilot-pow
 - [x] Unit tests for new segments and icon sets
 - [x] Clippy & cargo test verification
 - [x] Update README.md, AGENTS.md, bump version to 0.2.0
+
+## Follow-ups
+- [x] `fetch-github-copilot-usage`: append each run to a local JSONL history
+      log (`COPILOT_USAGE_HISTORY_FILE`, `--no-history`) for tracking credit
+      consumption over time.
+- [ ] `fetch-github-copilot-usage`: optional spike detection — compare each
+      new reading against the previous history entry and warn (stderr, and/or
+      a flag in the JSON output) when the increase exceeds a configurable
+      threshold. Deferred until real history data exists to pick a sensible
+      default threshold.
 - [x] Build & reinstall binary to ~/.cargo/bin
 - [x] Commit, push, and publish to crates.io
 
