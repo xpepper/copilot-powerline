@@ -154,6 +154,22 @@ By default, browser state is stored in
 undocumented GitHub settings page and may need updating if GitHub changes its
 markup.
 
+Every run also appends a timestamped entry to a local JSON Lines history log
+at `~/.copilot/github-usage-history.jsonl` (one JSON object per line: `ts`,
+`ai_credits_used`, `usd`, `cycle`), so you can track how your credit
+consumption changes over time. Set `COPILOT_USAGE_HISTORY_FILE` to use a
+different path, or pass `--no-history` to skip it for a single run. Inspect
+it with `jq`, for example:
+
+```bash
+# Show the last 10 readings.
+tail -n 10 ~/.copilot/github-usage-history.jsonl | jq .
+
+# Credit delta between the two most recent runs.
+jq -s '.[-1].ai_credits_used - .[-2].ai_credits_used' \
+    ~/.copilot/github-usage-history.jsonl
+```
+
 ---
 
 ## Status Line Legend & Segments
