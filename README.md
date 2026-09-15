@@ -78,6 +78,7 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 - **Total Session Tokens**: Displays total accumulated token volume across all turns and compactions.
 - **Spend Tracking**: Real-time session spend and month-to-date aggregation from Copilot's local SQLite database.
 - **GitHub Usage Refresh**: An experimental helper scrapes the authenticated GitHub Copilot features page to cache the more complete personal AI-credit counter outside the status-line refresh loop.
+- **Pull Request Reference** *(optional)*: Shows the current branch's pull request (e.g. `PR #50`) as a clickable link, via the `gh` CLI. Disabled from the default segment list; opt in by adding `pr` to `segments`.
 - **Configurable AIC Display**: Toggle whether AI Credits (`... AIC`) appear alongside dollar amounts.
 - **Multiple Styles & Icon Sets**: Choose from `minimal`, `powerline`, `capsule`, or `plain`, with `nerd`, `emoji`, or `plain` icons.
 - **Themes**: Built-in support for `colorblind`, `github`, `nord`, `tokyo-night`, and `plain`. Automatically syncs with your Copilot CLI theme if set to default.
@@ -182,6 +183,7 @@ jq -s '.[-1].ai_credits_used - .[-2].ai_credits_used' \
 | `cache` | `󰘸` | `⚡` | `Cache:` | `95%` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Automatically hidden when 0. |
 | `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative tokens used by thinking models (e.g. o3-mini, Claude 3.7 Sonnet). Automatically hidden when 0. |
 | `total_tokens` | `󰓅` | `📊` | `Total:` | `4.5M` | **Total Session Tokens**: Total cumulative token throughput (input + output + cached) exchanged across all turns and compactions in the session. |
+| `pr` | `` | `🔀` | `PR` | `PR #50` | **Pull Request Reference** *(optional, not in the default `segments` list)*: The current branch's open pull request, as a clickable hyperlink. Requires an authenticated `gh` CLI; hidden when the branch has no open PR or `gh` is unavailable. |
 
 ---
 
@@ -200,6 +202,7 @@ segments = [
     "cache",
     "reasoning",
     "total_tokens",
+    # "pr",   # Uncomment to show the current branch's PR (requires the `gh` CLI)
 ]
 
 [tokens]
@@ -232,7 +235,15 @@ auto_hide_zero = true      # Automatically hide if model has no reasoning tokens
 
 [total_tokens]
 enabled = true
+
+[pr]
+enabled = true
+hyperlinks = true      # Set to false to print "PR #50" as plain text
+cache_ttl_seconds = 60 # How long a cached PR lookup is considered fresh
+# prefix = "Pull:"      # Optional custom override
 ```
+
+The `pr` segment shells out to `gh pr view --json number,url` for the current branch. To avoid blocking the status line on a network call, lookups are cached to disk and refreshed by a throttled, detached background process; the segment is hidden until the first refresh completes, and again whenever the branch has no open PR or `gh` is not installed/authenticated.
 
 ---
 

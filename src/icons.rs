@@ -66,6 +66,17 @@ pub fn total_tokens_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
     }
 }
 
+pub fn pr_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
+    if let Some(c) = custom {
+        return c;
+    }
+    match icon_set {
+        IconSet::Plain => "PR",
+        IconSet::Nerd => "",
+        IconSet::Emoji => "🔀",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,6 +87,7 @@ mod tests {
         assert_eq!(cache_icon(IconSet::Plain, None), "Cache:");
         assert_eq!(reasoning_icon(IconSet::Plain, None), "Think:");
         assert_eq!(total_tokens_icon(IconSet::Plain, None), "Total:");
+        assert_eq!(pr_icon(IconSet::Plain, None), "PR");
     }
 
     #[test]
@@ -84,6 +96,7 @@ mod tests {
         assert_eq!(cache_icon(IconSet::Nerd, None), "󰘸");
         assert_eq!(reasoning_icon(IconSet::Nerd, None), "󰚩");
         assert_eq!(total_tokens_icon(IconSet::Nerd, None), "󰓅");
+        assert_eq!(pr_icon(IconSet::Nerd, None), "");
     }
 
     #[test]
@@ -94,6 +107,7 @@ mod tests {
         assert_eq!(cache_icon(IconSet::Emoji, None), "⚡");
         assert_eq!(reasoning_icon(IconSet::Emoji, None), "🧠");
         assert_eq!(total_tokens_icon(IconSet::Emoji, None), "📊");
+        assert_eq!(pr_icon(IconSet::Emoji, None), "🔀");
     }
 
     #[test]
@@ -102,5 +116,6 @@ mod tests {
             cache_icon(IconSet::Emoji, Some("CustomCache:")),
             "CustomCache:"
         );
+        assert_eq!(pr_icon(IconSet::Plain, Some("Pull:")), "Pull:");
     }
 }

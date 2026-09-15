@@ -5,6 +5,8 @@ use std::path::PathBuf;
 mod cli;
 mod config;
 mod db;
+mod git;
+mod github;
 mod icons;
 mod input;
 mod renderer;
@@ -17,6 +19,7 @@ use input::CopilotInput;
 use renderer::render_segments;
 use segments::cache::render_cache_segment;
 use segments::month_cost::render_month_cost_segment;
+use segments::pr::render_pr_segment;
 use segments::reasoning::render_reasoning_segment;
 use segments::session_cost::render_session_cost_segment;
 use segments::tokens::render_tokens_segment;
@@ -42,6 +45,12 @@ fn detect_copilot_theme() -> Option<String> {
 
 fn main() {
     let cli = Cli::parse();
+
+    if let Some(cache_path) = cli.fetch_pr_cache {
+        let repo_dir = cli.repo_dir.unwrap_or_else(|| PathBuf::from("."));
+        github::fetch_and_write_pr_cache(&repo_dir, &cache_path);
+        return;
+    }
 
     if cli.init {
         let default_cfg = Config::default();
@@ -101,6 +110,26 @@ fn main() {
         .clone()
         .or_else(db::default_db_path)
         .unwrap_or_else(|| PathBuf::from("session-store.db"));
+
+    // Copilot CLI does not include the working directory in its stdin
+    // payload, so PR lookups rely on the process's own cwd, which Copilot
+    // CLI inherits from the terminal session it was launched from.
+    let repo_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let git_branch = git::get_git_branch(&repo_dir);
+
+    let pr_info = if config.pr.enabled
+        && config.segments.iter().any(|s| s == "pr")
+        && let Some(branch) = git_branch.as_deref()
+    {
+        github::get_pr_info(
+            &repo_dir,
+            branch,
+            config.pr.cache_ttl_seconds,
+            github::is_gh_available(),
+        )
+    } else {
+        None
+    };
 
     let other_nano = db::get_month_other_sessions_nano(&db_path, input.session_id.as_deref());
     let session_nano = input.ai_used.total_nano_aiu;
@@ -167,6 +196,13 @@ fn main() {
                     config.icon_set,
                     &palette,
                 ) {
+                    rendered_segments.push(s);
+                }
+            }
+            "pr" => {
+                if let Some(s) =
+                    render_pr_segment(pr_info.as_ref(), &config.pr, config.icon_set, &palette)
+                {
                     rendered_segments.push(s);
                 }
             }
