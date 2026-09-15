@@ -117,14 +117,19 @@ fn main() {
     let pr_segment_enabled = config.pr.enabled && config.segments.iter().any(|s| s == "pr");
 
     let pr_info = if pr_segment_enabled {
-        let repo_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        git::get_git_branch(&repo_dir).and_then(|branch| {
-            github::get_pr_info(
-                &repo_dir,
-                &branch,
-                config.pr.cache_ttl_seconds,
-                github::is_gh_available(),
-            )
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        // Use the resolved repository root (not the raw cwd) so the cache
+        // key and gh working directory stay stable regardless of which
+        // subdirectory of the repo the status line was invoked from.
+        git::find_repo_root(&cwd).and_then(|repo_dir| {
+            git::get_git_branch(&repo_dir).and_then(|branch| {
+                github::get_pr_info(
+                    &repo_dir,
+                    &branch,
+                    config.pr.cache_ttl_seconds,
+                    github::is_gh_available(),
+                )
+            })
         })
     } else {
         None
