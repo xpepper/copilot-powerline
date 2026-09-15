@@ -65,14 +65,19 @@ pub fn read_cache_entry(cache_path: &Path) -> Option<PrCacheEntry> {
     serde_json::from_str(&content).ok()
 }
 
+fn ensure_private_dir(dir: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(dir)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(dir, fs::Permissions::from_mode(0o700));
+    }
+    Ok(())
+}
+
 pub fn write_cache_entry(cache_path: &Path, entry: &PrCacheEntry) -> std::io::Result<()> {
     if let Some(parent) = cache_path.parent() {
-        fs::create_dir_all(parent)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = fs::set_permissions(parent, fs::Permissions::from_mode(0o700));
-        }
+        ensure_private_dir(parent)?;
     }
 
     let json = serde_json::to_string(entry)
@@ -97,14 +102,60 @@ pub fn is_cache_fresh(entry: &PrCacheEntry, ttl_seconds: u64, now: u64) -> bool 
     now.saturating_sub(entry.timestamp) < ttl_seconds
 }
 
+fn lock_file_path(cache_path: &Path) -> PathBuf {
+    cache_path.with_extension("lock")
+}
+
+/// Returns true if a background refresh claim for `cache_path` was taken
+/// recently (within `throttle_seconds`), based on the claim lock file's
+/// mtime. The lock file is a separate marker from the cache entry itself, so
+/// throttling never touches (or misrepresents the freshness of) cached data.
 pub fn should_throttle_spawn(cache_path: &Path, now: u64, throttle_seconds: u64) -> bool {
-    if let Ok(metadata) = fs::metadata(cache_path)
+    if let Ok(metadata) = fs::metadata(lock_file_path(cache_path))
         && let Ok(modified) = metadata.modified()
         && let Ok(dur) = modified.duration_since(UNIX_EPOCH)
     {
         return now.saturating_sub(dur.as_secs()) < throttle_seconds;
     }
     false
+}
+
+/// Atomically claims the right to spawn a background refresh for
+/// `cache_path`. Returns true if this call won the claim, false if another
+/// process already holds a live claim (or won a concurrent race for a new
+/// one). The claim never reads or writes the cache entry, so a losing (or
+/// failing) refresh attempt can never mark stale cached data as fresh.
+fn try_claim_spawn(cache_path: &Path, now: u64, throttle_seconds: u64) -> bool {
+    if should_throttle_spawn(cache_path, now, throttle_seconds) {
+        return false;
+    }
+
+    let lock_path = lock_file_path(cache_path);
+    if let Some(parent) = lock_path.parent() {
+        let _ = ensure_private_dir(parent);
+    }
+
+    // A stale lock (older than throttle_seconds, e.g. left behind by a
+    // crashed worker) is removed before claiming; the final `create_new`
+    // below is what actually arbitrates a concurrent race atomically, since
+    // it fails if another process's `create_new` won in the meantime.
+    let _ = fs::remove_file(&lock_path);
+
+    match File::options()
+        .write(true)
+        .create_new(true)
+        .open(&lock_path)
+    {
+        Ok(_file) => {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = fs::set_permissions(&lock_path, fs::Permissions::from_mode(0o600));
+            }
+            true
+        }
+        Err(_) => false,
+    }
 }
 
 #[derive(Deserialize)]
@@ -150,6 +201,7 @@ pub fn fetch_and_write_pr_cache(repo_dir: &Path, cache_path: &Path) {
     };
 
     let _ = write_cache_entry(cache_path, &entry);
+    let _ = fs::remove_file(lock_file_path(cache_path));
 }
 
 fn spawn_background_fetch(repo_dir: &Path, cache_path: &Path) {
@@ -190,30 +242,18 @@ pub fn get_pr_info(
             return entry.pr;
         }
 
-        // Cache is stale. If not throttled, spawn a background refresh.
-        if !should_throttle_spawn(&cache_path, now, throttle_seconds) {
-            // Touch/update placeholder timestamp to throttle repeat spawns.
-            let _ = write_cache_entry(
-                &cache_path,
-                &PrCacheEntry {
-                    timestamp: now,
-                    pr: entry.pr.clone(),
-                },
-            );
+        // Cache is stale. Claim the right to refresh atomically; the loser
+        // of a concurrent race does not spawn a duplicate worker, and the
+        // stale entry on disk is left untouched (never marked fresh) until
+        // a real refresh completes.
+        if try_claim_spawn(&cache_path, now, throttle_seconds) {
             spawn_background_fetch(repo_dir, &cache_path);
         }
 
         entry.pr
     } else {
-        // No cache exists yet. If not throttled, mark and spawn.
-        if !should_throttle_spawn(&cache_path, now, throttle_seconds) {
-            let _ = write_cache_entry(
-                &cache_path,
-                &PrCacheEntry {
-                    timestamp: now,
-                    pr: None,
-                },
-            );
+        // No cache exists yet. If not throttled, claim and spawn.
+        if try_claim_spawn(&cache_path, now, throttle_seconds) {
             spawn_background_fetch(repo_dir, &cache_path);
         }
         None
@@ -300,5 +340,62 @@ mod tests {
     fn test_get_pr_info_when_gh_not_available() {
         let res = get_pr_info(Path::new("/some/repo"), "main", 60, false);
         assert!(res.is_none());
+    }
+
+    fn unique_cache_path(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "copilot_powerline_test_{}_{}_{}.json",
+            label,
+            std::process::id(),
+            current_timestamp()
+        ))
+    }
+
+    #[test]
+    fn test_try_claim_spawn_only_one_winner_when_racing() {
+        let cache_path = unique_cache_path("claim_race");
+        let now = current_timestamp();
+
+        let first = try_claim_spawn(&cache_path, now, 15);
+        let second = try_claim_spawn(&cache_path, now, 15);
+
+        let _ = fs::remove_file(lock_file_path(&cache_path));
+
+        assert!(first, "first claim attempt should win");
+        assert!(!second, "second concurrent claim attempt should lose");
+    }
+
+    #[test]
+    fn test_try_claim_spawn_allows_reclaim_after_throttle_window() {
+        let cache_path = unique_cache_path("claim_reclaim");
+        let now = current_timestamp();
+
+        assert!(try_claim_spawn(&cache_path, now, 15));
+        assert!(try_claim_spawn(&cache_path, now + 20, 15));
+
+        let _ = fs::remove_file(lock_file_path(&cache_path));
+    }
+
+    #[test]
+    fn test_try_claim_spawn_does_not_touch_cache_entry() {
+        let cache_path = unique_cache_path("claim_no_touch");
+        let original = PrCacheEntry {
+            timestamp: 100,
+            pr: Some(PullRequestInfo {
+                number: 7,
+                url: "https://github.com/org/repo/pull/7".to_string(),
+            }),
+        };
+        write_cache_entry(&cache_path, &original).unwrap();
+
+        let now = current_timestamp();
+        assert!(try_claim_spawn(&cache_path, now, 15));
+
+        let unchanged = read_cache_entry(&cache_path).unwrap();
+
+        let _ = fs::remove_file(&cache_path);
+        let _ = fs::remove_file(lock_file_path(&cache_path));
+
+        assert_eq!(unchanged, original);
     }
 }
