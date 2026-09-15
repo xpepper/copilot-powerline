@@ -114,19 +114,18 @@ fn main() {
     // Copilot CLI does not include the working directory in its stdin
     // payload, so PR lookups rely on the process's own cwd, which Copilot
     // CLI inherits from the terminal session it was launched from.
-    let repo_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let git_branch = git::get_git_branch(&repo_dir);
+    let pr_segment_enabled = config.pr.enabled && config.segments.iter().any(|s| s == "pr");
 
-    let pr_info = if config.pr.enabled
-        && config.segments.iter().any(|s| s == "pr")
-        && let Some(branch) = git_branch.as_deref()
-    {
-        github::get_pr_info(
-            &repo_dir,
-            branch,
-            config.pr.cache_ttl_seconds,
-            github::is_gh_available(),
-        )
+    let pr_info = if pr_segment_enabled {
+        let repo_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        git::get_git_branch(&repo_dir).and_then(|branch| {
+            github::get_pr_info(
+                &repo_dir,
+                &branch,
+                config.pr.cache_ttl_seconds,
+                github::is_gh_available(),
+            )
+        })
     } else {
         None
     };
