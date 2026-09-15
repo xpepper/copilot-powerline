@@ -3,6 +3,27 @@ use crate::github::PullRequestInfo;
 use crate::icons::pr_icon;
 use crate::theme::Palette;
 
+/// Returns true if `url` is safe to splice into a raw terminal escape
+/// sequence: a `https://github.com` URL containing no control characters.
+///
+/// The URL comes from an on-disk cache (see `github::PrCacheEntry`) that a
+/// local writer could tamper with, so it must never be trusted verbatim when
+/// building an OSC 8 hyperlink.
+fn is_safe_github_url(url: &str) -> bool {
+    if url.contains(|c: char| c.is_control()) {
+        return false;
+    }
+
+    let Some(rest) = url.strip_prefix("https://") else {
+        return false;
+    };
+
+    rest == "github.com"
+        || rest.starts_with("github.com/")
+        || rest == "www.github.com"
+        || rest.starts_with("www.github.com/")
+}
+
 pub fn render_pr_segment(
     pr_info: Option<&PullRequestInfo>,
     config: &PrConfig,
@@ -27,7 +48,7 @@ pub fn render_pr_segment(
     let formatted_pr = if palette.reset.is_empty() {
         // Plain theme without escape codes.
         pr_text
-    } else if config.hyperlinks && !pr.url.is_empty() {
+    } else if config.hyperlinks && is_safe_github_url(&pr.url) {
         // OSC 8 terminal hyperlink with underline:
         // underline + color + OSC8-open + text + OSC8-close + reset
         format!(
@@ -120,6 +141,37 @@ mod tests {
         assert!(rendered.contains("\x1b[4m"));
         // Must contain PR text.
         assert!(rendered.contains("PR"));
+    }
+
+    #[test]
+    fn test_render_pr_rejects_malicious_url() {
+        let cfg = PrConfig::default();
+        let p = Palette::for_theme("colorblind");
+        let pr = PullRequestInfo {
+            number: 50,
+            url: "https://github.com/org/repo/pull/50\x1b]52;c;ZXZpbA==\x07".to_string(),
+        };
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        // Must not carry the injected escape sequence through to stdout.
+        assert!(!rendered.contains("\x1b]52"));
+        // Falls back to non-hyperlinked text.
+        assert!(!rendered.contains("\x1b]8;;"));
+        assert!(rendered.contains("#50"));
+    }
+
+    #[test]
+    fn test_render_pr_rejects_non_github_url() {
+        let cfg = PrConfig::default();
+        let p = Palette::for_theme("colorblind");
+        let pr = PullRequestInfo {
+            number: 50,
+            url: "https://evil.example.com/pull/50".to_string(),
+        };
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        assert!(!rendered.contains("\x1b]8;;"));
+        assert!(rendered.contains("#50"));
     }
 
     #[test]

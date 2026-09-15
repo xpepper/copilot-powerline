@@ -41,15 +41,23 @@ pub fn is_gh_available() -> bool {
     false
 }
 
+/// Base directory for the PR cache. Prefers the user-private cache directory
+/// (e.g. `~/.cache` on Linux, `~/Library/Caches` on macOS) over the shared
+/// system temp dir, since the temp dir's predictable, world-writable path
+/// would let another local user pre-create or race the cache file.
+fn cache_base_dir() -> PathBuf {
+    dirs::cache_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join("copilot-powerline")
+}
+
 pub fn get_cache_file_path(repo_dir: &Path, branch: &str) -> PathBuf {
     let mut hasher = DefaultHasher::new();
     repo_dir.to_string_lossy().hash(&mut hasher);
     branch.hash(&mut hasher);
     let hash = hasher.finish();
 
-    std::env::temp_dir()
-        .join("copilot-powerline")
-        .join(format!("pr_{:016x}.json", hash))
+    cache_base_dir().join(format!("pr_{:016x}.json", hash))
 }
 
 pub fn read_cache_entry(cache_path: &Path) -> Option<PrCacheEntry> {
@@ -60,6 +68,11 @@ pub fn read_cache_entry(cache_path: &Path) -> Option<PrCacheEntry> {
 pub fn write_cache_entry(cache_path: &Path, entry: &PrCacheEntry) -> std::io::Result<()> {
     if let Some(parent) = cache_path.parent() {
         fs::create_dir_all(parent)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(parent, fs::Permissions::from_mode(0o700));
+        }
     }
 
     let json = serde_json::to_string(entry)
@@ -68,6 +81,11 @@ pub fn write_cache_entry(cache_path: &Path, entry: &PrCacheEntry) -> std::io::Re
     let tmp_path = cache_path.with_extension(format!("tmp.{}", std::process::id()));
     {
         let mut file = File::create(&tmp_path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            file.set_permissions(fs::Permissions::from_mode(0o600))?;
+        }
         file.write_all(json.as_bytes())?;
         file.flush()?;
     }
@@ -258,6 +276,15 @@ mod tests {
         assert!(is_cache_fresh(&entry, 60, 150));
         assert!(!is_cache_fresh(&entry, 60, 160));
         assert!(!is_cache_fresh(&entry, 60, 200));
+    }
+
+    #[test]
+    fn test_get_cache_file_path_avoids_shared_temp_dir_when_private_cache_available() {
+        if let Some(cache_dir) = dirs::cache_dir() {
+            let path = get_cache_file_path(Path::new("/some/repo"), "feature-x");
+            assert!(path.starts_with(&cache_dir));
+            assert!(!path.starts_with(std::env::temp_dir()));
+        }
     }
 
     #[test]
