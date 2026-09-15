@@ -72,65 +72,50 @@ mod tests {
 
     #[test]
     fn test_non_git_directory() {
-        let temp_dir = std::env::temp_dir().join("copilot_powerline_test_nongit");
-        let _ = fs::create_dir_all(&temp_dir);
-        let branch = get_git_branch(&temp_dir);
-        let _ = fs::remove_dir_all(&temp_dir);
+        let temp_dir = tempfile::tempdir().unwrap();
+        let branch = get_git_branch(temp_dir.path());
         assert!(branch.is_none());
     }
 
     #[test]
     fn test_git_branch_resolution() {
-        let temp_dir = std::env::temp_dir().join("copilot_powerline_test_git_repo");
-        let dot_git = temp_dir.join(".git");
-        let _ = fs::create_dir_all(&dot_git);
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dot_git = temp_dir.path().join(".git");
+        fs::create_dir_all(&dot_git).unwrap();
 
         let mut head = File::create(dot_git.join("HEAD")).unwrap();
         head.write_all(b"ref: refs/heads/feature-awesome\n")
             .unwrap();
 
-        let branch = get_git_branch(&temp_dir);
+        let branch = get_git_branch(temp_dir.path());
         assert_eq!(branch.as_deref(), Some("feature-awesome"));
-
-        let _ = fs::remove_dir_all(&temp_dir);
     }
 
     #[test]
     fn test_find_repo_root_is_stable_from_nested_subdirectory() {
-        let temp_dir = std::env::temp_dir().join(format!(
-            "copilot_powerline_test_repo_root_{}_{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        let dot_git = temp_dir.join(".git");
-        let nested = temp_dir.join("a").join("b");
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dot_git = temp_dir.path().join(".git");
+        let nested = temp_dir.path().join("a").join("b");
         fs::create_dir_all(&dot_git).unwrap();
         fs::create_dir_all(&nested).unwrap();
 
-        let root_from_top = find_repo_root(&temp_dir);
+        let root_from_top = find_repo_root(temp_dir.path());
         let root_from_nested = find_repo_root(&nested);
 
-        let _ = fs::remove_dir_all(&temp_dir);
-
         assert_eq!(root_from_top, root_from_nested);
-        assert_eq!(root_from_top.unwrap(), temp_dir);
+        assert_eq!(root_from_top.unwrap(), temp_dir.path());
     }
 
     #[test]
     fn test_detached_head_resolution() {
-        let temp_dir = std::env::temp_dir().join("copilot_powerline_test_detached");
-        let dot_git = temp_dir.join(".git");
-        let _ = fs::create_dir_all(&dot_git);
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dot_git = temp_dir.path().join(".git");
+        fs::create_dir_all(&dot_git).unwrap();
 
         let mut head = File::create(dot_git.join("HEAD")).unwrap();
         head.write_all(b"d58460183921abc456\n").unwrap();
 
-        let branch = get_git_branch(&temp_dir);
+        let branch = get_git_branch(temp_dir.path());
         assert_eq!(branch.as_deref(), Some("d584601"));
-
-        let _ = fs::remove_dir_all(&temp_dir);
     }
 }
