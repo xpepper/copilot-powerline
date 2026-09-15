@@ -9,12 +9,13 @@ Welcome! This document provides architecture overviews, design constraints, and 
 `copilot-powerline` is a fast, modular, and customizable status line tool for GitHub Copilot CLI written in Rust.
 
 ### Data Flow
-1. **Stdin Input**: GitHub Copilot CLI passes a JSON payload via standard input on statusline refreshes (containing `context_window`, `ai_used`, `session_id`, `model`, etc.).
+1. **Stdin Input**: GitHub Copilot CLI passes a JSON payload via standard input on statusline refreshes (containing `context_window`, `ai_used`, `session_id`, `model`, etc.). It does not include the working directory, so PR/git lookups use the process's own cwd (inherited from the terminal Copilot CLI was launched from).
 2. **Configuration**: The tool loads `~/.copilot/powerline.toml` (or a path provided via `--config`), falling back to built-in defaults.
 3. **Database Query**: Queries the local SQLite database (`~/.copilot/session-store.db`) to calculate month-to-date spend across previous sessions.
-4. **Segment Assembly**: Iterates through enabled segments (`tokens`, `session_cost`, `month_cost`), formatting each.
-5. **Rendering**: The `renderer` applies the configured style (`minimal`, `powerline`, `capsule`, `plain`) and theme ANSI colors.
-6. **Stdout Output**: Emits the single-line formatted status line to standard output.
+4. **PR Lookup (optional)**: If the `pr` segment is enabled, reads a disk-cached PR reference for the current branch; a stale or missing cache triggers a throttled, detached background refresh via `gh pr view` (see `--fetch-pr-cache` below) so the hot path never blocks on a network call.
+5. **Segment Assembly**: Iterates through enabled segments (`tokens`, `session_cost`, `month_cost`, `cache`, `reasoning`, `total_tokens`, `pr`), formatting each.
+6. **Rendering**: The `renderer` applies the configured style (`minimal`, `powerline`, `capsule`, `plain`) and theme ANSI colors.
+7. **Stdout Output**: Emits the single-line formatted status line to standard output.
 
 ---
 
@@ -27,11 +28,13 @@ copilot-powerline/
 ├── LICENSE                    # MIT License
 ├── src/
 │   ├── main.rs                # Entry point, CLI orchestration, and stdin reading
-│   ├── cli.rs                 # Clap CLI arguments (--init, --style, --theme, --icon-set, --config)
+│   ├── cli.rs                 # Clap CLI arguments (--init, --style, --theme, --icon-set, --config, --fetch-pr-cache)
 │   ├── config.rs              # TOML config structures, defaults, and file loading
 │   ├── icons.rs               # Icon set resolver (Nerd, Emoji, Plain)
 │   ├── input.rs               # Deserialization of Copilot CLI stdin JSON payloads
 │   ├── db.rs                  # Read-only SQLite query helper for session-store.db
+│   ├── git.rs                 # Fast, subprocess-free current branch detection (reads .git/HEAD)
+│   ├── github.rs              # `gh pr view` lookup with disk caching and throttled background refresh
 │   ├── renderer.rs            # Separators and powerline/capsule glyph formatting
 │   ├── theme.rs               # ANSI color palettes (colorblind, github, nord, tokyo-night, plain)
 │   └── segments/              # Modular statusline components
@@ -41,7 +44,8 @@ copilot-powerline/
 │       ├── month_cost.rs      # Month-to-date spend calculation (USD and optional AIC)
 │       ├── cache.rs           # Prompt cache hit rate or token counts
 │       ├── reasoning.rs       # Model reasoning/thinking token tracking
-│       └── total_tokens.rs    # Accumulated session token volume
+│       ├── total_tokens.rs    # Accumulated session token volume
+│       └── pr.rs              # Optional current-branch PR reference (e.g. `PR #50`), hyperlinked
 ```
 
 ---
@@ -51,6 +55,7 @@ copilot-powerline/
 1. **Sub-15ms Execution**:
    - This tool runs inside an interactive terminal status line loop.
    - Do not introduce heavy dependencies, async runtimes (e.g. Tokio), or network requests during status line execution.
+   - The `pr` segment is the one feature that needs network access (`gh pr view`). It never runs that call inline: it only reads a disk-backed cache and, when the cache is stale, spawns a detached, throttled background process (this same binary re-invoked with `--fetch-pr-cache`) to refresh it. Follow the same pattern for any future segment that needs an external command or network call.
 2. **Bundled SQLite**:
    - `rusqlite` must always be configured with `features = ["bundled"]` in `Cargo.toml`. This ensures the binary remains self-contained with zero external C library dependencies on user machines.
 3. **Defensive Stdin Parsing**:

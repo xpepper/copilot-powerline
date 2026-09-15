@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod month_cost;
+pub mod pr;
 pub mod reasoning;
 pub mod session_cost;
 pub mod tokens;

@@ -8,6 +8,7 @@ pub struct Palette {
     pub tokens_alert: &'static str,
     #[allow(dead_code)]
     pub badge: &'static str,
+    pub pr: &'static str,
 }
 
 impl Palette {
@@ -22,6 +23,7 @@ impl Palette {
                 tokens_normal: "\x1b[97m", // Bright white
                 tokens_alert: "\x1b[1;31m", // Bold red
                 badge: "\x1b[93m", // Bright yellow
+                pr: "\x1b[33m",    // Yellow
             },
             "nord" => Self {
                 reset: "\x1b[0m",
@@ -32,6 +34,7 @@ impl Palette {
                 tokens_normal: "\x1b[97m",
                 tokens_alert: "\x1b[1;31m",
                 badge: "\x1b[93m",
+                pr: "\x1b[33m", // Yellow
             },
             "tokyo-night" => Self {
                 reset: "\x1b[0m",
@@ -42,6 +45,7 @@ impl Palette {
                 tokens_normal: "\x1b[97m",
                 tokens_alert: "\x1b[1;31m",
                 badge: "\x1b[93m",
+                pr: "\x1b[93m", // Bright yellow
             },
             "plain" => Self {
                 reset: "",
@@ -52,6 +56,7 @@ impl Palette {
                 tokens_normal: "",
                 tokens_alert: "",
                 badge: "",
+                pr: "",
             },
             _ /* "colorblind" or any other */ => Self {
                 reset: "\x1b[0m",
@@ -62,6 +67,7 @@ impl Palette {
                 tokens_normal: "\x1b[97m", // Bright white
                 tokens_alert: "\x1b[1;31m", // Bold red
                 badge: "\x1b[93m", // Bright yellow
+                pr: "\x1b[93m",    // Bright yellow
             },
         }
     }
@@ -82,5 +88,8 @@ mod tests {
         let plain = Palette::for_theme("plain");
         assert_eq!(plain.reset, "");
         assert_eq!(plain.sep, "  |  ");
+        assert_eq!(plain.pr, "");
+
+        assert_eq!(cb.pr, "\x1b[93m");
     }
 }

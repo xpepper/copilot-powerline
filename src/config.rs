@@ -67,6 +67,8 @@ pub struct Config {
     pub reasoning: ReasoningConfig,
     #[serde(default)]
     pub total_tokens: TotalTokensConfig,
+    #[serde(default)]
+    pub pr: PrConfig,
 }
 
 fn default_theme() -> String {
@@ -251,6 +253,40 @@ impl Default for Config {
             cache: CacheConfig::default(),
             reasoning: ReasoningConfig::default(),
             total_tokens: TotalTokensConfig::default(),
+            pr: PrConfig::default(),
+        }
+    }
+}
+
+/// Optional reference to the current branch's pull request (e.g. `PR #50`).
+///
+/// Disabled by default from the default `segments` list: add `"pr"` to
+/// `segments` to opt in. Requires the `gh` CLI to be authenticated; PR
+/// lookups run through the GitHub CLI in a throttled background process and
+/// are cached to disk so the status line itself never blocks on a network
+/// call.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub prefix: Option<String>,
+    #[serde(default = "default_true")]
+    pub hyperlinks: bool,
+    #[serde(default = "default_pr_cache_ttl")]
+    pub cache_ttl_seconds: u64,
+}
+
+fn default_pr_cache_ttl() -> u64 {
+    60
+}
+
+impl Default for PrConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            prefix: None,
+            hyperlinks: true,
+            cache_ttl_seconds: default_pr_cache_ttl(),
         }
     }
 }
@@ -301,6 +337,11 @@ mod tests {
         );
         assert!(!cfg.session_cost.show_aic);
         assert!(!cfg.month_cost.show_aic);
+        assert!(cfg.pr.enabled);
+        assert!(cfg.pr.hyperlinks);
+        assert_eq!(cfg.pr.cache_ttl_seconds, 60);
+        // "pr" is opt-in: it must not appear in the default segment list.
+        assert!(!cfg.segments.iter().any(|s| s == "pr"));
     }
 
     #[test]

@@ -1,0 +1,194 @@
+use crate::config::{IconSet, PrConfig};
+use crate::github::PullRequestInfo;
+use crate::icons::pr_icon;
+use crate::theme::Palette;
+
+/// Returns true if `url` is safe to splice into a raw terminal escape
+/// sequence: a `https://github.com` URL containing no control characters.
+///
+/// The URL comes from an on-disk cache (see `github::PrCacheEntry`) that a
+/// local writer could tamper with, so it must never be trusted verbatim when
+/// building an OSC 8 hyperlink.
+fn is_safe_github_url(url: &str) -> bool {
+    if url.contains(|c: char| c.is_control()) {
+        return false;
+    }
+
+    let Some(rest) = url.strip_prefix("https://") else {
+        return false;
+    };
+
+    rest == "github.com"
+        || rest.starts_with("github.com/")
+        || rest == "www.github.com"
+        || rest.starts_with("www.github.com/")
+}
+
+pub fn render_pr_segment(
+    pr_info: Option<&PullRequestInfo>,
+    config: &PrConfig,
+    icon_set: IconSet,
+    palette: &Palette,
+) -> Option<String> {
+    if !config.enabled {
+        return None;
+    }
+
+    let pr = pr_info?;
+
+    let icon = pr_icon(icon_set, config.prefix.as_deref());
+    let icon_part = if icon.is_empty() {
+        String::new()
+    } else {
+        format!("{}{}{} ", palette.label, icon, palette.reset)
+    };
+
+    let pr_text = format!("#{}", pr.number);
+
+    let formatted_pr = if palette.reset.is_empty() {
+        // Plain theme without escape codes.
+        pr_text
+    } else if config.hyperlinks && is_safe_github_url(&pr.url) {
+        // OSC 8 terminal hyperlink with underline:
+        // underline + color + OSC8-open + text + OSC8-close + reset
+        format!(
+            "\x1b[4m{}\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\{}",
+            palette.pr, pr.url, pr_text, palette.reset
+        )
+    } else {
+        format!("{}{}{}", palette.pr, pr_text, palette.reset)
+    };
+
+    Some(format!("{}{}", icon_part, formatted_pr))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_render_pr_none() {
+        let cfg = PrConfig::default();
+        let p = Palette::for_theme("plain");
+        assert!(render_pr_segment(None, &cfg, IconSet::Plain, &p).is_none());
+    }
+
+    #[test]
+    fn test_render_pr_disabled() {
+        let cfg = PrConfig {
+            enabled: false,
+            ..Default::default()
+        };
+        let p = Palette::for_theme("plain");
+        let pr = PullRequestInfo {
+            number: 50,
+            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+        };
+        assert!(render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).is_none());
+    }
+
+    #[test]
+    fn test_render_pr_plain_theme() {
+        let cfg = PrConfig::default();
+        let p = Palette::for_theme("plain");
+        let pr = PullRequestInfo {
+            number: 50,
+            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+        };
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+        assert_eq!(rendered, "PR #50");
+    }
+
+    #[test]
+    fn test_render_pr_nerd_icon() {
+        let cfg = PrConfig::default();
+        let p = Palette::for_theme("plain");
+        let pr = PullRequestInfo {
+            number: 50,
+            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+        };
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Nerd, &p).unwrap();
+        assert_eq!(rendered, " #50");
+    }
+
+    #[test]
+    fn test_render_pr_emoji_icon() {
+        let cfg = PrConfig::default();
+        let p = Palette::for_theme("plain");
+        let pr = PullRequestInfo {
+            number: 50,
+            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+        };
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Emoji, &p).unwrap();
+        assert_eq!(rendered, "🔀 #50");
+    }
+
+    #[test]
+    fn test_render_pr_hyperlink_and_colors() {
+        let cfg = PrConfig::default();
+        let p = Palette::for_theme("colorblind");
+        let pr = PullRequestInfo {
+            number: 50,
+            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+        };
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        // Must contain OSC 8 hyperlink sequence.
+        assert!(rendered.contains(
+            "\x1b]8;;https://github.com/xpepper/copilot-powerline/pull/50\x1b\\#50\x1b]8;;\x1b\\"
+        ));
+        // Must contain underline.
+        assert!(rendered.contains("\x1b[4m"));
+        // Must contain PR text.
+        assert!(rendered.contains("PR"));
+    }
+
+    #[test]
+    fn test_render_pr_rejects_malicious_url() {
+        let cfg = PrConfig::default();
+        let p = Palette::for_theme("colorblind");
+        let pr = PullRequestInfo {
+            number: 50,
+            url: "https://github.com/org/repo/pull/50\x1b]52;c;ZXZpbA==\x07".to_string(),
+        };
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        // Must not carry the injected escape sequence through to stdout.
+        assert!(!rendered.contains("\x1b]52"));
+        // Falls back to non-hyperlinked text.
+        assert!(!rendered.contains("\x1b]8;;"));
+        assert!(rendered.contains("#50"));
+    }
+
+    #[test]
+    fn test_render_pr_rejects_non_github_url() {
+        let cfg = PrConfig::default();
+        let p = Palette::for_theme("colorblind");
+        let pr = PullRequestInfo {
+            number: 50,
+            url: "https://evil.example.com/pull/50".to_string(),
+        };
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        assert!(!rendered.contains("\x1b]8;;"));
+        assert!(rendered.contains("#50"));
+    }
+
+    #[test]
+    fn test_render_pr_no_hyperlinks() {
+        let cfg = PrConfig {
+            hyperlinks: false,
+            ..Default::default()
+        };
+        let p = Palette::for_theme("colorblind");
+        let pr = PullRequestInfo {
+            number: 50,
+            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+        };
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        // Must NOT contain OSC 8 sequence.
+        assert!(!rendered.contains("\x1b]8;;"));
+        assert!(rendered.contains("#50"));
+    }
+}
