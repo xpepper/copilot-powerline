@@ -160,56 +160,6 @@ This creates `~/.copilot/powerline.toml`.
 
 ---
 
-## Experimental: exact GitHub usage refresh
-
-The `month_cost` segment calculates an estimate from the local Copilot CLI
-database. GitHub's **Settings > Copilot > Features** page can show a more
-complete personal usage counter, including usage that is absent from the local
-database.
-
-The experimental helper is a separate script, not part of the status-line
-binary, so it is only available from a clone of this repository. It fetches
-that displayed counter through a dedicated local browser profile. It never sends the profile or cookies anywhere, and it
-does not run as part of the status-line refresh loop.
-
-```bash
-# Install the browser dependency once.
-npm install --global agent-browser
-agent-browser install
-
-# Open a visible browser once and complete GitHub login, SSO, and 2FA.
-./scripts/fetch-github-copilot-usage --login
-
-# Fetch the current value and save a private local cache.
-./scripts/fetch-github-copilot-usage
-# {"ai_credits_used":49854,"usd":"498.54","cycle":"September 1-30, 2026"}
-```
-
-By default, browser state is stored in
-`~/.copilot/github-usage-profile` and the output cache in
-`~/.copilot/github-usage.json`. Set `COPILOT_USAGE_BROWSER_PROFILE` or
-`COPILOT_USAGE_CACHE_FILE` to use different paths. The helper depends on an
-undocumented GitHub settings page and may need updating if GitHub changes its
-markup.
-
-Every run also appends a timestamped entry to a local JSON Lines history log
-at `~/.copilot/github-usage-history.jsonl` (one JSON object per line: `ts`,
-`ai_credits_used`, `usd`, `cycle`), so you can track how your credit
-consumption changes over time. Set `COPILOT_USAGE_HISTORY_FILE` to use a
-different path, or pass `--no-history` to skip it for a single run. Inspect
-it with `jq`, for example:
-
-```bash
-# Show the last 10 readings.
-tail -n 10 ~/.copilot/github-usage-history.jsonl | jq .
-
-# Credit delta between the two most recent runs.
-jq -s '.[-1].ai_credits_used - .[-2].ai_credits_used' \
-    ~/.copilot/github-usage-history.jsonl
-```
-
----
-
 ## Status Line Legend & Segments
 
 | Segment | Icon (`nerd`) | Icon (`emoji`) | Text (`plain`) | Example Value | Description |
@@ -316,7 +266,57 @@ copilot-powerline --config /path/to/custom-powerline.toml
   Make sure your terminal font is a [Nerd Font](https://www.nerdfonts.com/) (such as *JetBrainsMono Nerd Font*, *Hack Nerd Font*, or *FiraCode Nerd Font*). Alternatively, switch to emoji icons by setting `icon_set = "emoji"` or plain text with `icon_set = "plain"` in `powerline.toml`.
 
 - **Copilot shows a blank statusline?**
-  Ensure `copilot-powerline` is in your `PATH` or use the full path `~/.cargo/bin/copilot-powerline` in `~/.copilot/settings.json`.
+  Ensure `copilot-powerline` is in your `PATH` or use the full path in `~/.copilot/settings.json`: `~/.local/bin/copilot-powerline` (shell installer), `~/.cargo/bin/copilot-powerline` (Cargo), or the output of `which copilot-powerline`.
+
+---
+
+## Experimental: exact GitHub usage refresh
+
+The `month_cost` segment calculates an estimate from the local Copilot CLI
+database. GitHub's **Settings > Copilot > Features** page can show a more
+complete personal usage counter, including usage that is absent from the local
+database.
+
+The experimental helper is a separate script, not part of the status-line
+binary, so it is only available from a clone of this repository. It fetches
+that displayed counter through a dedicated local browser profile. It never sends the profile or cookies anywhere, and it
+does not run as part of the status-line refresh loop.
+
+```bash
+# Install the browser dependency once.
+npm install --global agent-browser
+agent-browser install
+
+# Open a visible browser once and complete GitHub login, SSO, and 2FA.
+./scripts/fetch-github-copilot-usage --login
+
+# Fetch the current value and save a private local cache.
+./scripts/fetch-github-copilot-usage
+# {"ai_credits_used":49854,"usd":"498.54","cycle":"September 1-30, 2026"}
+```
+
+By default, browser state is stored in
+`~/.copilot/github-usage-profile` and the output cache in
+`~/.copilot/github-usage.json`. Set `COPILOT_USAGE_BROWSER_PROFILE` or
+`COPILOT_USAGE_CACHE_FILE` to use different paths. The helper depends on an
+undocumented GitHub settings page and may need updating if GitHub changes its
+markup.
+
+Every run also appends a timestamped entry to a local JSON Lines history log
+at `~/.copilot/github-usage-history.jsonl` (one JSON object per line: `ts`,
+`ai_credits_used`, `usd`, `cycle`), so you can track how your credit
+consumption changes over time. Set `COPILOT_USAGE_HISTORY_FILE` to use a
+different path, or pass `--no-history` to skip it for a single run. Inspect
+it with `jq`, for example:
+
+```bash
+# Show the last 10 readings.
+tail -n 10 ~/.copilot/github-usage-history.jsonl | jq .
+
+# Credit delta between the two most recent runs.
+jq -s '.[-1].ai_credits_used - .[-2].ai_credits_used' \
+    ~/.copilot/github-usage-history.jsonl
+```
 
 ---
 
