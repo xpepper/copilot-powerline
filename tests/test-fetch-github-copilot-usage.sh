@@ -44,7 +44,7 @@ while (($#)); do
             ;;
         open)
             printf 'open:%s\n' "$session" >>"$AGENT_BROWSER_LOG"
-            exit 0
+            exit "${AGENT_BROWSER_OPEN_EXIT:-0}"
             ;;
         read)
             printf 'read:%s\n' "$session" >>"$AGENT_BROWSER_LOG"
@@ -52,6 +52,12 @@ while (($#)); do
             ;;
         close)
             printf 'close:%s\n' "$session" >>"$AGENT_BROWSER_LOG"
+            exit 0
+            ;;
+        session)
+            [[ "${2:-}" == list ]] || exit 1
+            printf 'Active sessions:\n'
+            [[ -z "${AGENT_BROWSER_SESSIONS:-}" ]] || printf '  %s\n' $AGENT_BROWSER_SESSIONS
             exit 0
             ;;
         *)
@@ -76,12 +82,88 @@ browser_calls=($(<"$agent_browser_log"))
     echo "Expected open, read, and cleanup close calls" >&2
     exit 1
 }
-[[ "${browser_calls[0]}" =~ ^open:copilot-powerline-github-usage-[0-9]+$ ]] || {
-    echo "Expected a process-specific browser session name" >&2
+[[ "${browser_calls[0]}" =~ ^open:copilot-powerline-github-usage-[0-9]+-[0-9]+$ ]] || {
+    echo "Expected a session name with the run PID and start-time token" >&2
     exit 1
 }
 [[ "${browser_calls[1]}" == "read:${browser_calls[0]#open:}" ]]
 [[ "${browser_calls[2]}" == "close:${browser_calls[0]#open:}" ]]
+
+: >"$agent_browser_log"
+if PATH="$temporary_dir:$PATH" \
+    AGENT_BROWSER_LOG="$agent_browser_log" \
+    AGENT_BROWSER_OPEN_EXIT=1 \
+    "$root/scripts/fetch-github-copilot-usage" --no-cache --no-history \
+    >/dev/null 2>"$error_file"; then
+    echo "Expected a browser open failure to fail" >&2
+    exit 1
+fi
+
+browser_calls=($(<"$agent_browser_log"))
+[[ "${#browser_calls[@]}" == 2 && "${browser_calls[1]}" == "close:${browser_calls[0]#open:}" ]] || {
+    echo "Expected a failed open to close its browser session, got: ${browser_calls[*]}" >&2
+    exit 1
+}
+
+bash -c 'exit 0' &
+finished_pid=$!
+wait "$finished_pid"
+stale_session="copilot-powerline-github-usage-$finished_pid-1"
+# Mirrors run_token in the script: checksum of the process start time.
+running_token="$(printf '%s' "$(ps -o lstart= -p $$)" | cksum | cut -d' ' -f1)"
+running_session="copilot-powerline-github-usage-$$-$running_token"
+# Same PID as a live process, but a different start time: the PID was reused.
+reused_pid_session="copilot-powerline-github-usage-$$-$((running_token + 1))"
+
+: >"$agent_browser_log"
+if ! PATH="$temporary_dir:$PATH" \
+    AGENT_BROWSER_LOG="$agent_browser_log" \
+    AGENT_BROWSER_SESSIONS="$stale_session $reused_pid_session $running_session unrelated-session" \
+    "$root/scripts/fetch-github-copilot-usage" --no-cache --no-history \
+    >/dev/null 2>"$error_file"; then
+    : # The fake page has no usage; only the browser calls matter here.
+fi
+
+browser_calls=($(<"$agent_browser_log"))
+[[ "${browser_calls[0]:-}" == "close:$stale_session" &&
+    "${browser_calls[1]:-}" == "close:$reused_pid_session" &&
+    "${browser_calls[2]:-}" == open:* ]] || {
+    echo "Expected stale and reused-PID sessions to be closed before opening, got: ${browser_calls[*]}" >&2
+    exit 1
+}
+for call in "${browser_calls[@]}"; do
+    [[ "$call" != "close:$running_session" && "$call" != "close:unrelated-session" ]] || {
+        echo "Expected only stale script sessions to be closed, got: ${browser_calls[*]}" >&2
+        exit 1
+    }
+done
+
+: >"$agent_browser_log"
+PATH="$temporary_dir:$PATH" \
+    AGENT_BROWSER_LOG="$agent_browser_log" \
+    AGENT_BROWSER_SESSIONS="$stale_session" \
+    "$root/scripts/fetch-github-copilot-usage" --login >/dev/null
+
+browser_calls=($(<"$agent_browser_log"))
+[[ "${browser_calls[0]:-}" == "close:$stale_session" && "${browser_calls[1]:-}" == open:* ]] || {
+    echo "Expected --login to close the stale session before opening, got: ${browser_calls[*]}" >&2
+    exit 1
+}
+
+: >"$agent_browser_log"
+if PATH="$temporary_dir:$PATH" \
+    AGENT_BROWSER_LOG="$agent_browser_log" \
+    AGENT_BROWSER_OPEN_EXIT=1 \
+    "$root/scripts/fetch-github-copilot-usage" --login >/dev/null 2>"$error_file"; then
+    echo "Expected a failed --login open to fail" >&2
+    exit 1
+fi
+
+browser_calls=($(<"$agent_browser_log"))
+[[ "${#browser_calls[@]}" == 2 && "${browser_calls[1]}" == "close:${browser_calls[0]#open:}" ]] || {
+    echo "Expected a failed --login open to close its browser session, got: ${browser_calls[*]}" >&2
+    exit 1
+}
 
 history_dir="$(mktemp -d)"
 history_file="$history_dir/github-usage-history.jsonl"
