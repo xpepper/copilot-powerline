@@ -63,7 +63,13 @@ Goal: let Copilot CLI users install without a Rust toolchain.
 - [ ] npm package wrapping the prebuilt binaries (`npm i -g copilot-powerline`);
       Copilot CLI users usually already have Node. Prefer a global install
       over `npx` in `statusLine.command` to keep refreshes fast.
+  - Blocked on a decision: dist's npm package runs the binary through a
+    Node shim, measured at ~55 ms per refresh versus ~12.6 ms for the bare
+    binary (hyperfine, 40 runs, Apple Silicon), which breaks the sub-15 ms
+    rule in AGENTS.md.
 - [ ] Homebrew tap (`xpepper/homebrew-tap`), updated automatically on release
+  - [x] dist config and generated formula (`ruby -c` OK)
+  - [ ] `HOMEBREW_TAP_TOKEN` secret, then verify `brew install` after a release
 - [x] Document installs via version managers that read GitHub Releases
   - [x] mise `github:` backend (also verified `ubi:`) against v0.3.2
     (shim measured ~41 ms vs ~19 ms for the real binary, so the README

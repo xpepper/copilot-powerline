@@ -16,6 +16,12 @@ Install a prebuilt binary (macOS and Linux, no Rust toolchain needed):
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/xpepper/copilot-powerline/releases/latest/download/copilot-powerline-installer.sh | sh
 ```
 
+Or with Homebrew:
+
+```bash
+brew install xpepper/tap/copilot-powerline
+```
+
 Or install from crates.io:
 
 ```bash
@@ -97,6 +103,12 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 ### Prebuilt binaries
 
 Each [GitHub Release](https://github.com/xpepper/copilot-powerline/releases) ships binaries for macOS (Apple Silicon and Intel) and Linux (x86_64 and arm64, glibc 2.35 or newer), with SHA-256 checksums. The shell installer from the [quick start](#install-and-connect-it-to-copilot-cli) picks the right one and installs it to `~/.local/bin`, adding that directory to your `PATH` if needed.
+
+Homebrew (macOS or Linux) installs the same binaries from the [xpepper/homebrew-tap](https://github.com/xpepper/homebrew-tap) tap:
+
+```bash
+brew install xpepper/tap/copilot-powerline
+```
 
 If you use [cargo-binstall](https://github.com/cargo-bins/cargo-binstall), it downloads the same binaries instead of compiling:
 

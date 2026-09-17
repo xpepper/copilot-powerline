@@ -5,6 +5,7 @@ edition = "2024"
 description = "A fast, customizable powerline status line for GitHub Copilot CLI"
 license = "MIT"
 repository = "https://github.com/xpepper/copilot-powerline"
+homepage = "https://github.com/xpepper/copilot-powerline"
 readme = "README.md"
 keywords = ["copilot", "github-copilot", "statusline", "powerline", "cli"]
 categories = ["command-line-utilities"]

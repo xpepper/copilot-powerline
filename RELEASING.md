@@ -5,7 +5,9 @@
 - crates.io, for `cargo install copilot-powerline`
 - GitHub Releases with prebuilt binaries, a shell installer, and checksums, built by [dist](https://github.com/axodotdev/cargo-dist) (`.github/workflows/release.yml`, configured in `dist-workspace.toml`)
 
-Prebuilt targets are macOS and Linux on arm64 and x86_64. Do not advertise a target as supported unless CI verifies it.
+Prebuilt targets are macOS and Linux on arm64 and x86_64.
+
+On each release the workflow also pushes an updated formula to [xpepper/homebrew-tap](https://github.com/xpepper/homebrew-tap). This needs a `HOMEBREW_TAP_TOKEN` repository secret: a token with write access to the tap repository's contents. Do not advertise a target as supported unless CI verifies it.
 
 ## Prepare a release
 
@@ -43,7 +45,7 @@ git tag -a "v$VERSION" -m "v$VERSION"
 git push origin "v$VERSION"
 ```
 
-Pushing the tag starts the Release workflow, which builds every target and creates the GitHub Release with the binaries, `copilot-powerline-installer.sh`, and checksums. Do not create the release by hand with `gh release create`: the workflow creates it.
+Pushing the tag starts the Release workflow, which builds every target, creates the GitHub Release with the binaries, `copilot-powerline-installer.sh`, and checksums, and publishes the Homebrew formula. Do not create the release by hand with `gh release create`: the workflow creates it.
 
 When the workflow has finished, append GitHub's generated notes to the release body:
 
@@ -62,6 +64,7 @@ Confirm that the crates.io version and GitHub tag agree, and that the installer 
 ```bash
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/xpepper/copilot-powerline/releases/latest/download/copilot-powerline-installer.sh | sh
 copilot-powerline --version
+brew upgrade xpepper/tap/copilot-powerline || brew install xpepper/tap/copilot-powerline
 ```
 
 Then update any launch or distribution material to use the published version and the installation commands in the README.
