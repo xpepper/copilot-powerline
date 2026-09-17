@@ -104,6 +104,14 @@ If you use [cargo-binstall](https://github.com/cargo-bins/cargo-binstall), it do
 cargo binstall copilot-powerline
 ```
 
+If you manage tools with [mise](https://mise.jdx.dev/), install the release binary directly from GitHub:
+
+```bash
+mise use -g github:xpepper/copilot-powerline
+```
+
+For the status-line command, use the real binary path printed by `mise which copilot-powerline` rather than the mise shim: the shim starts `mise` on every refresh, roughly doubling run time. That path includes the version, so update `~/.copilot/settings.json` after upgrading. mise may hide a release for a while after it is published; if it reports no matching versions, pin one explicitly (for example `github:xpepper/copilot-powerline@0.3.2`).
+
 ### Install with Cargo
 
 ```bash
