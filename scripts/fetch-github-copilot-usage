@@ -3,7 +3,16 @@ set -euo pipefail
 
 readonly FEATURES_URL="https://github.com/settings/copilot/features"
 readonly SESSION_PREFIX="copilot-powerline-github-usage-"
-readonly SESSION_NAME="${SESSION_PREFIX}$$"
+
+# Prints a token identifying a process by its start time, or nothing if the
+# process is gone. Paired with the PID, it survives PID reuse.
+run_token() {
+    local started
+    started="$(ps -o lstart= -p "$1" 2>/dev/null)" || return 0
+    printf '%s' "$started" | cksum | cut -d' ' -f1
+}
+
+readonly SESSION_NAME="${SESSION_PREFIX}$$-$(run_token $$)"
 
 profile="${COPILOT_USAGE_BROWSER_PROFILE:-${HOME}/.copilot/github-usage-profile}"
 cache_file="${COPILOT_USAGE_CACHE_FILE:-${HOME}/.copilot/github-usage.json}"
@@ -63,14 +72,17 @@ while (($#)); do
     shift
 done
 
-# Session names end with the PID of the run that opened them. A session whose
-# run has exited was leaked and may still hold the browser profile lock.
+# Session names end with the PID and start-time token of the run that opened
+# them. A session whose run has exited was leaked and may still hold the
+# browser profile lock.
 close_stale_browser_sessions() {
-    local session pid
+    local session pid token
     for session in $(agent-browser session list 2>/dev/null |
-        grep -Eo "${SESSION_PREFIX}[0-9]+" || true); do
+        grep -Eo "${SESSION_PREFIX}[0-9]+-[0-9]+" || true); do
+        token="${session##*-}"
         pid="${session#"$SESSION_PREFIX"}"
-        kill -0 "$pid" 2>/dev/null && continue
+        pid="${pid%-*}"
+        [[ "$(run_token "$pid")" == "$token" ]] && continue
         agent-browser --session "$session" close >/dev/null 2>&1 || true
     done
 }

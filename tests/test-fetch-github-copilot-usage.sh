@@ -82,8 +82,8 @@ browser_calls=($(<"$agent_browser_log"))
     echo "Expected open, read, and cleanup close calls" >&2
     exit 1
 }
-[[ "${browser_calls[0]}" =~ ^open:copilot-powerline-github-usage-[0-9]+$ ]] || {
-    echo "Expected a process-specific browser session name" >&2
+[[ "${browser_calls[0]}" =~ ^open:copilot-powerline-github-usage-[0-9]+-[0-9]+$ ]] || {
+    echo "Expected a session name with the run PID and start-time token" >&2
     exit 1
 }
 [[ "${browser_calls[1]}" == "read:${browser_calls[0]#open:}" ]]
@@ -108,21 +108,27 @@ browser_calls=($(<"$agent_browser_log"))
 bash -c 'exit 0' &
 finished_pid=$!
 wait "$finished_pid"
-stale_session="copilot-powerline-github-usage-$finished_pid"
-running_session="copilot-powerline-github-usage-$$"
+stale_session="copilot-powerline-github-usage-$finished_pid-1"
+# Mirrors run_token in the script: checksum of the process start time.
+running_token="$(printf '%s' "$(ps -o lstart= -p $$)" | cksum | cut -d' ' -f1)"
+running_session="copilot-powerline-github-usage-$$-$running_token"
+# Same PID as a live process, but a different start time: the PID was reused.
+reused_pid_session="copilot-powerline-github-usage-$$-$((running_token + 1))"
 
 : >"$agent_browser_log"
 if ! PATH="$temporary_dir:$PATH" \
     AGENT_BROWSER_LOG="$agent_browser_log" \
-    AGENT_BROWSER_SESSIONS="$stale_session $running_session unrelated-session" \
+    AGENT_BROWSER_SESSIONS="$stale_session $reused_pid_session $running_session unrelated-session" \
     "$root/scripts/fetch-github-copilot-usage" --no-cache --no-history \
     >/dev/null 2>"$error_file"; then
     : # The fake page has no usage; only the browser calls matter here.
 fi
 
 browser_calls=($(<"$agent_browser_log"))
-[[ "${browser_calls[0]:-}" == "close:$stale_session" && "${browser_calls[1]:-}" == open:* ]] || {
-    echo "Expected the stale session to be closed before opening, got: ${browser_calls[*]}" >&2
+[[ "${browser_calls[0]:-}" == "close:$stale_session" &&
+    "${browser_calls[1]:-}" == "close:$reused_pid_session" &&
+    "${browser_calls[2]:-}" == open:* ]] || {
+    echo "Expected stale and reused-PID sessions to be closed before opening, got: ${browser_calls[*]}" >&2
     exit 1
 }
 for call in "${browser_calls[@]}"; do
