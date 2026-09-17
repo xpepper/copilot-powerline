@@ -67,7 +67,7 @@ Goal: let Copilot CLI users install without a Rust toolchain.
       installer, Homebrew, and cargo binstall already cover macOS and Linux
       without a Rust toolchain. Revisit only if users ask, and then with a
       custom package that execs the binary directly (esbuild-style).
-- [ ] Homebrew tap (`xpepper/homebrew-tap`), updated automatically on release
+- [x] Homebrew tap (`xpepper/homebrew-tap`), updated automatically on release
   - [x] dist config and generated formula (`ruby -c` OK)
   - [x] `HOMEBREW_TAP_TOKEN` secret set; v0.3.3 published the formula and
         `brew install xpepper/tap/copilot-powerline` installed 0.3.3
