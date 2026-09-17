@@ -88,11 +88,11 @@ else
         exit 1
     }
 
-    agent-browser --session "$SESSION_NAME" --profile "$profile" open "$FEATURES_URL" >/dev/null
     cleanup_browser_session() {
         agent-browser --session "$SESSION_NAME" close >/dev/null 2>&1 || true
     }
     trap cleanup_browser_session EXIT
+    agent-browser --session "$SESSION_NAME" --profile "$profile" open "$FEATURES_URL" >/dev/null
     page_text="$(agent-browser --session "$SESSION_NAME" read)"
     agent-browser --session "$SESSION_NAME" close >/dev/null
     trap - EXIT

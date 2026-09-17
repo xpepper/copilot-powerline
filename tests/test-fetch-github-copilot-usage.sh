@@ -44,7 +44,7 @@ while (($#)); do
             ;;
         open)
             printf 'open:%s\n' "$session" >>"$AGENT_BROWSER_LOG"
-            exit 0
+            exit "${AGENT_BROWSER_OPEN_EXIT:-0}"
             ;;
         read)
             printf 'read:%s\n' "$session" >>"$AGENT_BROWSER_LOG"
@@ -82,6 +82,22 @@ browser_calls=($(<"$agent_browser_log"))
 }
 [[ "${browser_calls[1]}" == "read:${browser_calls[0]#open:}" ]]
 [[ "${browser_calls[2]}" == "close:${browser_calls[0]#open:}" ]]
+
+: >"$agent_browser_log"
+if PATH="$temporary_dir:$PATH" \
+    AGENT_BROWSER_LOG="$agent_browser_log" \
+    AGENT_BROWSER_OPEN_EXIT=1 \
+    "$root/scripts/fetch-github-copilot-usage" --no-cache --no-history \
+    >/dev/null 2>"$error_file"; then
+    echo "Expected a browser open failure to fail" >&2
+    exit 1
+fi
+
+browser_calls=($(<"$agent_browser_log"))
+[[ "${#browser_calls[@]}" == 2 && "${browser_calls[1]}" == "close:${browser_calls[0]#open:}" ]] || {
+    echo "Expected a failed open to close its browser session, got: ${browser_calls[*]}" >&2
+    exit 1
+}
 
 history_dir="$(mktemp -d)"
 history_file="$history_dir/github-usage-history.jsonl"
