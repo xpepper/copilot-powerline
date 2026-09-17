@@ -82,7 +82,12 @@ if "$login"; then
     }
 
     close_stale_browser_sessions
-    agent-browser --session "$SESSION_NAME" --profile "$profile" --headed open "$FEATURES_URL"
+    # A successful login session stays open for the user; only a failed open is closed.
+    agent-browser --session "$SESSION_NAME" --profile "$profile" --headed open "$FEATURES_URL" || {
+        status=$?
+        agent-browser --session "$SESSION_NAME" close >/dev/null 2>&1 || true
+        exit "$status"
+    }
     cat <<'EOF'
 Sign in to GitHub in the browser window, including SSO or two-factor authentication if required.
 Close the window when finished, then run this command again without --login.

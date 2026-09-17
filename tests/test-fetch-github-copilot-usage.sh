@@ -144,6 +144,21 @@ browser_calls=($(<"$agent_browser_log"))
     exit 1
 }
 
+: >"$agent_browser_log"
+if PATH="$temporary_dir:$PATH" \
+    AGENT_BROWSER_LOG="$agent_browser_log" \
+    AGENT_BROWSER_OPEN_EXIT=1 \
+    "$root/scripts/fetch-github-copilot-usage" --login >/dev/null 2>"$error_file"; then
+    echo "Expected a failed --login open to fail" >&2
+    exit 1
+fi
+
+browser_calls=($(<"$agent_browser_log"))
+[[ "${#browser_calls[@]}" == 2 && "${browser_calls[1]}" == "close:${browser_calls[0]#open:}" ]] || {
+    echo "Expected a failed --login open to close its browser session, got: ${browser_calls[*]}" >&2
+    exit 1
+}
+
 history_dir="$(mktemp -d)"
 history_file="$history_dir/github-usage-history.jsonl"
 trap 'rm -f "$error_file"; rm -rf "$temporary_dir" "$history_dir"' EXIT
