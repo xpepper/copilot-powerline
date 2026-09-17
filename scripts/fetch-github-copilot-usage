@@ -2,7 +2,8 @@
 set -euo pipefail
 
 readonly FEATURES_URL="https://github.com/settings/copilot/features"
-readonly SESSION_NAME="copilot-powerline-github-usage-$$"
+readonly SESSION_PREFIX="copilot-powerline-github-usage-"
+readonly SESSION_NAME="${SESSION_PREFIX}$$"
 
 profile="${COPILOT_USAGE_BROWSER_PROFILE:-${HOME}/.copilot/github-usage-profile}"
 cache_file="${COPILOT_USAGE_CACHE_FILE:-${HOME}/.copilot/github-usage.json}"
@@ -62,12 +63,25 @@ while (($#)); do
     shift
 done
 
+# Session names end with the PID of the run that opened them. A session whose
+# run has exited was leaked and may still hold the browser profile lock.
+close_stale_browser_sessions() {
+    local session pid
+    for session in $(agent-browser session list 2>/dev/null |
+        grep -Eo "${SESSION_PREFIX}[0-9]+" || true); do
+        pid="${session#"$SESSION_PREFIX"}"
+        kill -0 "$pid" 2>/dev/null && continue
+        agent-browser --session "$session" close >/dev/null 2>&1 || true
+    done
+}
+
 if "$login"; then
     command -v agent-browser >/dev/null || {
         echo "agent-browser is required. Install it before running --login." >&2
         exit 1
     }
 
+    close_stale_browser_sessions
     agent-browser --session "$SESSION_NAME" --profile "$profile" --headed open "$FEATURES_URL"
     cat <<'EOF'
 Sign in to GitHub in the browser window, including SSO or two-factor authentication if required.
@@ -88,6 +102,7 @@ else
         exit 1
     }
 
+    close_stale_browser_sessions
     cleanup_browser_session() {
         agent-browser --session "$SESSION_NAME" close >/dev/null 2>&1 || true
     }
