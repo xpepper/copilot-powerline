@@ -60,16 +60,17 @@ Goal: let Copilot CLI users install without a Rust toolchain.
         verified on macOS arm64, Linux arm64/x64 (Ubuntu 22.04 containers);
         x86_64 macOS binary run under Rosetta; `cargo binstall` downloads
         from GitHub with compile and quick-install disabled
-- [ ] npm package wrapping the prebuilt binaries (`npm i -g copilot-powerline`);
-      Copilot CLI users usually already have Node. Prefer a global install
-      over `npx` in `statusLine.command` to keep refreshes fast.
-  - Blocked on a decision: dist's npm package runs the binary through a
-    Node shim, measured at ~55 ms per refresh versus ~12.6 ms for the bare
-    binary (hyperfine, 40 runs, Apple Silicon), which breaks the sub-15 ms
-    rule in AGENTS.md.
+- [x] npm package: decided against for now (2026-09-17). dist's npm package
+      runs the binary through a Node shim, measured at ~55 ms per refresh
+      versus ~12.6 ms for the bare binary (hyperfine, 40 runs, Apple
+      Silicon), which breaks the sub-15 ms rule in AGENTS.md. The shell
+      installer, Homebrew, and cargo binstall already cover macOS and Linux
+      without a Rust toolchain. Revisit only if users ask, and then with a
+      custom package that execs the binary directly (esbuild-style).
 - [ ] Homebrew tap (`xpepper/homebrew-tap`), updated automatically on release
   - [x] dist config and generated formula (`ruby -c` OK)
-  - [ ] `HOMEBREW_TAP_TOKEN` secret, then verify `brew install` after a release
+  - [x] `HOMEBREW_TAP_TOKEN` secret set; v0.3.3 published the formula and
+        `brew install xpepper/tap/copilot-powerline` installed 0.3.3
 - [x] Document installs via version managers that read GitHub Releases
   - [x] mise `github:` backend (also verified `ubi:`) against v0.3.2
     (shim measured ~41 ms vs ~19 ms for the real binary, so the README
