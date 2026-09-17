@@ -10,7 +10,13 @@
 
 ## Install and connect it to Copilot CLI
 
-Install from crates.io:
+Install a prebuilt binary (macOS and Linux, no Rust toolchain needed):
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/xpepper/copilot-powerline/releases/latest/download/copilot-powerline-installer.sh | sh
+```
+
+Or install from crates.io:
 
 ```bash
 cargo install copilot-powerline
@@ -28,7 +34,7 @@ Then add it to `~/.copilot/settings.json`:
 }
 ```
 
-If Cargo's bin directory is not on your `PATH`, use `~/.cargo/bin/copilot-powerline` as the command. Run `copilot-powerline --init` at any time to create the default configuration at `~/.copilot/powerline.toml`.
+If the install directory is not on your `PATH`, use the full path as the command: `~/.local/bin/copilot-powerline` for the installer, or `~/.cargo/bin/copilot-powerline` for Cargo. Run `copilot-powerline --init` at any time to create the default configuration at `~/.copilot/powerline.toml`.
 
 ## See it in action
 
@@ -88,19 +94,29 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 
 ## Installation and compatibility
 
-### Recommended: install with Cargo
+### Prebuilt binaries
 
-The [quick start](#install-and-connect-it-to-copilot-cli) uses the supported installation path:
+Each [GitHub Release](https://github.com/xpepper/copilot-powerline/releases) ships binaries for macOS (Apple Silicon and Intel) and Linux (x86_64 and arm64, glibc 2.35 or newer), with SHA-256 checksums. The shell installer from the [quick start](#install-and-connect-it-to-copilot-cli) picks the right one and installs it to `~/.local/bin`, adding that directory to your `PATH` if needed.
+
+If you use [cargo-binstall](https://github.com/cargo-bins/cargo-binstall), it downloads the same binaries instead of compiling:
+
+```bash
+cargo binstall copilot-powerline
+```
+
+### Install with Cargo
 
 ```bash
 cargo install copilot-powerline
 ```
 
-It requires a current stable Rust toolchain with Cargo. The installed executable runs locally during Copilot CLI status-line refreshes and makes no network requests.
+It requires a current stable Rust toolchain with Cargo.
+
+However you install it, the executable runs locally during Copilot CLI status-line refreshes and never makes network requests itself. The only exception is the optional `pr` segment, which runs `gh pr view` in a detached background process, never inline in the refresh.
 
 ### Verified environments and terminal support
 
-CI tests and builds release binaries on GitHub Actions' current macOS and Ubuntu runner images. Other platforms are not currently verified in CI.
+CI tests and builds release binaries on GitHub Actions' current macOS and Ubuntu runner images. Windows is not currently verified in CI and has no prebuilt binary; use `cargo install` there at your own risk.
 
 The default `nerd` icon set requires a [Nerd Font](https://www.nerdfonts.com/). Use `--icon-set emoji` or `--icon-set plain` when your terminal does not support Nerd Font glyphs.
 
@@ -131,8 +147,9 @@ database. GitHub's **Settings > Copilot > Features** page can show a more
 complete personal usage counter, including usage that is absent from the local
 database.
 
-The experimental helper fetches that displayed counter through a dedicated
-local browser profile. It never sends the profile or cookies anywhere, and it
+The experimental helper is a separate script, not part of the status-line
+binary, so it is only available from a clone of this repository. It fetches
+that displayed counter through a dedicated local browser profile. It never sends the profile or cookies anywhere, and it
 does not run as part of the status-line refresh loop.
 
 ```bash
