@@ -1,12 +1,11 @@
 # Releasing copilot-powerline
 
-`copilot-powerline` uses a Cargo-first release path. The recommended user installation command is:
+`copilot-powerline` is released to two channels from the same version:
 
-```bash
-cargo install copilot-powerline
-```
+- crates.io, for `cargo install copilot-powerline`
+- GitHub Releases with prebuilt binaries, a shell installer, and checksums, built by [dist](https://github.com/axodotdev/cargo-dist) (`.github/workflows/release.yml`, configured in `dist-workspace.toml`)
 
-GitHub Releases document published versions; they do not currently provide prebuilt binaries. Do not advertise a target as supported unless CI verifies it.
+Prebuilt targets are macOS and Linux on arm64 and x86_64. Do not advertise a target as supported unless CI verifies it.
 
 ## Prepare a release
 
@@ -21,7 +20,10 @@ GitHub Releases document published versions; they do not currently provide prebu
    cargo test --verbose
    cargo build --release --verbose
    cargo publish --dry-run
+   dist plan
    ```
+
+   If you changed `dist-workspace.toml` or upgraded dist, run `dist generate` and commit the regenerated workflow; the release workflow fails when it is out of date.
 
 5. Open and merge the version-bump pull request.
 
@@ -33,17 +35,33 @@ From the merged release commit on `main`, publish to crates.io. Publishing must 
 cargo publish
 ```
 
-After crates.io shows the new version, replace the example version and create an annotated tag and GitHub Release:
+After crates.io shows the new version, replace the example version and push an annotated tag:
 
 ```bash
-VERSION=0.2.1
+VERSION=0.3.2
 git tag -a "v$VERSION" -m "v$VERSION"
 git push origin "v$VERSION"
-gh release create "v$VERSION" --title "v$VERSION" --generate-notes
 ```
 
-The release contains generated notes and source archives. It has no binary artifacts or checksums because this project currently distributes through crates.io.
+Pushing the tag starts the Release workflow, which builds every target and creates the GitHub Release with the binaries, `copilot-powerline-installer.sh`, and checksums. Do not create the release by hand with `gh release create`: the workflow creates it.
+
+When the workflow has finished, append GitHub's generated notes to the release body:
+
+```bash
+NOTES=$(gh api "repos/xpepper/copilot-powerline/releases/generate-notes" -f tag_name="v$VERSION" --jq .body)
+BODY=$(gh release view "v$VERSION" --json body --jq .body)
+gh release edit "v$VERSION" --notes "$BODY
+
+$NOTES"
+```
 
 ## After publishing
 
-Confirm that the crates.io version and GitHub tag agree, then update any launch or distribution material to use the published version and the canonical Cargo installation command.
+Confirm that the crates.io version and GitHub tag agree, and that the installer works:
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/xpepper/copilot-powerline/releases/latest/download/copilot-powerline-installer.sh | sh
+copilot-powerline --version
+```
+
+Then update any launch or distribution material to use the published version and the installation commands in the README.

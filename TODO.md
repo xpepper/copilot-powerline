@@ -53,6 +53,11 @@ Goal: let Copilot CLI users install without a Rust toolchain.
 
 - [ ] Prebuilt binaries on GitHub Releases (via `dist`), with shell
       installer and `cargo binstall` support
+  - [x] dist config and release workflow (macOS + Linux, arm64 + x64)
+  - [x] Local build and installer run against a local mirror
+  - [x] README and RELEASING.md updated
+  - [ ] First real tagged release: confirm workflow, installer URL, and
+        `cargo binstall` picking up the binaries
 - [ ] npm package wrapping the prebuilt binaries (`npm i -g copilot-powerline`);
       Copilot CLI users usually already have Node. Prefer a global install
       over `npx` in `statusLine.command` to keep refreshes fast.
