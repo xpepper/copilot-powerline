@@ -11,6 +11,7 @@ mod icons;
 mod input;
 mod renderer;
 mod segments;
+mod state;
 mod theme;
 
 use cli::Cli;
