@@ -11,6 +11,7 @@ mod github;
 mod icons;
 mod input;
 mod mode;
+mod month_spend;
 mod renderer;
 mod segments;
 mod spend;
@@ -156,7 +157,16 @@ fn main() {
     };
 
     let other_nano = if month_cost::is_visible(&segments, &config.month_cost) {
-        db::get_month_other_sessions_nano(&db_path, input.session_id.as_deref())
+        let session_id = input.session_id.as_deref();
+        let query = || db::get_month_other_sessions_nano(&db_path, session_id);
+        match session_id {
+            Some(id) => month_spend::other_sessions_nano(
+                &month_spend::snapshot_path(id),
+                github::current_timestamp(),
+                query,
+            ),
+            None => query(),
+        }
     } else {
         0
     };
