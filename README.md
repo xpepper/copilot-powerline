@@ -165,7 +165,7 @@ This creates `~/.copilot/powerline.toml`.
 | Segment | Icon (`nerd`) | Icon (`emoji`) | Text (`plain`) | Example Value | Description |
 |---|:---:|:---:|---|---|---|
 | `tokens` | `󰮚` / `⚠️` | `🪙` / `⚠️` | `Tokens:` | `145k/400k (36%)` | **Context Window**: Active context tokens vs model limit (and percentage used). Automatically switches to `⚠️` when crossing the configured alert threshold (default `>100k`). |
-| `session_cost` | `󰄬` | `💰` | `Session:` | `$8.64` | **Current Session Cost**: Real-time spend accumulated in the active session in USD (optional AIC credit display). |
+| `session_cost` | `󰄬` | `💰` | `Session:` | `$8.64` / `⚠️ $9.10` | **Current Session Cost**: Real-time spend accumulated in the active session in USD (optional AIC credit display). Turns to `⚠️` and the alert color when the latest step cost much more per token than the session average, a hint of expensive model routing or uncached retries. |
 | `month_cost` | `󰠠` | `📅` | `Month:` | `$281.66` | **Month-to-Date Cost**: Total cumulative monthly spend across all sessions, queried directly from Copilot's `~/.copilot/session-store.db`. |
 | `cache` | `󰘸` | `⚡` | `Cache:` | `95% ↓` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Shows `↑` (green, or blue in `colorblind`) when the latest call hit the cache clearly more than the session average, and `↓` (red, or orange in `colorblind`) when it hit it clearly less. Automatically hidden when 0. |
 | `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative tokens used by thinking models (e.g. o3-mini, Claude 3.7 Sonnet). Automatically hidden when 0. |
@@ -208,6 +208,10 @@ enabled = true
 currency_symbol = "$"
 show_aic = false       # Set to true to show "(X.X AIC)"
 decimal_places = 2
+spike_alert = true     # Flag steps that cost much more per token than the session average
+spike_ratio = 2.0      # ...this many times the average
+spike_min_usd = 0.05   # ...and at least this much in a single step
+spike_icon = "⚠️ "
 
 [month_cost]
 enabled = true

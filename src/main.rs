@@ -12,6 +12,7 @@ mod input;
 mod mode;
 mod renderer;
 mod segments;
+mod spend;
 mod state;
 mod theme;
 
@@ -156,6 +157,24 @@ fn main() {
     let session_nano = input.ai_used.total_nano_aiu;
     let total_month_nano = other_nano + session_nano;
 
+    let spend_spike = config.session_cost.spike_alert
+        && segments.iter().any(|s| s == "session_cost")
+        && input.session_id.as_deref().is_some_and(|id| {
+            let ctx = &input.context_window;
+            let total_tokens = ctx.total_tokens.unwrap_or_else(|| {
+                ctx.total_input_tokens.unwrap_or(0) + ctx.total_output_tokens.unwrap_or(0)
+            });
+            spend::check_spike(
+                &spend::snapshot_path(id),
+                session_nano,
+                total_tokens,
+                spend::SpikeRule {
+                    ratio: config.session_cost.spike_ratio,
+                    min_usd: config.session_cost.spike_min_usd,
+                },
+            )
+        });
+
     let mut rendered_segments = Vec::new();
 
     for seg in &segments {
@@ -173,6 +192,7 @@ fn main() {
             "session_cost" => {
                 if let Some(s) = render_session_cost_segment(
                     session_nano,
+                    spend_spike,
                     &config.session_cost,
                     config.icon_set,
                     &palette,

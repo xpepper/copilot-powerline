@@ -182,6 +182,18 @@ pub struct CostConfig {
     pub show_aic: bool,
     #[serde(default = "default_decimals")]
     pub decimal_places: usize,
+    /// Flag the session cost when the latest step cost much more per token
+    /// than the session average (expensive routing, uncached retries).
+    #[serde(default = "default_true")]
+    pub spike_alert: bool,
+    /// Multiple of the session's average cost per token that counts as a spike.
+    #[serde(default = "default_spike_ratio")]
+    pub spike_ratio: f64,
+    /// Steps cheaper than this (in USD) never count as a spike.
+    #[serde(default = "default_spike_min_usd")]
+    pub spike_min_usd: f64,
+    #[serde(default = "default_alert_icon")]
+    pub spike_icon: String,
 }
 
 impl Default for CostConfig {
@@ -192,8 +204,20 @@ impl Default for CostConfig {
             currency_symbol: default_currency(),
             show_aic: false,
             decimal_places: 2,
+            spike_alert: true,
+            spike_ratio: default_spike_ratio(),
+            spike_min_usd: default_spike_min_usd(),
+            spike_icon: default_alert_icon(),
         }
     }
+}
+
+fn default_spike_ratio() -> f64 {
+    2.0
+}
+
+fn default_spike_min_usd() -> f64 {
+    0.05
 }
 
 fn default_currency() -> String {
@@ -424,6 +448,9 @@ mod tests {
         );
         assert!(!cfg.session_cost.show_aic);
         assert!(!cfg.month_cost.show_aic);
+        assert!(cfg.session_cost.spike_alert);
+        assert_eq!(cfg.session_cost.spike_ratio, 2.0);
+        assert_eq!(cfg.session_cost.spike_min_usd, 0.05);
         assert!(cfg.pr.enabled);
         assert!(cfg.pr.hyperlinks);
         assert_eq!(cfg.pr.cache_ttl_seconds, 60);
