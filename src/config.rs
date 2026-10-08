@@ -183,8 +183,9 @@ pub struct CostConfig {
     #[serde(default = "default_decimals")]
     pub decimal_places: usize,
     /// Flag the session cost when the latest step cost much more per token
-    /// than the session average (expensive routing, uncached retries).
-    #[serde(default = "default_true")]
+    /// than the session average (expensive routing, cache misses). Opt-in
+    /// until the thresholds are tuned on real sessions.
+    #[serde(default)]
     pub spike_alert: bool,
     /// Multiple of the session's average cost per token that counts as a spike.
     #[serde(default = "default_spike_ratio")]
@@ -204,7 +205,7 @@ impl Default for CostConfig {
             currency_symbol: default_currency(),
             show_aic: false,
             decimal_places: 2,
-            spike_alert: true,
+            spike_alert: false,
             spike_ratio: default_spike_ratio(),
             spike_min_usd: default_spike_min_usd(),
             spike_icon: default_alert_icon(),
@@ -448,7 +449,8 @@ mod tests {
         );
         assert!(!cfg.session_cost.show_aic);
         assert!(!cfg.month_cost.show_aic);
-        assert!(cfg.session_cost.spike_alert);
+        // Opt-in until the thresholds are tuned on real sessions.
+        assert!(!cfg.session_cost.spike_alert);
         assert_eq!(cfg.session_cost.spike_ratio, 2.0);
         assert_eq!(cfg.session_cost.spike_min_usd, 0.05);
         assert!(cfg.pr.enabled);
@@ -499,6 +501,8 @@ mod tests {
         assert_eq!(parsed.theme, "nord");
         assert_eq!(parsed.icon_set, IconSet::Emoji);
         assert!(parsed.session_cost.show_aic);
+        // spike_alert omitted from a present [session_cost] section: opt-in
+        assert!(!parsed.session_cost.spike_alert);
         // month_cost was omitted, should take default
         assert!(!parsed.month_cost.show_aic);
         assert_eq!(parsed.tokens.alert_threshold, 100_000);
