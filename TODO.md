@@ -27,9 +27,17 @@ Open work only, highest priority first. Completed items live in git history.
 - [ ] Prune stale state files in the cache dir: per-session
       `spend_*.json`, `cache_*.json` and `month_*.json` snapshots and
       `pr_*.json` entries are never removed. Tiny, but they grow forever.
-      Prune opportunistically
-      (e.g. files older than 30 days, only when creating a new one) to keep
-      the hot path cheap.
+      Prune opportunistically (e.g. files older than 30 days, only when
+      creating a new one) to keep the hot path cheap.
+- [ ] Binary-level test for `main.rs` wiring. Nothing checks that `main`
+      actually skips the month query when `month_cost` is hidden, or reuses
+      the cached total; only `hyperfine` and manual runs showed it. A test
+      could run the built binary (`env!("CARGO_BIN_EXE_copilot-powerline")`)
+      against a temp config whose `[month_cost] db_path` points at a temp
+      SQLite file, with no new dependency.
+- [ ] Extract the repeated "is this segment shown" check in `main.rs`
+      (`segments.iter().any(|s| s == "...")` for `pr`, `session_cost` and
+      `cache`), as done with `month_cost::is_visible`.
 
 ## New optional segments (from unused payload fields)
 
