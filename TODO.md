@@ -13,20 +13,6 @@ Open work only, highest priority first. Completed items live in git history.
       output-heavy steps (output tokens cost more than input). Not yet seen
       live; the cache trend arrow and `--toggle` are verified live.
 
-## Performance
-
-- [ ] Bring refresh time back under 15 ms. Measured 2026-10-08 with
-      `hyperfine -N` on the 0.4.0 binary against a 431 MB
-      `session-store.db` (32k `assistant_usage_events` rows): median wall
-      18.8 ms with the full user config, 13.3 ms with only `tokens` and
-      `session_cost`, 4.9 ms with the DB path pointed at a missing file.
-      The month-to-date query is ~75M of ~96M instructions: it is a full
-      table scan (no index on `created_at`, and we must not add one) and it
-      runs on every refresh, even when `month_cost` is not displayed.
-      Ideas: skip the query when `month_cost` is not in the active
-      segments; cache the other-sessions total in a state file with a short
-      TTL, keyed by month and session.
-
 ## Spend alerts
 
 - [ ] Absolute session spend threshold, e.g. `alert_above_usd = 5.0` under
@@ -39,8 +25,9 @@ Open work only, highest priority first. Completed items live in git history.
 ## Housekeeping
 
 - [ ] Prune stale state files in the cache dir: per-session
-      `spend_*.json` and `cache_*.json` snapshots and `pr_*.json` entries
-      are never removed. Tiny, but they grow forever. Prune opportunistically
+      `spend_*.json`, `cache_*.json` and `month_*.json` snapshots and
+      `pr_*.json` entries are never removed. Tiny, but they grow forever.
+      Prune opportunistically
       (e.g. files older than 30 days, only when creating a new one) to keep
       the hot path cheap.
 
