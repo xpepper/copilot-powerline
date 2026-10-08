@@ -69,6 +69,8 @@ pub struct Config {
     pub total_tokens: TotalTokensConfig,
     #[serde(default)]
     pub pr: PrConfig,
+    #[serde(default)]
+    pub model: ModelConfig,
 }
 
 fn default_theme() -> String {
@@ -259,6 +261,27 @@ impl Default for Config {
             reasoning: ReasoningConfig::default(),
             total_tokens: TotalTokensConfig::default(),
             pr: PrConfig::default(),
+            model: ModelConfig::default(),
+        }
+    }
+}
+
+/// Optional active model name (e.g. `Claude Sonnet 4.5`, or
+/// `Auto → Claude Opus 4.5` when `auto` routing picked a model).
+///
+/// Not in the default `segments` list: add `"model"` to opt in.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub prefix: Option<String>,
+}
+
+impl Default for ModelConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            prefix: None,
         }
     }
 }
@@ -347,6 +370,7 @@ mod tests {
         assert_eq!(cfg.pr.cache_ttl_seconds, 60);
         // "pr" is opt-in: it must not appear in the default segment list.
         assert!(!cfg.segments.iter().any(|s| s == "pr"));
+        assert!(!cfg.segments.iter().any(|s| s == "model"));
     }
 
     #[test]

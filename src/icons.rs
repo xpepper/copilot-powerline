@@ -66,6 +66,17 @@ pub fn total_tokens_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
     }
 }
 
+pub fn model_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
+    if let Some(c) = custom {
+        return c;
+    }
+    match icon_set {
+        IconSet::Plain => "Model:",
+        IconSet::Nerd => "\u{f061a}", // nf-md-chip
+        IconSet::Emoji => "🤖",
+    }
+}
+
 pub fn pr_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
     if let Some(c) = custom {
         return c;
@@ -88,6 +99,7 @@ mod tests {
         assert_eq!(reasoning_icon(IconSet::Plain, None), "Think:");
         assert_eq!(total_tokens_icon(IconSet::Plain, None), "Total:");
         assert_eq!(pr_icon(IconSet::Plain, None), "PR");
+        assert_eq!(model_icon(IconSet::Plain, None), "Model:");
     }
 
     #[test]
@@ -108,6 +120,7 @@ mod tests {
         assert_eq!(reasoning_icon(IconSet::Emoji, None), "🧠");
         assert_eq!(total_tokens_icon(IconSet::Emoji, None), "📊");
         assert_eq!(pr_icon(IconSet::Emoji, None), "🔀");
+        assert_eq!(model_icon(IconSet::Emoji, None), "🤖");
     }
 
     #[test]

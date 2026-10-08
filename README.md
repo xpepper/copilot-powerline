@@ -170,6 +170,7 @@ This creates `~/.copilot/powerline.toml`.
 | `cache` | `󰘸` | `⚡` | `Cache:` | `95% ↓` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Shows `↑` (green, or blue in `colorblind`) when the latest call hit the cache clearly more than the session average, and `↓` (red, or orange in `colorblind`) when it hit it clearly less. Automatically hidden when 0. |
 | `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative tokens used by thinking models (e.g. o3-mini, Claude 3.7 Sonnet). Automatically hidden when 0. |
 | `total_tokens` | `󰓅` | `📊` | `Total:` | `4.5M` | **Total Session Tokens**: Total cumulative token throughput (input + output + cached) exchanged across all turns and compactions in the session. |
+| `model` | `󰘚` | `🤖` | `Model:` | `Auto → Claude Opus 4.5` | **Active Model** *(optional, not in the default `segments` list)*: The model Copilot is using. With `auto`, shows which model the router picked, so a switch to a pricier model is visible. |
 | `pr` | `` | `🔀` | `PR` | `PR #50` | **Pull Request Reference** *(optional, not in the default `segments` list)*: The current branch's open pull request, as a clickable hyperlink. Requires an authenticated `gh` CLI; hidden when the branch has no open PR or `gh` is unavailable. |
 
 ---
@@ -189,6 +190,7 @@ segments = [
     "cache",
     "reasoning",
     "total_tokens",
+    # "model", # Uncomment to show the active model (and where `auto` routed)
     # "pr",   # Uncomment to show the current branch's PR (requires the `gh` CLI)
 ]
 
@@ -223,6 +225,10 @@ auto_hide_zero = true      # Automatically hide if model has no reasoning tokens
 
 [total_tokens]
 enabled = true
+
+[model]
+enabled = true
+# prefix = "Model:"    # Optional custom override
 
 [pr]
 enabled = true

@@ -18,6 +18,7 @@ use config::{Config, IconSet, Style};
 use input::CopilotInput;
 use renderer::render_segments;
 use segments::cache::render_cache_segment;
+use segments::model::render_model_segment;
 use segments::month_cost::render_month_cost_segment;
 use segments::pr::render_pr_segment;
 use segments::reasoning::render_reasoning_segment;
@@ -197,6 +198,16 @@ fn main() {
                 if let Some(s) = render_total_tokens_segment(
                     &input.context_window,
                     &config.total_tokens,
+                    config.icon_set,
+                    &palette,
+                ) {
+                    rendered_segments.push(s);
+                }
+            }
+            "model" => {
+                if let Some(s) = render_model_segment(
+                    input.model.as_ref(),
+                    &config.model,
                     config.icon_set,
                     &palette,
                 ) {
