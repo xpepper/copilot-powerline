@@ -6,8 +6,6 @@
 //! small per-session snapshot file.
 
 use serde::{Deserialize, Serialize};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 /// 1 USD = 100 AIC = 1e11 nano AIU.
@@ -66,25 +64,13 @@ pub fn assess(
 }
 
 pub fn snapshot_path(session_id: &str) -> PathBuf {
-    let mut hasher = DefaultHasher::new();
-    session_id.hash(&mut hasher);
-    crate::state::base_dir().join(format!("spend_{:016x}.json", hasher.finish()))
+    crate::state::session_file("spend", session_id)
 }
 
 /// Reads the session snapshot at `path`, assesses the current counters and
 /// persists the result. Returns whether the session cost should be flagged.
 pub fn check_spike(path: &Path, nano_aiu: u64, total_tokens: u64, rule: SpikeRule) -> bool {
-    let prev = std::fs::read_to_string(path)
-        .ok()
-        .and_then(|content| serde_json::from_str(&content).ok());
-    let next = assess(prev, nano_aiu, total_tokens, rule);
-
-    if prev != Some(next)
-        && let Ok(json) = serde_json::to_string(&next)
-    {
-        let _ = crate::state::write_private_atomic(path, json.as_bytes());
-    }
-    next.alert
+    crate::state::update_snapshot(path, |prev| assess(prev, nano_aiu, total_tokens, rule)).alert
 }
 
 #[cfg(test)]
@@ -157,14 +143,6 @@ mod tests {
     fn test_no_baseline_without_prior_tokens() {
         let prev = snap(0, 0, false);
         assert!(!assess(Some(prev), 90 * CENT, 1_000, RULE).alert);
-    }
-
-    #[test]
-    fn test_snapshot_path_is_private_and_per_session() {
-        let a = snapshot_path("sess-a");
-        assert!(a.starts_with(crate::state::base_dir()));
-        assert_ne!(a, snapshot_path("sess-b"));
-        assert_eq!(a, snapshot_path("sess-a"));
     }
 
     #[test]

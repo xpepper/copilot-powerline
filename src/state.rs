@@ -2,7 +2,10 @@
 //! display mode, spend snapshots). Every refresh is a fresh process, so any
 //! cross-refresh memory has to live on disk.
 
+use serde::{Serialize, de::DeserializeOwned};
+use std::collections::hash_map::DefaultHasher;
 use std::fs::{self, File};
+use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -46,4 +49,46 @@ pub fn write_private_atomic(path: &Path, contents: &[u8]) -> std::io::Result<()>
     }
 
     fs::rename(&tmp_path, path)
+}
+
+/// Path of a per-session state file, e.g. `spend_<hash>.json`. The session id
+/// is hashed so arbitrary ids can never escape the state directory.
+pub fn session_file(kind: &str, session_id: &str) -> PathBuf {
+    let mut hasher = DefaultHasher::new();
+    session_id.hash(&mut hasher);
+    base_dir().join(format!("{kind}_{:016x}.json", hasher.finish()))
+}
+
+/// Loads the snapshot at `path` (if readable), lets `assess` derive the next
+/// one, and persists it only when it changed. Write failures are ignored: the
+/// status line must render even when the cache dir is read-only.
+pub fn update_snapshot<T>(path: &Path, assess: impl FnOnce(Option<T>) -> T) -> T
+where
+    T: Serialize + DeserializeOwned + PartialEq + Copy,
+{
+    let prev = fs::read_to_string(path)
+        .ok()
+        .and_then(|content| serde_json::from_str(&content).ok());
+    let next = assess(prev);
+
+    if prev != Some(next)
+        && let Ok(json) = serde_json::to_string(&next)
+    {
+        let _ = write_private_atomic(path, json.as_bytes());
+    }
+    next
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_session_file_is_private_and_per_session_and_kind() {
+        let a = session_file("spend", "sess-a");
+        assert!(a.starts_with(base_dir()));
+        assert_eq!(a, session_file("spend", "sess-a"));
+        assert_ne!(a, session_file("spend", "sess-b"));
+        assert_ne!(a, session_file("cache", "sess-a"));
+    }
 }
