@@ -11,6 +11,7 @@ mod github;
 mod icons;
 mod input;
 mod mode;
+mod month_spend;
 mod renderer;
 mod segments;
 mod spend;
@@ -23,7 +24,7 @@ use input::CopilotInput;
 use renderer::render_segments;
 use segments::cache::render_cache_segment;
 use segments::model::render_model_segment;
-use segments::month_cost::render_month_cost_segment;
+use segments::month_cost::{self, render_month_cost_segment};
 use segments::pr::render_pr_segment;
 use segments::reasoning::render_reasoning_segment;
 use segments::session_cost::render_session_cost_segment;
@@ -155,7 +156,20 @@ fn main() {
         None
     };
 
-    let other_nano = db::get_month_other_sessions_nano(&db_path, input.session_id.as_deref());
+    let other_nano = if month_cost::is_visible(&segments, &config.month_cost) {
+        let session_id = input.session_id.as_deref();
+        let query = || db::get_month_other_sessions_nano(&db_path, session_id);
+        match session_id {
+            Some(id) => month_spend::other_sessions_nano(
+                &month_spend::snapshot_path(id),
+                github::current_timestamp(),
+                query,
+            ),
+            None => query(),
+        }
+    } else {
+        0
+    };
     let session_nano = input.ai_used.total_nano_aiu;
     let total_month_nano = other_nano + session_nano;
 

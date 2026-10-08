@@ -7,6 +7,12 @@ pub fn calculate_month_spend(total_month_nano: u64) -> (f64, f64) {
     (usd, aic)
 }
 
+/// Whether the segment will render, so callers can skip the month-to-date
+/// query (a full scan of the usage table) when nothing would show it.
+pub fn is_visible(segments: &[String], config: &MonthCostConfig) -> bool {
+    config.enabled && segments.iter().any(|s| s == "month_cost")
+}
+
 pub fn render_month_cost_segment(
     total_month_nano: u64,
     config: &MonthCostConfig,
@@ -61,6 +67,31 @@ mod tests {
         let rendered =
             render_month_cost_segment(25_938_000_000_000, &cfg, IconSet::Emoji, &p).unwrap();
         assert_eq!(rendered, "📅 $259.38");
+    }
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(ToString::to_string).collect()
+    }
+
+    #[test]
+    fn test_visible_when_listed_and_enabled() {
+        let cfg = MonthCostConfig::default();
+        assert!(is_visible(&names(&["tokens", "month_cost"]), &cfg));
+    }
+
+    #[test]
+    fn test_hidden_when_not_in_active_segments() {
+        let cfg = MonthCostConfig::default();
+        assert!(!is_visible(&names(&["tokens", "session_cost"]), &cfg));
+    }
+
+    #[test]
+    fn test_hidden_when_disabled() {
+        let cfg = MonthCostConfig {
+            enabled: false,
+            ..Default::default()
+        };
+        assert!(!is_visible(&names(&["month_cost"]), &cfg));
     }
 
     #[test]

@@ -11,9 +11,9 @@ Welcome! This document provides architecture overviews, design constraints, and 
 ### Data Flow
 1. **Stdin Input**: GitHub Copilot CLI passes a JSON payload via standard input on statusline refreshes (containing `context_window`, `ai_used`, `session_id`, `model`, etc.). Copilot CLI spawns the command in the session's current working directory (following `/cwd` and session switches), so PR/git lookups use the process's own cwd. The payload's `cwd` and `workspace.current_dir` (1.0.90+) carry the same value and are not parsed.
 2. **Configuration**: The tool loads `~/.copilot/powerline.toml` (or a path provided via `--config`), falling back to built-in defaults.
-3. **Database Query**: Queries the local SQLite database (`~/.copilot/session-store.db`) to calculate month-to-date spend across previous sessions.
+3. **Database Query**: Queries the local SQLite database (`~/.copilot/session-store.db`) to calculate month-to-date spend across previous sessions. The query scans the whole usage table, so it only runs when `month_cost` is visible, and its result is cached per session for 60 s (`src/month_spend.rs`).
 4. **PR Lookup (optional)**: If the `pr` segment is enabled, reads a disk-cached PR reference for the current branch; a stale or missing cache triggers a throttled, detached background refresh via `gh pr view` (see `--fetch-pr-cache` below) so the hot path never blocks on a network call.
-5. **Cross-refresh State**: Every refresh is a fresh process, so anything compared across refreshes lives in small private files under the user cache dir (`src/state.rs`): the `--toggle` display mode override and per-session snapshots used to flag spend spikes and the cache hit trend. Note that the payload's `current_usage` mirrors session totals, so per-step values must be derived from these snapshots.
+5. **Cross-refresh State**: Every refresh is a fresh process, so anything compared across refreshes lives in small private files under the user cache dir (`src/state.rs`): the `--toggle` display mode override, per-session snapshots used to flag spend spikes and the cache hit trend, and the cached month-to-date total of other sessions. Note that the payload's `current_usage` mirrors session totals, so per-step values must be derived from these snapshots.
 6. **Segment Assembly**: Picks `segments` or `compact_segments` based on the display mode, then iterates through them (`tokens`, `session_cost`, `month_cost`, `cache`, `reasoning`, `total_tokens`, `model`, `pr`), formatting each.
 7. **Rendering**: The `renderer` applies the configured style (`minimal`, `powerline`, `capsule`, `plain`) and theme ANSI colors.
 8. **Stdout Output**: Emits the single-line formatted status line to standard output.
@@ -38,6 +38,7 @@ copilot-powerline/
 │   ├── git.rs                 # Fast, subprocess-free current branch detection (reads .git/HEAD)
 │   ├── github.rs              # `gh pr view` lookup with disk caching and throttled background refresh
 │   ├── mode.rs                # Full/compact display mode override written by --toggle
+│   ├── month_spend.rs         # Per-session 60 s cache of other sessions' month-to-date spend
 │   ├── spend.rs               # Spend spike detection from per-session snapshots
 │   ├── state.rs               # Private cache-dir location and atomic writes for cross-refresh state
 │   ├── renderer.rs            # Separators and powerline/capsule glyph formatting
