@@ -183,6 +183,8 @@ This creates `~/.copilot/powerline.toml`.
 style = "minimal"      # Options: "minimal", "powerline", "capsule", "plain"
 icon_set = "nerd"      # Options: "nerd", "emoji", "plain"
 theme = "colorblind"   # Options: "colorblind", "github", "nord", "tokyo-night", "plain"
+mode = "full"          # "full" shows `segments`, "compact" shows `compact_segments`
+compact_segments = ["tokens", "session_cost", "month_cost"]
 segments = [
     "tokens",
     "session_cost",
@@ -237,6 +239,16 @@ cache_ttl_seconds = 60 # How long a cached PR lookup is considered fresh
 # prefix = "Pull:"      # Optional custom override
 ```
 
+### Compact mode
+
+Cache hit rate, reasoning and total tokens are useful when diagnosing a session but noisy during normal work. Switch to the shorter `compact_segments` list and back at any time:
+
+```bash
+copilot-powerline --toggle   # prints "copilot-powerline: compact mode" or "... full mode"
+```
+
+From inside Copilot CLI, run it as a shell command: `!copilot-powerline --toggle`. The change shows up on the next status line refresh, with no restart. The toggle is stored in your user cache directory and is cleared when you toggle back to the `mode` set in `powerline.toml`.
+
 The `pr` segment shells out to `gh pr view --json number,url` for the current branch. To avoid blocking the status line on a network call, lookups are cached to disk and refreshed by a throttled, detached background process; the segment is hidden until the first refresh completes, and again whenever the branch has no open PR or `gh` is not installed/authenticated.
 
 ---
@@ -260,6 +272,9 @@ copilot-powerline --style minimal
 # Override theme on the fly
 copilot-powerline --theme nord
 copilot-powerline --theme tokyo-night
+
+# Switch between full and compact mode
+copilot-powerline --toggle
 
 # Use a custom configuration file
 copilot-powerline --config /path/to/custom-powerline.toml

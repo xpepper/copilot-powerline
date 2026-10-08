@@ -9,6 +9,7 @@ mod git;
 mod github;
 mod icons;
 mod input;
+mod mode;
 mod renderer;
 mod segments;
 mod state;
@@ -97,6 +98,20 @@ fn main() {
         }
     }
 
+    let mode_path = mode::override_file_path();
+
+    if cli.toggle {
+        match mode::toggle(&mode_path, config.mode) {
+            Ok(m) => println!("copilot-powerline: {} mode", m.as_str()),
+            Err(e) => eprintln!("Failed to save display mode: {e}"),
+        }
+        return;
+    }
+
+    let segments = config
+        .segments_for(mode::effective(&mode_path, config.mode))
+        .to_vec();
+
     let palette = Palette::for_theme(&config.theme);
 
     let raw_input = read_stdin();
@@ -116,7 +131,7 @@ fn main() {
     // Copilot CLI does not include the working directory in its stdin
     // payload, so PR lookups rely on the process's own cwd, which Copilot
     // CLI inherits from the terminal session it was launched from.
-    let pr_segment_enabled = config.pr.enabled && config.segments.iter().any(|s| s == "pr");
+    let pr_segment_enabled = config.pr.enabled && segments.iter().any(|s| s == "pr");
 
     let pr_info = if pr_segment_enabled {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -143,7 +158,7 @@ fn main() {
 
     let mut rendered_segments = Vec::new();
 
-    for seg in &config.segments {
+    for seg in &segments {
         match seg.as_str() {
             "tokens" => {
                 if let Some(s) = render_tokens_segment(

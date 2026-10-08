@@ -45,6 +45,42 @@ impl std::str::FromStr for IconSet {
     }
 }
 
+/// Which segment list to render: `segments` (full) or `compact_segments`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DisplayMode {
+    #[default]
+    Full,
+    Compact,
+}
+
+impl DisplayMode {
+    pub fn toggled(self) -> Self {
+        match self {
+            DisplayMode::Full => DisplayMode::Compact,
+            DisplayMode::Compact => DisplayMode::Full,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            DisplayMode::Full => "full",
+            DisplayMode::Compact => "compact",
+        }
+    }
+}
+
+impl std::str::FromStr for DisplayMode {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            "full" => Ok(DisplayMode::Full),
+            "compact" => Ok(DisplayMode::Compact),
+            other => Err(format!("Unknown display mode: {other}")),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
@@ -53,8 +89,14 @@ pub struct Config {
     pub icon_set: IconSet,
     #[serde(default = "default_theme")]
     pub theme: String,
+    #[serde(default)]
+    pub mode: DisplayMode,
     #[serde(default = "default_segments")]
     pub segments: Vec<String>,
+    /// Segments shown in compact mode: the always-useful essentials, leaving
+    /// diagnostic segments (cache, reasoning, totals) for full mode.
+    #[serde(default = "default_compact_segments")]
+    pub compact_segments: Vec<String>,
     #[serde(default)]
     pub tokens: TokensConfig,
     #[serde(default)]
@@ -75,6 +117,14 @@ pub struct Config {
 
 fn default_theme() -> String {
     "colorblind".to_string()
+}
+
+fn default_compact_segments() -> Vec<String> {
+    vec![
+        "tokens".to_string(),
+        "session_cost".to_string(),
+        "month_cost".to_string(),
+    ]
 }
 
 fn default_segments() -> Vec<String> {
@@ -253,7 +303,9 @@ impl Default for Config {
             style: Style::Minimal,
             icon_set: IconSet::Plain,
             theme: default_theme(),
+            mode: DisplayMode::Full,
             segments: default_segments(),
+            compact_segments: default_compact_segments(),
             tokens: TokensConfig::default(),
             session_cost: CostConfig::default(),
             month_cost: MonthCostConfig::default(),
@@ -326,6 +378,13 @@ impl Config {
 
     pub fn to_toml_string(&self) -> Result<String, toml::ser::Error> {
         toml::to_string_pretty(self)
+    }
+
+    pub fn segments_for(&self, mode: DisplayMode) -> &[String] {
+        match mode {
+            DisplayMode::Full => &self.segments,
+            DisplayMode::Compact => &self.compact_segments,
+        }
     }
 
     pub fn default_config_path() -> Option<PathBuf> {
@@ -416,5 +475,43 @@ mod tests {
         // month_cost was omitted, should take default
         assert!(!parsed.month_cost.show_aic);
         assert_eq!(parsed.tokens.alert_threshold, 100_000);
+    }
+
+    #[test]
+    fn test_display_mode_defaults_to_full_with_essential_compact_list() {
+        let cfg = Config::default();
+        assert_eq!(cfg.mode, DisplayMode::Full);
+        assert_eq!(cfg.segments_for(DisplayMode::Full), cfg.segments.as_slice());
+        assert_eq!(
+            cfg.segments_for(DisplayMode::Compact),
+            ["tokens", "session_cost", "month_cost"]
+        );
+    }
+
+    #[test]
+    fn test_parse_compact_mode_and_custom_list() {
+        let parsed = Config::from_toml(
+            r#"
+            mode = "compact"
+            compact_segments = ["tokens", "model"]
+        "#,
+        )
+        .expect("compact config should parse");
+        assert_eq!(parsed.mode, DisplayMode::Compact);
+        assert_eq!(parsed.segments_for(parsed.mode), ["tokens", "model"]);
+    }
+
+    #[test]
+    fn test_display_mode_toggle_and_parse() {
+        assert_eq!(DisplayMode::Full.toggled(), DisplayMode::Compact);
+        assert_eq!(DisplayMode::Compact.toggled(), DisplayMode::Full);
+        for mode in [DisplayMode::Full, DisplayMode::Compact] {
+            assert_eq!(mode.as_str().parse::<DisplayMode>(), Ok(mode));
+        }
+        assert_eq!(
+            " Compact\n".parse::<DisplayMode>(),
+            Ok(DisplayMode::Compact)
+        );
+        assert!("sideways".parse::<DisplayMode>().is_err());
     }
 }
