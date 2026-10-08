@@ -14,13 +14,14 @@ Open work only, highest priority first. Completed items live in git history.
 
 ## Validate new features
 
-- [ ] Tune the session-cost spike thresholds (`spike_ratio = 2.0`,
-      `spike_min_usd = 0.05`) against a few days of real sessions. They are
-      reasonable guesses, not measured. Watch for false alarms in agent loops
-      and cache-miss turns.
-- [ ] Watch for a spike warning in a live Copilot CLI session (only
-      verified with piped payloads so far). The cache trend arrow and
-      `--toggle` are verified live.
+- [ ] Tune the session-cost spike warning, then decide whether to turn it
+      on by default. It ships opt-in (`spike_alert = false`) because the
+      thresholds (`spike_ratio = 2.0`, `spike_min_usd = 0.05`) are guesses.
+      Enable it for a few days of real sessions and note how often it fires.
+      Expected false alarms: the first turn after ~5 idle minutes (the prompt
+      cache TTL is 300 s, so the whole context is rewritten) and
+      output-heavy steps (output tokens cost more than input). Not yet seen
+      live; the cache trend arrow and `--toggle` are verified live.
 
 ## Performance
 
@@ -30,12 +31,22 @@ Open work only, highest priority first. Completed items live in git history.
       hyperfine figure was ~12.6 ms. If it is really over, profile the
       month-to-date SQLite query against a large `session-store.db`.
 
+## Spend alerts
+
+- [ ] Absolute session spend threshold, e.g. `alert_above_usd = 5.0` under
+      `[session_cost]`: show the session cost with `⚠️` and the alert color
+      once it passes the limit. Stateless and predictable, and it covers what
+      the relative spike warning cannot: sessions that are expensive from the
+      start, and overall budget surprises. Consider the same for
+      `month_cost`.
+
 ## Housekeeping
 
 - [ ] Prune stale state files in the cache dir: per-session
-      `spend_*.json` snapshots and `pr_*.json` entries are never removed.
-      Tiny, but they grow forever. Prune opportunistically (e.g. files older
-      than 30 days, only when creating a new one) to keep the hot path cheap.
+      `spend_*.json` and `cache_*.json` snapshots and `pr_*.json` entries
+      are never removed. Tiny, but they grow forever. Prune opportunistically
+      (e.g. files older than 30 days, only when creating a new one) to keep
+      the hot path cheap.
 
 ## New optional segments (from unused payload fields)
 
