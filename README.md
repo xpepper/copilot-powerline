@@ -167,7 +167,7 @@ This creates `~/.copilot/powerline.toml`.
 | `tokens` | `󰮚` / `⚠️` | `🪙` / `⚠️` | `Tokens:` | `145k/400k (36%)` | **Context Window**: Active context tokens vs model limit (and percentage used). Automatically switches to `⚠️` when crossing the configured alert threshold (default `>100k`). |
 | `session_cost` | `󰄬` | `💰` | `Session:` | `$8.64` | **Current Session Cost**: Real-time spend accumulated in the active session in USD (optional AIC credit display). |
 | `month_cost` | `󰠠` | `📅` | `Month:` | `$281.66` | **Month-to-Date Cost**: Total cumulative monthly spend across all sessions, queried directly from Copilot's `~/.copilot/session-store.db`. |
-| `cache` | `󰘸` | `⚡` | `Cache:` | `95%` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Automatically hidden when 0. |
+| `cache` | `󰘸` | `⚡` | `Cache:` | `95% ↓` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Shows `↑` (green, or blue in `colorblind`) when the latest call hit the cache clearly more than the session average, and `↓` (red, or orange in `colorblind`) when it hit it clearly less. Automatically hidden when 0. |
 | `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative tokens used by thinking models (e.g. o3-mini, Claude 3.7 Sonnet). Automatically hidden when 0. |
 | `total_tokens` | `󰓅` | `📊` | `Total:` | `4.5M` | **Total Session Tokens**: Total cumulative token throughput (input + output + cached) exchanged across all turns and compactions in the session. |
 | `pr` | `` | `🔀` | `PR` | `PR #50` | **Pull Request Reference** *(optional, not in the default `segments` list)*: The current branch's open pull request, as a clickable hyperlink. Requires an authenticated `gh` CLI; hidden when the branch has no open PR or `gh` is unavailable. |
@@ -215,6 +215,7 @@ decimal_places = 2
 enabled = true
 show_as_percentage = true  # Set to false to show token count (e.g. 85k)
 auto_hide_zero = true      # Automatically hide if 0 cache reads
+show_trend = true          # ↑/↓ when the latest call beats or misses the session average
 
 [reasoning]
 enabled = true

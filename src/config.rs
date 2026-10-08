@@ -192,6 +192,10 @@ pub struct CacheConfig {
     pub show_as_percentage: bool,
     #[serde(default = "default_true")]
     pub auto_hide_zero: bool,
+    /// Color the hit rate and add an arrow (↑/↓) when the most recent call's
+    /// cache hit rate is clearly above or below the session average.
+    #[serde(default = "default_true")]
+    pub show_trend: bool,
 }
 
 impl Default for CacheConfig {
@@ -201,6 +205,7 @@ impl Default for CacheConfig {
             prefix: None,
             show_as_percentage: true,
             auto_hide_zero: true,
+            show_trend: true,
         }
     }
 }

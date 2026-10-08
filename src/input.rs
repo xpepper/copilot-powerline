@@ -30,6 +30,18 @@ pub struct ContextWindow {
     pub total_reasoning_tokens: Option<u64>,
     #[serde(default)]
     pub total_tokens: Option<u64>,
+    /// Token usage of the most recent API call. `input_tokens` includes
+    /// cache reads and writes, matching how `total_input_tokens` is counted.
+    #[serde(default)]
+    pub current_usage: Option<CurrentUsage>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct CurrentUsage {
+    #[serde(default)]
+    pub input_tokens: Option<u64>,
+    #[serde(default)]
+    pub cache_read_input_tokens: Option<u64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -69,7 +81,13 @@ mod tests {
                 "total_cache_read_tokens": 35000,
                 "total_cache_write_tokens": 8000,
                 "total_reasoning_tokens": 3200,
-                "total_tokens": 62000
+                "total_tokens": 62000,
+                "current_usage": {
+                    "input_tokens": 4000,
+                    "output_tokens": 300,
+                    "cache_creation_input_tokens": 100,
+                    "cache_read_input_tokens": 3500
+                }
             },
             "ai_used": {
                 "total_nano_aiu": 500000000000
@@ -92,6 +110,9 @@ mod tests {
         assert_eq!(input.context_window.total_cache_write_tokens, Some(8000));
         assert_eq!(input.context_window.total_reasoning_tokens, Some(3200));
         assert_eq!(input.context_window.total_tokens, Some(62000));
+        let usage = input.context_window.current_usage.as_ref().unwrap();
+        assert_eq!(usage.input_tokens, Some(4000));
+        assert_eq!(usage.cache_read_input_tokens, Some(3500));
         assert_eq!(input.ai_used.total_nano_aiu, 500000000000);
         assert_eq!(
             input.model.as_ref().and_then(|m| m.id.as_deref()),
