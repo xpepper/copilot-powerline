@@ -1,39 +1,19 @@
+use crate::cache_trend::Trend;
 use crate::config::{CacheConfig, IconSet};
 use crate::icons::cache_icon;
 use crate::input::ContextWindow;
 use crate::segments::tokens::format_tokens;
 use crate::theme::Palette;
 
-/// Percentage points the last call's hit rate must differ from the session
-/// average before a trend is shown, so small fluctuations don't flicker.
-const TREND_TOLERANCE_PCT: f64 = 5.0;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Trend {
-    Up,
-    Down,
-}
-
 fn hit_rate(cache_read: u64, input: u64) -> Option<f64> {
     (input > 0).then(|| ((cache_read as f64 / input as f64) * 100.0).clamp(0.0, 100.0))
 }
 
-/// Compares the most recent call's cache hit rate with the session average.
-fn last_call_trend(ctx: &ContextWindow, session_pct: f64) -> Option<Trend> {
-    let usage = ctx.current_usage.as_ref()?;
-    let last_pct = hit_rate(usage.cache_read_input_tokens?, usage.input_tokens?)?;
-    let delta = last_pct - session_pct;
-    if delta > TREND_TOLERANCE_PCT {
-        Some(Trend::Up)
-    } else if delta < -TREND_TOLERANCE_PCT {
-        Some(Trend::Down)
-    } else {
-        None
-    }
-}
-
+/// Renders the session cache hit rate. `trend` is the latest step's
+/// direction (see `cache_trend`), shown only in percentage mode.
 pub fn render_cache_segment(
     ctx: &ContextWindow,
+    trend: Option<Trend>,
     config: &CacheConfig,
     icon_set: IconSet,
     palette: &Palette,
@@ -61,16 +41,8 @@ pub fn render_cache_segment(
             cache_read + cache_write
         };
 
-        match hit_rate(cache_read, denom) {
-            Some(pct) => {
-                let trend = config
-                    .show_trend
-                    .then(|| last_call_trend(ctx, pct))
-                    .flatten();
-                (format!("{:.0}%", pct), trend)
-            }
-            None => ("0%".to_string(), None),
-        }
+        let pct = hit_rate(cache_read, denom).map_or("0%".to_string(), |p| format!("{:.0}%", p));
+        (pct, trend.filter(|_| config.show_trend))
     } else {
         (format_tokens(Some(cache_read)), None)
     };
@@ -90,7 +62,6 @@ pub fn render_cache_segment(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::input::CurrentUsage;
 
     #[test]
     fn test_cache_hidden_when_zero() {
@@ -98,7 +69,7 @@ mod tests {
         let cfg = CacheConfig::default();
         let p = Palette::for_theme("plain");
 
-        assert!(render_cache_segment(&ctx, &cfg, IconSet::Plain, &p).is_none());
+        assert!(render_cache_segment(&ctx, None, &cfg, IconSet::Plain, &p).is_none());
     }
 
     #[test]
@@ -111,7 +82,7 @@ mod tests {
         let cfg = CacheConfig::default();
         let p = Palette::for_theme("plain");
 
-        let rendered = render_cache_segment(&ctx, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered = render_cache_segment(&ctx, None, &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Cache: 85%");
     }
 
@@ -125,7 +96,7 @@ mod tests {
         let cfg = CacheConfig::default();
         let p = Palette::for_theme("plain");
 
-        let rendered = render_cache_segment(&ctx, &cfg, IconSet::Emoji, &p).unwrap();
+        let rendered = render_cache_segment(&ctx, None, &cfg, IconSet::Emoji, &p).unwrap();
         assert_eq!(rendered, "⚡ 85%");
     }
 
@@ -142,86 +113,107 @@ mod tests {
         };
         let p = Palette::for_theme("plain");
 
-        let rendered = render_cache_segment(&ctx, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered = render_cache_segment(&ctx, None, &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Cache: 85k");
     }
 
-    fn ctx_with_last_call(last_input: u64, last_read: u64) -> ContextWindow {
+    fn ctx_at_60_pct() -> ContextWindow {
         ContextWindow {
             total_cache_read_tokens: Some(60_000),
             total_input_tokens: Some(100_000),
-            current_usage: Some(CurrentUsage {
-                input_tokens: Some(last_input),
-                cache_read_input_tokens: Some(last_read),
-            }),
             ..Default::default()
         }
     }
 
     #[test]
-    fn test_cache_trend_up_when_last_call_beats_session_average() {
-        let ctx = ctx_with_last_call(10_000, 9_000); // 90% vs 60% session
-        let cfg = CacheConfig::default();
+    fn test_cache_trend_up() {
         let p = Palette::for_theme("plain");
-
-        let rendered = render_cache_segment(&ctx, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered = render_cache_segment(
+            &ctx_at_60_pct(),
+            Some(Trend::Up),
+            &CacheConfig::default(),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
         assert_eq!(rendered, "Cache: 60% ↑");
     }
 
     #[test]
-    fn test_cache_trend_down_when_last_call_misses_cache() {
-        let ctx = ctx_with_last_call(10_000, 1_000); // 10% vs 60% session
-        let cfg = CacheConfig::default();
+    fn test_cache_trend_down() {
         let p = Palette::for_theme("plain");
-
-        let rendered = render_cache_segment(&ctx, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered = render_cache_segment(
+            &ctx_at_60_pct(),
+            Some(Trend::Down),
+            &CacheConfig::default(),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
         assert_eq!(rendered, "Cache: 60% ↓");
     }
 
     #[test]
-    fn test_cache_trend_steady_within_tolerance() {
-        let ctx = ctx_with_last_call(10_000, 6_200); // 62% vs 60% session
-        let cfg = CacheConfig::default();
+    fn test_cache_without_trend() {
         let p = Palette::for_theme("plain");
-
-        let rendered = render_cache_segment(&ctx, &cfg, IconSet::Plain, &p).unwrap();
-        assert_eq!(rendered, "Cache: 60%");
-    }
-
-    #[test]
-    fn test_cache_trend_absent_without_last_call_usage() {
-        let ctx = ContextWindow {
-            total_cache_read_tokens: Some(60_000),
-            total_input_tokens: Some(100_000),
-            ..Default::default()
-        };
-        let cfg = CacheConfig::default();
-        let p = Palette::for_theme("plain");
-
-        let rendered = render_cache_segment(&ctx, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered = render_cache_segment(
+            &ctx_at_60_pct(),
+            None,
+            &CacheConfig::default(),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
         assert_eq!(rendered, "Cache: 60%");
     }
 
     #[test]
     fn test_cache_trend_can_be_disabled() {
-        let ctx = ctx_with_last_call(10_000, 1_000);
         let cfg = CacheConfig {
             show_trend: false,
             ..Default::default()
         };
         let p = Palette::for_theme("plain");
-
-        let rendered = render_cache_segment(&ctx, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered = render_cache_segment(
+            &ctx_at_60_pct(),
+            Some(Trend::Down),
+            &cfg,
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
         assert_eq!(rendered, "Cache: 60%");
     }
 
     #[test]
-    fn test_cache_trend_colors_value_with_theme() {
-        let ctx = ctx_with_last_call(10_000, 1_000);
-        let cfg = CacheConfig::default();
-        let p = Palette::for_theme("github");
+    fn test_cache_trend_not_shown_in_token_count_mode() {
+        let cfg = CacheConfig {
+            show_as_percentage: false,
+            ..Default::default()
+        };
+        let p = Palette::for_theme("plain");
+        let rendered = render_cache_segment(
+            &ctx_at_60_pct(),
+            Some(Trend::Down),
+            &cfg,
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert_eq!(rendered, "Cache: 60k");
+    }
 
-        let rendered = render_cache_segment(&ctx, &cfg, IconSet::Plain, &p).unwrap();
+    #[test]
+    fn test_cache_trend_colors_value_with_theme() {
+        let p = Palette::for_theme("github");
+        let rendered = render_cache_segment(
+            &ctx_at_60_pct(),
+            Some(Trend::Down),
+            &CacheConfig::default(),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
         assert!(rendered.contains(&format!("{}60% ↓{}", p.trend_down, p.reset)));
     }
 }

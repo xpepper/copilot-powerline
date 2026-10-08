@@ -2,6 +2,7 @@ use clap::Parser;
 use std::io::{self, Read};
 use std::path::PathBuf;
 
+mod cache_trend;
 mod cli;
 mod config;
 mod db;
@@ -175,6 +176,20 @@ fn main() {
             )
         });
 
+    let latest_cache_trend = if config.cache.show_trend
+        && segments.iter().any(|s| s == "cache")
+        && let Some(id) = input.session_id.as_deref()
+        && let Some(input_tokens) = input.context_window.total_input_tokens
+    {
+        cache_trend::check_trend(
+            &cache_trend::snapshot_path(id),
+            input_tokens,
+            input.context_window.total_cache_read_tokens.unwrap_or(0),
+        )
+    } else {
+        None
+    };
+
     let mut rendered_segments = Vec::new();
 
     for seg in &segments {
@@ -213,6 +228,7 @@ fn main() {
             "cache" => {
                 if let Some(s) = render_cache_segment(
                     &input.context_window,
+                    latest_cache_trend,
                     &config.cache,
                     config.icon_set,
                     &palette,
