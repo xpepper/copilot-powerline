@@ -1,4 +1,5 @@
 pub mod cache;
+pub mod model;
 pub mod month_cost;
 pub mod pr;
 pub mod reasoning;

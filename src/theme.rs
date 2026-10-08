@@ -9,6 +9,8 @@ pub struct Palette {
     #[allow(dead_code)]
     pub badge: &'static str,
     pub pr: &'static str,
+    pub trend_up: &'static str,
+    pub trend_down: &'static str,
 }
 
 impl Palette {
@@ -24,6 +26,8 @@ impl Palette {
                 tokens_alert: "\x1b[1;31m", // Bold red
                 badge: "\x1b[93m", // Bright yellow
                 pr: "\x1b[33m",    // Yellow
+                trend_up: "\x1b[92m",   // Bright green
+                trend_down: "\x1b[91m", // Bright red
             },
             "nord" => Self {
                 reset: "\x1b[0m",
@@ -35,6 +39,8 @@ impl Palette {
                 tokens_alert: "\x1b[1;31m",
                 badge: "\x1b[93m",
                 pr: "\x1b[33m", // Yellow
+                trend_up: "\x1b[92m",
+                trend_down: "\x1b[91m",
             },
             "tokyo-night" => Self {
                 reset: "\x1b[0m",
@@ -46,6 +52,8 @@ impl Palette {
                 tokens_alert: "\x1b[1;31m",
                 badge: "\x1b[93m",
                 pr: "\x1b[93m", // Bright yellow
+                trend_up: "\x1b[92m",
+                trend_down: "\x1b[91m",
             },
             "plain" => Self {
                 reset: "",
@@ -57,6 +65,8 @@ impl Palette {
                 tokens_alert: "",
                 badge: "",
                 pr: "",
+                trend_up: "",
+                trend_down: "",
             },
             _ /* "colorblind" or any other */ => Self {
                 reset: "\x1b[0m",
@@ -68,6 +78,10 @@ impl Palette {
                 tokens_alert: "\x1b[1;31m", // Bold red
                 badge: "\x1b[93m", // Bright yellow
                 pr: "\x1b[93m",    // Bright yellow
+                // Blue/orange instead of green/red, distinguishable with
+                // red-green color blindness; the arrow carries the meaning too.
+                trend_up: "\x1b[94m",          // Bright blue
+                trend_down: "\x1b[38;5;208m",  // Orange
             },
         }
     }

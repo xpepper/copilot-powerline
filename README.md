@@ -165,11 +165,12 @@ This creates `~/.copilot/powerline.toml`.
 | Segment | Icon (`nerd`) | Icon (`emoji`) | Text (`plain`) | Example Value | Description |
 |---|:---:|:---:|---|---|---|
 | `tokens` | `󰮚` / `⚠️` | `🪙` / `⚠️` | `Tokens:` | `145k/400k (36%)` | **Context Window**: Active context tokens vs model limit (and percentage used). Automatically switches to `⚠️` when crossing the configured alert threshold (default `>100k`). |
-| `session_cost` | `󰄬` | `💰` | `Session:` | `$8.64` | **Current Session Cost**: Real-time spend accumulated in the active session in USD (optional AIC credit display). |
+| `session_cost` | `󰄬` | `💰` | `Session:` | `$8.64` / `⚠️ $9.10` | **Current Session Cost**: Real-time spend accumulated in the active session in USD (optional AIC credit display). With `spike_alert = true` *(opt-in)*, turns to `⚠️` and the alert color when the latest step cost much more per token than the session average, a hint of expensive model routing or a cache miss on a large context. |
 | `month_cost` | `󰠠` | `📅` | `Month:` | `$281.66` | **Month-to-Date Cost**: Total cumulative monthly spend across all sessions, queried directly from Copilot's `~/.copilot/session-store.db`. |
-| `cache` | `󰘸` | `⚡` | `Cache:` | `95%` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Automatically hidden when 0. |
+| `cache` | `󰘸` | `⚡` | `Cache:` | `95% ↓` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Shows `↑` (green, or blue in `colorblind`) when the tokens added since the previous refresh hit the cache clearly more than the session average, and `↓` (red, or orange in `colorblind`) when they hit it clearly less. The arrow stays until the next step. Automatically hidden when 0. |
 | `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative tokens used by thinking models (e.g. o3-mini, Claude 3.7 Sonnet). Automatically hidden when 0. |
 | `total_tokens` | `󰓅` | `📊` | `Total:` | `4.5M` | **Total Session Tokens**: Total cumulative token throughput (input + output + cached) exchanged across all turns and compactions in the session. |
+| `model` | `󰘚` | `🤖` | `Model:` | `Auto → Claude Opus 4.5` | **Active Model** *(optional, not in the default `segments` list)*: The model Copilot is using. With `auto`, shows which model the router picked, so a switch to a pricier model is visible. |
 | `pr` | `` | `🔀` | `PR` | `PR #50` | **Pull Request Reference** *(optional, not in the default `segments` list)*: The current branch's open pull request, as a clickable hyperlink. Requires an authenticated `gh` CLI; hidden when the branch has no open PR or `gh` is unavailable. |
 
 ---
@@ -182,6 +183,8 @@ This creates `~/.copilot/powerline.toml`.
 style = "minimal"      # Options: "minimal", "powerline", "capsule", "plain"
 icon_set = "nerd"      # Options: "nerd", "emoji", "plain"
 theme = "colorblind"   # Options: "colorblind", "github", "nord", "tokyo-night", "plain"
+mode = "full"          # "full" shows `segments`, "compact" shows `compact_segments`
+compact_segments = ["tokens", "session_cost", "month_cost"]
 segments = [
     "tokens",
     "session_cost",
@@ -189,6 +192,7 @@ segments = [
     "cache",
     "reasoning",
     "total_tokens",
+    # "model", # Uncomment to show the active model (and where `auto` routed)
     # "pr",   # Uncomment to show the current branch's PR (requires the `gh` CLI)
 ]
 
@@ -204,6 +208,10 @@ enabled = true
 currency_symbol = "$"
 show_aic = false       # Set to true to show "(X.X AIC)"
 decimal_places = 2
+spike_alert = false    # Opt-in: flag steps that cost much more per token than the session average
+spike_ratio = 2.0      # ...this many times the average
+spike_min_usd = 0.05   # ...and at least this much in a single step
+spike_icon = "⚠️ "
 
 [month_cost]
 enabled = true
@@ -215,6 +223,7 @@ decimal_places = 2
 enabled = true
 show_as_percentage = true  # Set to false to show token count (e.g. 85k)
 auto_hide_zero = true      # Automatically hide if 0 cache reads
+show_trend = true          # ↑/↓ when the latest step beats or misses the session average
 
 [reasoning]
 enabled = true
@@ -223,12 +232,26 @@ auto_hide_zero = true      # Automatically hide if model has no reasoning tokens
 [total_tokens]
 enabled = true
 
+[model]
+enabled = true
+# prefix = "Model:"    # Optional custom override
+
 [pr]
 enabled = true
 hyperlinks = true      # Set to false to print "PR #50" as plain text
 cache_ttl_seconds = 60 # How long a cached PR lookup is considered fresh
 # prefix = "Pull:"      # Optional custom override
 ```
+
+### Compact mode
+
+Cache hit rate, reasoning and total tokens are useful when diagnosing a session but noisy during normal work. Switch to the shorter `compact_segments` list and back at any time:
+
+```bash
+copilot-powerline --toggle   # prints "copilot-powerline: compact mode" or "... full mode"
+```
+
+From inside Copilot CLI, run it as a shell command: `!copilot-powerline --toggle`. The change shows up on the next status line refresh, with no restart. The toggle is stored in your user cache directory and is cleared when you toggle back to the `mode` set in `powerline.toml`.
 
 The `pr` segment shells out to `gh pr view --json number,url` for the current branch. To avoid blocking the status line on a network call, lookups are cached to disk and refreshed by a throttled, detached background process; the segment is hidden until the first refresh completes, and again whenever the branch has no open PR or `gh` is not installed/authenticated.
 
@@ -253,6 +276,9 @@ copilot-powerline --style minimal
 # Override theme on the fly
 copilot-powerline --theme nord
 copilot-powerline --theme tokyo-night
+
+# Switch between full and compact mode
+copilot-powerline --toggle
 
 # Use a custom configuration file
 copilot-powerline --config /path/to/custom-powerline.toml

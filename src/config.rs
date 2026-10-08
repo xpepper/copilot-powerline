@@ -45,6 +45,42 @@ impl std::str::FromStr for IconSet {
     }
 }
 
+/// Which segment list to render: `segments` (full) or `compact_segments`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DisplayMode {
+    #[default]
+    Full,
+    Compact,
+}
+
+impl DisplayMode {
+    pub fn toggled(self) -> Self {
+        match self {
+            DisplayMode::Full => DisplayMode::Compact,
+            DisplayMode::Compact => DisplayMode::Full,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            DisplayMode::Full => "full",
+            DisplayMode::Compact => "compact",
+        }
+    }
+}
+
+impl std::str::FromStr for DisplayMode {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            "full" => Ok(DisplayMode::Full),
+            "compact" => Ok(DisplayMode::Compact),
+            other => Err(format!("Unknown display mode: {other}")),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
@@ -53,8 +89,14 @@ pub struct Config {
     pub icon_set: IconSet,
     #[serde(default = "default_theme")]
     pub theme: String,
+    #[serde(default)]
+    pub mode: DisplayMode,
     #[serde(default = "default_segments")]
     pub segments: Vec<String>,
+    /// Segments shown in compact mode: the always-useful essentials, leaving
+    /// diagnostic segments (cache, reasoning, totals) for full mode.
+    #[serde(default = "default_compact_segments")]
+    pub compact_segments: Vec<String>,
     #[serde(default)]
     pub tokens: TokensConfig,
     #[serde(default)]
@@ -69,10 +111,20 @@ pub struct Config {
     pub total_tokens: TotalTokensConfig,
     #[serde(default)]
     pub pr: PrConfig,
+    #[serde(default)]
+    pub model: ModelConfig,
 }
 
 fn default_theme() -> String {
     "colorblind".to_string()
+}
+
+fn default_compact_segments() -> Vec<String> {
+    vec![
+        "tokens".to_string(),
+        "session_cost".to_string(),
+        "month_cost".to_string(),
+    ]
 }
 
 fn default_segments() -> Vec<String> {
@@ -130,6 +182,19 @@ pub struct CostConfig {
     pub show_aic: bool,
     #[serde(default = "default_decimals")]
     pub decimal_places: usize,
+    /// Flag the session cost when the latest step cost much more per token
+    /// than the session average (expensive routing, cache misses). Opt-in
+    /// until the thresholds are tuned on real sessions.
+    #[serde(default)]
+    pub spike_alert: bool,
+    /// Multiple of the session's average cost per token that counts as a spike.
+    #[serde(default = "default_spike_ratio")]
+    pub spike_ratio: f64,
+    /// Steps cheaper than this (in USD) never count as a spike.
+    #[serde(default = "default_spike_min_usd")]
+    pub spike_min_usd: f64,
+    #[serde(default = "default_alert_icon")]
+    pub spike_icon: String,
 }
 
 impl Default for CostConfig {
@@ -140,8 +205,20 @@ impl Default for CostConfig {
             currency_symbol: default_currency(),
             show_aic: false,
             decimal_places: 2,
+            spike_alert: false,
+            spike_ratio: default_spike_ratio(),
+            spike_min_usd: default_spike_min_usd(),
+            spike_icon: default_alert_icon(),
         }
     }
+}
+
+fn default_spike_ratio() -> f64 {
+    2.0
+}
+
+fn default_spike_min_usd() -> f64 {
+    0.05
 }
 
 fn default_currency() -> String {
@@ -192,6 +269,10 @@ pub struct CacheConfig {
     pub show_as_percentage: bool,
     #[serde(default = "default_true")]
     pub auto_hide_zero: bool,
+    /// Color the hit rate and add an arrow (↑/↓) when the most recent call's
+    /// cache hit rate is clearly above or below the session average.
+    #[serde(default = "default_true")]
+    pub show_trend: bool,
 }
 
 impl Default for CacheConfig {
@@ -201,6 +282,7 @@ impl Default for CacheConfig {
             prefix: None,
             show_as_percentage: true,
             auto_hide_zero: true,
+            show_trend: true,
         }
     }
 }
@@ -246,7 +328,9 @@ impl Default for Config {
             style: Style::Minimal,
             icon_set: IconSet::Plain,
             theme: default_theme(),
+            mode: DisplayMode::Full,
             segments: default_segments(),
+            compact_segments: default_compact_segments(),
             tokens: TokensConfig::default(),
             session_cost: CostConfig::default(),
             month_cost: MonthCostConfig::default(),
@@ -254,6 +338,27 @@ impl Default for Config {
             reasoning: ReasoningConfig::default(),
             total_tokens: TotalTokensConfig::default(),
             pr: PrConfig::default(),
+            model: ModelConfig::default(),
+        }
+    }
+}
+
+/// Optional active model name (e.g. `Claude Sonnet 4.5`, or
+/// `Auto → Claude Opus 4.5` when `auto` routing picked a model).
+///
+/// Not in the default `segments` list: add `"model"` to opt in.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub prefix: Option<String>,
+}
+
+impl Default for ModelConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            prefix: None,
         }
     }
 }
@@ -300,6 +405,13 @@ impl Config {
         toml::to_string_pretty(self)
     }
 
+    pub fn segments_for(&self, mode: DisplayMode) -> &[String] {
+        match mode {
+            DisplayMode::Full => &self.segments,
+            DisplayMode::Compact => &self.compact_segments,
+        }
+    }
+
     pub fn default_config_path() -> Option<PathBuf> {
         dirs::home_dir().map(|home| home.join(".copilot").join("powerline.toml"))
     }
@@ -337,11 +449,16 @@ mod tests {
         );
         assert!(!cfg.session_cost.show_aic);
         assert!(!cfg.month_cost.show_aic);
+        // Opt-in until the thresholds are tuned on real sessions.
+        assert!(!cfg.session_cost.spike_alert);
+        assert_eq!(cfg.session_cost.spike_ratio, 2.0);
+        assert_eq!(cfg.session_cost.spike_min_usd, 0.05);
         assert!(cfg.pr.enabled);
         assert!(cfg.pr.hyperlinks);
         assert_eq!(cfg.pr.cache_ttl_seconds, 60);
         // "pr" is opt-in: it must not appear in the default segment list.
         assert!(!cfg.segments.iter().any(|s| s == "pr"));
+        assert!(!cfg.segments.iter().any(|s| s == "model"));
     }
 
     #[test]
@@ -384,8 +501,48 @@ mod tests {
         assert_eq!(parsed.theme, "nord");
         assert_eq!(parsed.icon_set, IconSet::Emoji);
         assert!(parsed.session_cost.show_aic);
+        // spike_alert omitted from a present [session_cost] section: opt-in
+        assert!(!parsed.session_cost.spike_alert);
         // month_cost was omitted, should take default
         assert!(!parsed.month_cost.show_aic);
         assert_eq!(parsed.tokens.alert_threshold, 100_000);
+    }
+
+    #[test]
+    fn test_display_mode_defaults_to_full_with_essential_compact_list() {
+        let cfg = Config::default();
+        assert_eq!(cfg.mode, DisplayMode::Full);
+        assert_eq!(cfg.segments_for(DisplayMode::Full), cfg.segments.as_slice());
+        assert_eq!(
+            cfg.segments_for(DisplayMode::Compact),
+            ["tokens", "session_cost", "month_cost"]
+        );
+    }
+
+    #[test]
+    fn test_parse_compact_mode_and_custom_list() {
+        let parsed = Config::from_toml(
+            r#"
+            mode = "compact"
+            compact_segments = ["tokens", "model"]
+        "#,
+        )
+        .expect("compact config should parse");
+        assert_eq!(parsed.mode, DisplayMode::Compact);
+        assert_eq!(parsed.segments_for(parsed.mode), ["tokens", "model"]);
+    }
+
+    #[test]
+    fn test_display_mode_toggle_and_parse() {
+        assert_eq!(DisplayMode::Full.toggled(), DisplayMode::Compact);
+        assert_eq!(DisplayMode::Compact.toggled(), DisplayMode::Full);
+        for mode in [DisplayMode::Full, DisplayMode::Compact] {
+            assert_eq!(mode.as_str().parse::<DisplayMode>(), Ok(mode));
+        }
+        assert_eq!(
+            " Compact\n".parse::<DisplayMode>(),
+            Ok(DisplayMode::Compact)
+        );
+        assert!("sideways".parse::<DisplayMode>().is_err());
     }
 }

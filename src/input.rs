@@ -7,7 +7,7 @@ pub struct CopilotInput {
     pub context_window: ContextWindow,
     #[serde(default)]
     pub ai_used: AiUsed,
-    #[allow(dead_code)]
+    #[serde(default)]
     pub model: Option<ModelInfo>,
 }
 
@@ -30,6 +30,8 @@ pub struct ContextWindow {
     pub total_reasoning_tokens: Option<u64>,
     #[serde(default)]
     pub total_tokens: Option<u64>,
+    // Copilot CLI also sends `current_usage`, but despite its name it mirrors
+    // the session totals above (verified on 1.0.93), so it is not parsed.
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -40,10 +42,12 @@ pub struct AiUsed {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ModelInfo {
-    #[allow(dead_code)]
+    #[serde(default)]
     pub id: Option<String>,
-    #[allow(dead_code)]
-    pub name: Option<String>,
+    /// Human-readable model name. When the `auto` model is selected and has
+    /// routed a request, Copilot CLI renders it as `Auto → <resolved model>`.
+    #[serde(default)]
+    pub display_name: Option<String>,
 }
 
 impl CopilotInput {
@@ -76,7 +80,7 @@ mod tests {
             },
             "model": {
                 "id": "claude-3-7-sonnet",
-                "name": "Claude 3.7 Sonnet"
+                "display_name": "Claude 3.7 Sonnet"
             }
         }"#;
 
@@ -96,6 +100,10 @@ mod tests {
         assert_eq!(
             input.model.as_ref().and_then(|m| m.id.as_deref()),
             Some("claude-3-7-sonnet")
+        );
+        assert_eq!(
+            input.model.as_ref().and_then(|m| m.display_name.as_deref()),
+            Some("Claude 3.7 Sonnet")
         );
     }
 

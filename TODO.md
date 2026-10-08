@@ -1,82 +1,72 @@
 # TODO: copilot-powerline
 
-## Goal
-Migrate Python status line to a standalone, configurable Rust tool (`copilot-powerline`) supporting TOML configuration, modular segments, styles (minimal, powerline, capsule), and themes.
+Open work only, highest priority first. Completed items live in git history.
 
-## Steps
-- [x] Project Scaffolding
-  - [x] Initialize Cargo binary and git repository
-  - [x] Add dependencies to `Cargo.toml` (`serde`, `serde_json`, `toml`, `rusqlite`, `clap`, `dirs`)
-- [x] Core Logic (TDD)
-  - [x] Token formatting & alert detection tests & implementation
-  - [x] Cost calculation & currency/AIC formatting tests & implementation
-  - [x] SQLite month usage query tests & implementation
-  - [x] TOML configuration parsing and defaults tests & implementation
-- [x] Rendering Engine
-  - [x] Minimal style separator (`│`)
-  - [x] Themes (colorblind, github, plain, etc.)
-  - [x] Powerline & capsule styling
-- [x] CLI & Stdin Integration
-  - [x] Read JSON from stdin with graceful fallback
-  - [x] CLI flags: `--init`, `--config`, `--style`, `--theme`
-- [x] Verification & Integration
-  - [x] Integration tests with actual Copilot stdin payloads
-  - [x] Compare output against Python statusline
-  - [x] Build release binary and install to ~/.cargo/bin
-  - [x] Create comprehensive README.md for Git publishing
+## Correctness
 
-## v0.2.0 Enhancements
-- [x] Extend `ContextWindow` input model (`cache_read`, `cache_write`, `reasoning`, `total_tokens`)
-- [x] Add `icon_set` configuration (`nerd`, `emoji`, `plain`) and segment configs
-- [x] Implement `cache` segment (cache read tokens / hit rate)
-- [x] Implement `reasoning` segment (reasoning tokens, auto-hidden when 0)
-- [x] Implement `total_tokens` segment (accumulated session token volume)
-- [x] Update existing segments with icon support
-- [x] Unit tests for new segments and icon sets
-- [x] Clippy & cargo test verification
-- [x] Update README.md, AGENTS.md, bump version to 0.2.0
+- [ ] `pr` segment: use the payload's `cwd` (also sent as
+      `workspace.current_dir`) instead of the process cwd. Copilot CLI has
+      sent it since at least 1.0.90; the process cwd is only the directory
+      Copilot was launched from, so the PR shown can belong to the wrong repo
+      or branch if the session's working directory changes. Also fix the
+      stale "payload has no working directory" note in AGENTS.md (Data Flow,
+      step 1).
 
-## Follow-ups
-- [x] `fetch-github-copilot-usage`: append each run to a local JSONL history
-      log (`COPILOT_USAGE_HISTORY_FILE`, `--no-history`) for tracking credit
-      consumption over time.
-- [ ] `fetch-github-copilot-usage`: optional spike detection — compare each
-      new reading against the previous history entry and warn (stderr, and/or
-      a flag in the JSON output) when the increase exceeds a configurable
-      threshold. Deferred until real history data exists to pick a sensible
-      default threshold.
-- [x] Build & reinstall binary to ~/.cargo/bin
-- [x] Commit, push, and publish to crates.io
+## Validate new features
 
-## Distribution beyond crates.io
-Goal: let Copilot CLI users install without a Rust toolchain.
+- [ ] Tune the session-cost spike warning, then decide whether to turn it
+      on by default. It ships opt-in (`spike_alert = false`) because the
+      thresholds (`spike_ratio = 2.0`, `spike_min_usd = 0.05`) are guesses.
+      Enable it for a few days of real sessions and note how often it fires.
+      Expected false alarms: the first turn after ~5 idle minutes (the prompt
+      cache TTL is 300 s, so the whole context is rewritten) and
+      output-heavy steps (output tokens cost more than input). Not yet seen
+      live; the cache trend arrow and `--toggle` are verified live.
 
-- [x] Prebuilt binaries on GitHub Releases (via `dist`), with shell
-      installer and `cargo binstall` support
-  - [x] dist config and release workflow (macOS + Linux, arm64 + x64)
-  - [x] Local build and installer run against a local mirror
-  - [x] README and RELEASING.md updated
-  - [x] v0.3.2 released: workflow green on all targets; live installer
-        verified on macOS arm64, Linux arm64/x64 (Ubuntu 22.04 containers);
-        x86_64 macOS binary run under Rosetta; `cargo binstall` downloads
-        from GitHub with compile and quick-install disabled
-- [x] npm package: decided against for now (2026-09-17). dist's npm package
-      runs the binary through a Node shim, measured at ~55 ms per refresh
-      versus ~12.6 ms for the bare binary (hyperfine, 40 runs, Apple
-      Silicon), which breaks the sub-15 ms rule in AGENTS.md. The shell
-      installer, Homebrew, and cargo binstall already cover macOS and Linux
-      without a Rust toolchain. Revisit only if users ask, and then with a
-      custom package that execs the binary directly (esbuild-style).
-- [x] Homebrew tap (`xpepper/homebrew-tap`), updated automatically on release
-  - [x] dist config and generated formula (`ruby -c` OK)
-  - [x] `HOMEBREW_TAP_TOKEN` secret set; v0.3.3 published the formula and
-        `brew install xpepper/tap/copilot-powerline` installed 0.3.3
-- [x] Document installs via version managers that read GitHub Releases
-  - [x] mise `github:` backend (also verified `ubi:`) against v0.3.2
-    (shim measured ~41 ms vs ~19 ms for the real binary, so the README
-    recommends the `mise which` path)
-  - [ ] aqua / eget: not tested; document only if someone asks
+## Performance
+
+- [ ] Re-measure refresh time with `hyperfine`. A Python-driven timing
+      (spawn overhead included) showed ~16-17 ms median on both `main` and
+      the reddit-feedback branch, above the sub-15 ms rule; the earlier
+      hyperfine figure was ~12.6 ms. If it is really over, profile the
+      month-to-date SQLite query against a large `session-store.db`.
+
+## Spend alerts
+
+- [ ] Absolute session spend threshold, e.g. `alert_above_usd = 5.0` under
+      `[session_cost]`: show the session cost with `⚠️` and the alert color
+      once it passes the limit. Stateless and predictable, and it covers what
+      the relative spike warning cannot: sessions that are expensive from the
+      start, and overall budget surprises. Consider the same for
+      `month_cost`.
+
+## Housekeeping
+
+- [ ] Prune stale state files in the cache dir: per-session
+      `spend_*.json` and `cache_*.json` snapshots and `pr_*.json` entries
+      are never removed. Tiny, but they grow forever. Prune opportunistically
+      (e.g. files older than 30 days, only when creating a new one) to keep
+      the hot path cheap.
+
+## New optional segments (from unused payload fields)
+
+- [ ] Allow-all indicator from `allow_all_enabled` (safety signal).
+- [ ] Code churn from `cost.total_lines_added` / `total_lines_removed`
+      (e.g. `+120 -30`).
+- [ ] Premium requests from `cost.total_premium_requests`.
+- [ ] Session and API time from `cost.total_duration_ms` /
+      `total_api_duration_ms`.
+
+## `fetch-github-copilot-usage`
+
+- [ ] Optional spike detection: compare each new reading against the
+      previous history entry and warn (stderr, and/or a flag in the JSON
+      output) when the increase exceeds a configurable threshold. Deferred
+      until real history data exists to pick a sensible default threshold.
+
+## Distribution
+
+- [ ] macOS: consider signing/notarization for browser-downloaded binaries.
+- [ ] aqua / eget: not tested; document only if someone asks.
 - [ ] Later, on demand: Scoop/winget (needs Windows CI first), AUR, Nix,
-      `.deb`/`.rpm`
-- [ ] macOS: consider signing/notarization for browser-downloaded binaries
-
+      `.deb`/`.rpm`.

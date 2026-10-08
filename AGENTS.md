@@ -13,9 +13,10 @@ Welcome! This document provides architecture overviews, design constraints, and 
 2. **Configuration**: The tool loads `~/.copilot/powerline.toml` (or a path provided via `--config`), falling back to built-in defaults.
 3. **Database Query**: Queries the local SQLite database (`~/.copilot/session-store.db`) to calculate month-to-date spend across previous sessions.
 4. **PR Lookup (optional)**: If the `pr` segment is enabled, reads a disk-cached PR reference for the current branch; a stale or missing cache triggers a throttled, detached background refresh via `gh pr view` (see `--fetch-pr-cache` below) so the hot path never blocks on a network call.
-5. **Segment Assembly**: Iterates through enabled segments (`tokens`, `session_cost`, `month_cost`, `cache`, `reasoning`, `total_tokens`, `pr`), formatting each.
-6. **Rendering**: The `renderer` applies the configured style (`minimal`, `powerline`, `capsule`, `plain`) and theme ANSI colors.
-7. **Stdout Output**: Emits the single-line formatted status line to standard output.
+5. **Cross-refresh State**: Every refresh is a fresh process, so anything compared across refreshes lives in small private files under the user cache dir (`src/state.rs`): the `--toggle` display mode override and per-session snapshots used to flag spend spikes and the cache hit trend. Note that the payload's `current_usage` mirrors session totals, so per-step values must be derived from these snapshots.
+6. **Segment Assembly**: Picks `segments` or `compact_segments` based on the display mode, then iterates through them (`tokens`, `session_cost`, `month_cost`, `cache`, `reasoning`, `total_tokens`, `model`, `pr`), formatting each.
+7. **Rendering**: The `renderer` applies the configured style (`minimal`, `powerline`, `capsule`, `plain`) and theme ANSI colors.
+8. **Stdout Output**: Emits the single-line formatted status line to standard output.
 
 ---
 
@@ -28,13 +29,17 @@ copilot-powerline/
 ├── LICENSE                    # MIT License
 ├── src/
 │   ├── main.rs                # Entry point, CLI orchestration, and stdin reading
-│   ├── cli.rs                 # Clap CLI arguments (--init, --style, --theme, --icon-set, --config, --fetch-pr-cache)
+│   ├── cache_trend.rs         # Cache hit trend of the latest step from per-session snapshots
+│   ├── cli.rs                 # Clap CLI arguments (--init, --style, --theme, --icon-set, --config, --toggle, --fetch-pr-cache)
 │   ├── config.rs              # TOML config structures, defaults, and file loading
 │   ├── icons.rs               # Icon set resolver (Nerd, Emoji, Plain)
 │   ├── input.rs               # Deserialization of Copilot CLI stdin JSON payloads
 │   ├── db.rs                  # Read-only SQLite query helper for session-store.db
 │   ├── git.rs                 # Fast, subprocess-free current branch detection (reads .git/HEAD)
 │   ├── github.rs              # `gh pr view` lookup with disk caching and throttled background refresh
+│   ├── mode.rs                # Full/compact display mode override written by --toggle
+│   ├── spend.rs               # Spend spike detection from per-session snapshots
+│   ├── state.rs               # Private cache-dir location and atomic writes for cross-refresh state
 │   ├── renderer.rs            # Separators and powerline/capsule glyph formatting
 │   ├── theme.rs               # ANSI color palettes (colorblind, github, nord, tokyo-night, plain)
 │   └── segments/              # Modular statusline components
@@ -42,7 +47,8 @@ copilot-powerline/
 │       ├── tokens.rs          # Token counts, formatting (e.g. 150k, 1.2M), and alert thresholds
 │       ├── session_cost.rs    # Real-time session spend calculation (USD and optional AIC)
 │       ├── month_cost.rs      # Month-to-date spend calculation (USD and optional AIC)
-│       ├── cache.rs           # Prompt cache hit rate or token counts
+│       ├── cache.rs           # Prompt cache hit rate (with trend arrow) or token counts
+│       ├── model.rs           # Optional active model name (shows where `auto` routed)
 │       ├── reasoning.rs       # Model reasoning/thinking token tracking
 │       ├── total_tokens.rs    # Accumulated session token volume
 │       └── pr.rs              # Optional current-branch PR reference (e.g. `PR #50`), hyperlinked

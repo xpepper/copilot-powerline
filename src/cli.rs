@@ -25,6 +25,10 @@ pub struct Cli {
     #[arg(long)]
     pub init: bool,
 
+    /// Switch between full and compact mode (takes effect on the next refresh)
+    #[arg(long)]
+    pub toggle: bool,
+
     /// Internal worker flag to update the PR cache in the background
     #[arg(long, hide = true)]
     pub fetch_pr_cache: Option<PathBuf>,

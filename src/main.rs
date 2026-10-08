@@ -2,6 +2,7 @@ use clap::Parser;
 use std::io::{self, Read};
 use std::path::PathBuf;
 
+mod cache_trend;
 mod cli;
 mod config;
 mod db;
@@ -9,8 +10,11 @@ mod git;
 mod github;
 mod icons;
 mod input;
+mod mode;
 mod renderer;
 mod segments;
+mod spend;
+mod state;
 mod theme;
 
 use cli::Cli;
@@ -18,6 +22,7 @@ use config::{Config, IconSet, Style};
 use input::CopilotInput;
 use renderer::render_segments;
 use segments::cache::render_cache_segment;
+use segments::model::render_model_segment;
 use segments::month_cost::render_month_cost_segment;
 use segments::pr::render_pr_segment;
 use segments::reasoning::render_reasoning_segment;
@@ -95,6 +100,20 @@ fn main() {
         }
     }
 
+    let mode_path = mode::override_file_path();
+
+    if cli.toggle {
+        match mode::toggle(&mode_path, config.mode) {
+            Ok(m) => println!("copilot-powerline: {} mode", m.as_str()),
+            Err(e) => eprintln!("Failed to save display mode: {e}"),
+        }
+        return;
+    }
+
+    let segments = config
+        .segments_for(mode::effective(&mode_path, config.mode))
+        .to_vec();
+
     let palette = Palette::for_theme(&config.theme);
 
     let raw_input = read_stdin();
@@ -114,7 +133,7 @@ fn main() {
     // Copilot CLI does not include the working directory in its stdin
     // payload, so PR lookups rely on the process's own cwd, which Copilot
     // CLI inherits from the terminal session it was launched from.
-    let pr_segment_enabled = config.pr.enabled && config.segments.iter().any(|s| s == "pr");
+    let pr_segment_enabled = config.pr.enabled && segments.iter().any(|s| s == "pr");
 
     let pr_info = if pr_segment_enabled {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -139,9 +158,41 @@ fn main() {
     let session_nano = input.ai_used.total_nano_aiu;
     let total_month_nano = other_nano + session_nano;
 
+    let spend_spike = config.session_cost.spike_alert
+        && segments.iter().any(|s| s == "session_cost")
+        && input.session_id.as_deref().is_some_and(|id| {
+            let ctx = &input.context_window;
+            let total_tokens = ctx.total_tokens.unwrap_or_else(|| {
+                ctx.total_input_tokens.unwrap_or(0) + ctx.total_output_tokens.unwrap_or(0)
+            });
+            spend::check_spike(
+                &spend::snapshot_path(id),
+                session_nano,
+                total_tokens,
+                spend::SpikeRule {
+                    ratio: config.session_cost.spike_ratio,
+                    min_usd: config.session_cost.spike_min_usd,
+                },
+            )
+        });
+
+    let latest_cache_trend = if config.cache.show_trend
+        && segments.iter().any(|s| s == "cache")
+        && let Some(id) = input.session_id.as_deref()
+        && let Some(input_tokens) = input.context_window.total_input_tokens
+    {
+        cache_trend::check_trend(
+            &cache_trend::snapshot_path(id),
+            input_tokens,
+            input.context_window.total_cache_read_tokens.unwrap_or(0),
+        )
+    } else {
+        None
+    };
+
     let mut rendered_segments = Vec::new();
 
-    for seg in &config.segments {
+    for seg in &segments {
         match seg.as_str() {
             "tokens" => {
                 if let Some(s) = render_tokens_segment(
@@ -156,6 +207,7 @@ fn main() {
             "session_cost" => {
                 if let Some(s) = render_session_cost_segment(
                     session_nano,
+                    spend_spike,
                     &config.session_cost,
                     config.icon_set,
                     &palette,
@@ -176,6 +228,7 @@ fn main() {
             "cache" => {
                 if let Some(s) = render_cache_segment(
                     &input.context_window,
+                    latest_cache_trend,
                     &config.cache,
                     config.icon_set,
                     &palette,
@@ -197,6 +250,16 @@ fn main() {
                 if let Some(s) = render_total_tokens_segment(
                     &input.context_window,
                     &config.total_tokens,
+                    config.icon_set,
+                    &palette,
+                ) {
+                    rendered_segments.push(s);
+                }
+            }
+            "model" => {
+                if let Some(s) = render_model_segment(
+                    input.model.as_ref(),
+                    &config.model,
                     config.icon_set,
                     &palette,
                 ) {
