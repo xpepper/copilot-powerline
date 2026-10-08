@@ -18,8 +18,9 @@ Open work only, highest priority first. Completed items live in git history.
       `spike_min_usd = 0.05`) against a few days of real sessions. They are
       reasonable guesses, not measured. Watch for false alarms in agent loops
       and cache-miss turns.
-- [ ] Try the cache trend arrow and `--toggle` in a live Copilot CLI
-      session (only verified with piped payloads so far).
+- [ ] Try `--toggle` and watch for a spike warning in a live Copilot CLI
+      session (only verified with piped payloads so far). The cache trend
+      arrow is verified live.
 
 ## Performance
 
