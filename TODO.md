@@ -2,16 +2,6 @@
 
 Open work only, highest priority first. Completed items live in git history.
 
-## Correctness
-
-- [ ] `pr` segment: use the payload's `cwd` (also sent as
-      `workspace.current_dir`) instead of the process cwd. Copilot CLI has
-      sent it since at least 1.0.90; the process cwd is only the directory
-      Copilot was launched from, so the PR shown can belong to the wrong repo
-      or branch if the session's working directory changes. Also fix the
-      stale "payload has no working directory" note in AGENTS.md (Data Flow,
-      step 1).
-
 ## Validate new features
 
 - [ ] Tune the session-cost spike warning, then decide whether to turn it

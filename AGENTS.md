@@ -9,7 +9,7 @@ Welcome! This document provides architecture overviews, design constraints, and 
 `copilot-powerline` is a fast, modular, and customizable status line tool for GitHub Copilot CLI written in Rust.
 
 ### Data Flow
-1. **Stdin Input**: GitHub Copilot CLI passes a JSON payload via standard input on statusline refreshes (containing `context_window`, `ai_used`, `session_id`, `model`, etc.). It does not include the working directory, so PR/git lookups use the process's own cwd (inherited from the terminal Copilot CLI was launched from).
+1. **Stdin Input**: GitHub Copilot CLI passes a JSON payload via standard input on statusline refreshes (containing `context_window`, `ai_used`, `session_id`, `model`, etc.). Copilot CLI spawns the command in the session's current working directory (following `/cwd` and session switches), so PR/git lookups use the process's own cwd. The payload's `cwd` and `workspace.current_dir` (1.0.90+) carry the same value and are not parsed.
 2. **Configuration**: The tool loads `~/.copilot/powerline.toml` (or a path provided via `--config`), falling back to built-in defaults.
 3. **Database Query**: Queries the local SQLite database (`~/.copilot/session-store.db`) to calculate month-to-date spend across previous sessions.
 4. **PR Lookup (optional)**: If the `pr` segment is enabled, reads a disk-cached PR reference for the current branch; a stale or missing cache triggers a throttled, detached background refresh via `gh pr view` (see `--fetch-pr-cache` below) so the hot path never blocks on a network call.

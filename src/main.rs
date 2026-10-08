@@ -130,9 +130,10 @@ fn main() {
         .or_else(db::default_db_path)
         .unwrap_or_else(|| PathBuf::from("session-store.db"));
 
-    // Copilot CLI does not include the working directory in its stdin
-    // payload, so PR lookups rely on the process's own cwd, which Copilot
-    // CLI inherits from the terminal session it was launched from.
+    // Copilot CLI spawns the status line command in the session's current
+    // working directory (it follows `/cwd` and session switches), so the
+    // process cwd is the right place for PR lookups. The payload's `cwd`
+    // field carries the same value, so it is not parsed.
     let pr_segment_enabled = config.pr.enabled && segments.iter().any(|s| s == "pr");
 
     let pr_info = if pr_segment_enabled {
