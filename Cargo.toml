@@ -9,6 +9,7 @@ homepage = "https://github.com/xpepper/copilot-powerline"
 readme = "README.md"
 keywords = ["copilot", "github-copilot", "statusline", "powerline", "cli"]
 categories = ["command-line-utilities"]
+exclude = ["assets/copilot-powerline-demo.gif"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }

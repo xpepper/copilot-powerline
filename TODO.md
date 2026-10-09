@@ -86,10 +86,6 @@ Open work only, highest priority first. Completed items live in git history.
 
 ## Distribution
 
-- [ ] Trim the published crate with an `include` list in `Cargo.toml`.
-      `cargo package` ships 48 files (1.4 MiB), mostly `assets/` (the demo
-      GIF and screenshot used only by the README), plus `.github/`,
-      `TODO.md` and `scripts/`.
 - [ ] macOS: consider signing/notarization for browser-downloaded binaries.
 - [ ] aqua / eget: not tested; document only if someone asks.
 - [ ] Later, on demand: Scoop/winget (needs Windows CI first), AUR, Nix,
