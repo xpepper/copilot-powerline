@@ -11,6 +11,18 @@ On each release the workflow also pushes an updated formula to [xpepper/homebrew
 
 The workflow then publishes the crate to crates.io (`.github/workflows/publish-crates.yml`, a dist custom publish job). It runs only after the GitHub Release exists, because a crates.io version cannot be deleted or re-uploaded. It authenticates with [crates.io trusted publishing](https://crates.io/docs/trusted-publishing), so there is no token secret. The one-time setup is in the crate's settings on crates.io, under Trusted Publishing, with repository owner `xpepper`, repository `copilot-powerline`, and workflow `release.yml`. crates.io checks the calling workflow, not `publish-crates.yml`.
 
+## Shortcut: `scripts/release.sh`
+
+The steps below are automated by two commands. Merging the version-bump PR stays manual, as the review point.
+
+```bash
+scripts/release.sh prepare 0.5.2   # bump, run the checks, open the bump PR
+# review and merge the PR, then:
+scripts/release.sh tag             # tag main, watch the run, verify crates.io, append notes
+```
+
+The manual steps follow, for when the script cannot be used.
+
 ## Prepare a release
 
 1. Start from an up-to-date `main` branch with the required CI checks passing.
