@@ -1,4 +1,4 @@
-use super::spend_limit;
+use super::spend_total::{self, SpendTotal};
 use crate::config::CycleCostConfig;
 use crate::cycle_usage::CycleUsage;
 use crate::theme::Palette;
@@ -13,31 +13,15 @@ pub fn render_cycle_cost_segment(
         return None;
     }
     let aic = usage?.credits;
-
-    let r = palette.reset;
-    let d = palette.dim;
-    let lbl = palette.label;
-
-    let usd = aic * 0.01;
-    let (limit_icon, color) =
-        if spend_limit::exceeds(usd, config.decimal_places, config.alert_above_usd) {
-            (config.alert_icon.as_str(), palette.tokens_alert)
-        } else {
-            ("", palette.spend)
-        };
-    let cost_str = format!(
-        "{}{}{:.*}{}",
-        color, config.currency_symbol, config.decimal_places, usd, r
-    );
-
     let icon = crate::icons::cycle_icon(icon_set, config.prefix.as_deref());
-    let mut out = format!("{}{}{} {}{}", lbl, icon, r, limit_icon, cost_str);
-
-    if config.show_aic && aic >= 1.0 {
-        out.push_str(&format!(" ({}{:.0} AIC{})", d, aic, r));
-    }
-
-    Some(out)
+    let total = SpendTotal {
+        currency_symbol: &config.currency_symbol,
+        decimal_places: config.decimal_places,
+        show_aic: config.show_aic,
+        alert_above_usd: config.alert_above_usd,
+        alert_icon: &config.alert_icon,
+    };
+    Some(spend_total::render(icon, aic, &total, palette))
 }
 
 #[cfg(test)]
