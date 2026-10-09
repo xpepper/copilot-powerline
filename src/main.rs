@@ -9,6 +9,7 @@ mod db;
 mod git;
 mod github;
 mod icons;
+mod idle;
 mod input;
 mod mode;
 mod month_spend;
@@ -23,6 +24,7 @@ use config::{Config, IconSet, Style};
 use input::CopilotInput;
 use renderer::render_segments;
 use segments::cache::render_cache_segment;
+use segments::cache_expiry::render_cache_expiry_segment;
 use segments::model::render_model_segment;
 use segments::month_cost::{self, render_month_cost_segment};
 use segments::pr::render_pr_segment;
@@ -176,14 +178,10 @@ fn main() {
     let spend_spike = config.session_cost.spike_alert
         && segments.iter().any(|s| s == "session_cost")
         && input.session_id.as_deref().is_some_and(|id| {
-            let ctx = &input.context_window;
-            let total_tokens = ctx.total_tokens.unwrap_or_else(|| {
-                ctx.total_input_tokens.unwrap_or(0) + ctx.total_output_tokens.unwrap_or(0)
-            });
             spend::check_spike(
                 &spend::snapshot_path(id),
                 session_nano,
-                total_tokens,
+                input.context_window.session_tokens(),
                 spend::SpikeRule {
                     ratio: config.session_cost.spike_ratio,
                     min_usd: config.session_cost.spike_min_usd,
@@ -200,6 +198,19 @@ fn main() {
             &cache_trend::snapshot_path(id),
             input_tokens,
             input.context_window.total_cache_read_tokens.unwrap_or(0),
+        )
+    } else {
+        None
+    };
+
+    let idle_seconds = if config.cache_expiry.enabled
+        && segments.iter().any(|s| s == "cache_expiry")
+        && let Some(id) = input.session_id.as_deref()
+    {
+        idle::idle_seconds(
+            &idle::snapshot_path(id),
+            input.context_window.session_tokens(),
+            github::current_timestamp(),
         )
     } else {
         None
@@ -245,6 +256,17 @@ fn main() {
                     &input.context_window,
                     latest_cache_trend,
                     &config.cache,
+                    config.icon_set,
+                    &palette,
+                ) {
+                    rendered_segments.push(s);
+                }
+            }
+            "cache_expiry" => {
+                if let Some(s) = render_cache_expiry_segment(
+                    &input.context_window,
+                    idle_seconds,
+                    &config.cache_expiry,
                     config.icon_set,
                     &palette,
                 ) {

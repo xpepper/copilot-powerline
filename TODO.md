@@ -14,6 +14,16 @@ Open work only, highest priority first. Completed items live in git history.
       live; the cache trend arrow and `--toggle` are verified live.
       Enabled 2026-10-08; no spike seen as of 2026-10-09.
 
+- [ ] Validate the idle cache-expiry warning (`cache_expiry`, on by
+      default) in real sessions: does it appear after ~5 idle minutes, and
+      clear on the next step? Verified only with a backdated snapshot. Open
+      questions: is the 50k `min_tokens` floor right; is 300 s right for
+      non-Anthropic models (their cache lifetimes may differ); a long tool run
+      (e.g. a 10-minute build) also triggers it, which is accurate but may
+      read oddly mid-turn. If it fires reliably, it could also silence the
+      spike warning's expected false alarm on the first turn after idle.
+      The local config pins `segments`, so add `cache_expiry` there first.
+
 - [ ] Watch whether the garbled status line seen in Copilot CLI with 0.5.0
       comes back. 0.6.0 replaced the default `⚠️` alert icons (`U+26A0
       U+FE0F`, measured as 1 or 2 columns) with `🔥` and `📈`, single
@@ -28,20 +38,6 @@ Open work only, highest priority first. Completed items live in git history.
       and `gh`. Only worth it if more releases are coming. Both
       subcommands ran cleanly for real on the 0.6.0 release. A tag cannot
       be undone.
-
-## Spend alerts
-
-- [ ] Idle cache-expiry warning, like Claude Code's `~92k uncached ·
-      /clear to start fresh`. After the prompt cache TTL (300 s) passes
-      without a new step, the next turn rewrites the whole context, so show
-      the context size that will go uncached and a hint to start fresh.
-      Feasible because Copilot CLI refreshes the status line on a timer
-      while idle (`cache_trend.rs` already sees those refreshes). Needs the
-      time of the last counter change in a per-session snapshot (none of
-      them stores a time yet). Copilot CLI has `/clear` and `/new` (seen in
-      the 1.0.94 bundle) for the hint. Probably shown only above a token
-      floor, so small contexts stay quiet. Overlaps with the spike
-      warning's expected false alarm after idle time.
 
 ## Housekeeping
 
