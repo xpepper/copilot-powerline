@@ -21,7 +21,12 @@ Open work only, highest priority first. Completed items live in git history.
       which alert fired. Pick distinct defaults (candidates: `🔥`, `🚨`,
       `📈`; `⚡` is taken by the emoji cache icon) and update the README.
       Changing a default changes what existing users see, so call it out in
-      the release notes.
+      the release notes. Prefer emoji with an unambiguous width: `⚠️` is
+      `U+26A0` plus a VS16 selector, which terminals and TUIs measure as 1
+      or 2 columns. A suspected (unconfirmed) cause of a garbled status line
+      in Copilot CLI seen with 0.5.0, after frames with `⚠️`/`💸` were
+      replaced by one without; a terminal resize fixed it. Our output was
+      verified correct for that state.
 
 ## Housekeeping
 
@@ -61,6 +66,14 @@ Open work only, highest priority first. Completed items live in git history.
 
 ## Distribution
 
+- [ ] Publish to crates.io from the release workflow. Pushing a `v*` tag
+      publishes the GitHub release and the Homebrew formula, but crates.io
+      is still a manual `cargo publish`, and `cargo binstall` resolves the
+      version from crates.io: until it is run, binstall keeps installing
+      the previous release (seen with 0.5.0). Add a job to `release.yml`
+      that runs `cargo publish` on tag pushes with a `CARGO_REGISTRY_TOKEN`
+      secret, after the build jobs succeed. A crates.io version cannot be
+      deleted or re-uploaded, so keep it last.
 - [ ] macOS: consider signing/notarization for browser-downloaded binaries.
 - [ ] aqua / eget: not tested; document only if someone asks.
 - [ ] Later, on demand: Scoop/winget (needs Windows CI first), AUR, Nix,
