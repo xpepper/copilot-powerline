@@ -257,6 +257,12 @@ pub struct MonthCostConfig {
     #[serde(default = "default_decimals")]
     pub decimal_places: usize,
     pub db_path: Option<PathBuf>,
+    /// Flag the month-to-date cost once it goes strictly above this many
+    /// USD. Unset by default: there is no sensible budget to guess.
+    #[serde(default)]
+    pub alert_above_usd: Option<f64>,
+    #[serde(default = "default_spend_alert_icon")]
+    pub alert_icon: String,
 }
 
 impl Default for MonthCostConfig {
@@ -268,6 +274,8 @@ impl Default for MonthCostConfig {
             show_aic: false,
             decimal_places: 2,
             db_path: None,
+            alert_above_usd: None,
+            alert_icon: default_spend_alert_icon(),
         }
     }
 }
@@ -468,6 +476,8 @@ mod tests {
         // No sensible default budget: off until the user sets a limit.
         assert_eq!(cfg.session_cost.alert_above_usd, None);
         assert_eq!(cfg.session_cost.alert_icon, "💸 ");
+        assert_eq!(cfg.month_cost.alert_above_usd, None);
+        assert_eq!(cfg.month_cost.alert_icon, "💸 ");
         assert!(cfg.pr.enabled);
         assert!(cfg.pr.hyperlinks);
         assert_eq!(cfg.pr.cache_ttl_seconds, 60);
@@ -532,6 +542,19 @@ mod tests {
         let parsed = Config::from_toml(toml_str).expect("TOML should parse");
         assert_eq!(parsed.session_cost.alert_above_usd, Some(5.0));
         assert_eq!(parsed.session_cost.alert_icon, "💸 ");
+    }
+
+    #[test]
+    fn test_parse_month_cost_alert_limit() {
+        let toml_str = r#"
+            [month_cost]
+            alert_above_usd = 300.0
+        "#;
+        let parsed = Config::from_toml(toml_str).expect("TOML should parse");
+        assert_eq!(parsed.month_cost.alert_above_usd, Some(300.0));
+        assert_eq!(parsed.month_cost.alert_icon, "💸 ");
+        // Independent of the session limit.
+        assert_eq!(parsed.session_cost.alert_above_usd, None);
     }
 
     #[test]
