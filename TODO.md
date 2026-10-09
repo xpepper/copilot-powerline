@@ -32,6 +32,14 @@ Open work only, highest priority first. Completed items live in git history.
       Only meaningful once the local config stops pinning `[tokens]
       alert_icon = "⚠️ "` (copied from the pre-0.6.0 README sample).
 
+- [ ] Validate state-file pruning live once it ships (PR #51, not yet
+      released or installed). The local cache dir (~145 files, oldest
+      2026-09-15) should first shrink after 2026-10-15; confirm `mode` and
+      the files of live sessions survive. Open question: the 30-day cutoff
+      deletes the `idle_*` snapshot of a session idle that long, so
+      resuming it hides the cache-expiry warning for one step; raise
+      `MAX_AGE` in `src/state.rs` (e.g. 90 days) if that ever matters.
+
 ## Agent environment (from the 2026-10-09 retro)
 
 - [ ] Make `scripts/release.sh` testable without a real release: a
