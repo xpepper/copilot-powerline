@@ -4,5 +4,6 @@ pub mod month_cost;
 pub mod pr;
 pub mod reasoning;
 pub mod session_cost;
+pub mod spend_limit;
 pub mod tokens;
 pub mod total_tokens;

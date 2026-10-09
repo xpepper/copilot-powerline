@@ -47,6 +47,7 @@ copilot-powerline/
 │       ├── mod.rs             # Module declarations
 │       ├── tokens.rs          # Token counts, formatting (e.g. 150k, 1.2M), and alert thresholds
 │       ├── session_cost.rs    # Real-time session spend calculation (USD and optional AIC)
+│       ├── spend_limit.rs     # Shared `alert_above_usd` check, at the shown precision
 │       ├── month_cost.rs      # Month-to-date spend calculation (USD and optional AIC)
 │       ├── cache.rs           # Prompt cache hit rate (with trend arrow) or token counts
 │       ├── model.rs           # Optional active model name (shows where `auto` routed)
