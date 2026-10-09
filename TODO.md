@@ -22,7 +22,8 @@ Open work only, highest priority first. Completed items live in git history.
       (e.g. a 10-minute build) also triggers it, which is accurate but may
       read oddly mid-turn. If it fires reliably, it could also silence the
       spike warning's expected false alarm on the first turn after idle.
-      The local config pins `segments`, so add `cache_expiry` there first.
+      Installed locally (0.7.0, `cache_expiry` added to the pinned
+      `segments`) on 2026-10-09.
 
 - [ ] Watch whether the garbled status line seen in Copilot CLI with 0.5.0
       comes back. 0.6.0 replaced the default `⚠️` alert icons (`U+26A0
@@ -39,11 +40,20 @@ Open work only, highest priority first. Completed items live in git history.
       subcommands ran cleanly for real on the 0.6.0 release. A tag cannot
       be undone.
 
+## CI
+
+- [ ] Check CI after GitHub moves `ubuntu-latest` to Ubuntu 26, from
+      2026-10-19 (annotation on the v0.7.0 release run). Affects `ci.yml`
+      and `publish-crates.yml`; `release.yml` pins `ubuntu-22.04`. Nothing
+      to do before then. A `publish-crates.yml` break would only surface
+      on the next release, so check it before tagging one.
+
 ## Housekeeping
 
 - [ ] Prune stale state files in the cache dir: per-session
-      `spend_*.json`, `cache_*.json` and `month_*.json` snapshots and
-      `pr_*.json` entries are never removed. Tiny, but they grow forever.
+      `spend_*.json`, `cache_*.json`, `idle_*.json` and `month_*.json`
+      snapshots and `pr_*.json` entries are never removed. Tiny, but they
+      grow forever.
       Prune opportunistically (e.g. files older than 30 days, only when
       creating a new one) to keep the hot path cheap.
 - [ ] Binary-level test for `main.rs` wiring. Nothing checks that `main`
