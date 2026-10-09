@@ -40,14 +40,6 @@ Open work only, highest priority first. Completed items live in git history.
       resuming it hides the cache-expiry warning for one step; raise
       `MAX_AGE` in `src/state.rs` (e.g. 90 days) if that ever matters.
 
-## Agent environment (from the 2026-10-09 retro)
-
-- [ ] Make `scripts/release.sh` testable without a real release: a
-      `--dry-run` flag that prints the commands, or a test with fake `git`
-      and `gh`. Only worth it if more releases are coming. Both
-      subcommands ran cleanly for real on the 0.6.0 release. A tag cannot
-      be undone.
-
 ## CI
 
 - [ ] Check CI after GitHub moves `ubuntu-latest` to Ubuntu 26, from

@@ -55,6 +55,9 @@ jobs:
       - name: Test fetch-github-copilot-usage
         run: bash tests/test-fetch-github-copilot-usage.sh
 
+      - name: Test release script
+        run: bash tests/test-release.sh
+
   # The release workflow publishes to crates.io, and a crates.io version
   # cannot be re-uploaded, so catch packaging problems before tagging.
   package:
