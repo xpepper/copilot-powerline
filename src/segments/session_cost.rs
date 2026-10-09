@@ -24,10 +24,21 @@ pub fn render_session_cost_segment(
     let lbl = palette.label;
 
     let (usd, aic) = calculate_session_spend(total_nano_aiu);
-    let (spike_icon, color) = if spike {
-        (config.spike_icon.as_str(), palette.tokens_alert)
+    let over_limit = config.alert_above_usd.is_some_and(|limit| usd > limit);
+    let limit_icon = if over_limit {
+        config.alert_icon.as_str()
     } else {
-        ("", palette.spend)
+        ""
+    };
+    let spike_icon = if spike {
+        config.spike_icon.as_str()
+    } else {
+        ""
+    };
+    let color = if over_limit || spike {
+        palette.tokens_alert
+    } else {
+        palette.spend
     };
     let cost_str = format!(
         "{}{}{:.*}{}",
@@ -35,7 +46,10 @@ pub fn render_session_cost_segment(
     );
 
     let icon = crate::icons::session_icon(icon_set, config.prefix.as_deref());
-    let mut out = format!("{}{}{} {}{}", lbl, icon, r, spike_icon, cost_str);
+    let mut out = format!(
+        "{}{}{} {}{}{}",
+        lbl, icon, r, limit_icon, spike_icon, cost_str
+    );
 
     if config.show_aic && aic >= 0.1 {
         out.push_str(&format!(" ({}{:.1} AIC{})", d, aic, r));
@@ -112,5 +126,100 @@ mod tests {
         let rendered =
             render_session_cost_segment(80_000_000_000, true, &cfg, IconSet::Plain, &p).unwrap();
         assert!(rendered.contains(&format!("{}$0.80{}", p.tokens_alert, p.reset)));
+    }
+
+    fn with_limit(usd: f64) -> CostConfig {
+        CostConfig {
+            alert_above_usd: Some(usd),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_spend_under_limit_is_not_flagged() {
+        let p = Palette::for_theme("plain");
+
+        // 400 billion nano AIU = $4.00
+        let rendered = render_session_cost_segment(
+            400_000_000_000,
+            false,
+            &with_limit(5.0),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert_eq!(rendered, "Session: $4.00");
+    }
+
+    #[test]
+    fn test_spend_exactly_at_limit_is_not_flagged() {
+        let p = Palette::for_theme("plain");
+
+        let rendered = render_session_cost_segment(
+            500_000_000_000,
+            false,
+            &with_limit(5.0),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert_eq!(rendered, "Session: $5.00");
+    }
+
+    #[test]
+    fn test_spend_over_limit_is_flagged() {
+        let p = Palette::for_theme("plain");
+
+        // 620 billion nano AIU = $6.20
+        let rendered = render_session_cost_segment(
+            620_000_000_000,
+            false,
+            &with_limit(5.0),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert_eq!(rendered, "Session: 💸 $6.20");
+    }
+
+    #[test]
+    fn test_spend_over_limit_uses_alert_color() {
+        let p = Palette::for_theme("github");
+
+        let rendered = render_session_cost_segment(
+            620_000_000_000,
+            false,
+            &with_limit(5.0),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert!(rendered.contains(&format!("{}$6.20{}", p.tokens_alert, p.reset)));
+    }
+
+    #[test]
+    fn test_spend_without_limit_is_never_flagged() {
+        let cfg = CostConfig::default(); // alert_above_usd: None
+        let p = Palette::for_theme("plain");
+
+        let rendered =
+            render_session_cost_segment(620_000_000_000_000, false, &cfg, IconSet::Plain, &p)
+                .unwrap();
+        assert_eq!(rendered, "Session: $6200.00");
+    }
+
+    #[test]
+    fn test_spike_over_limit_shows_both_icons() {
+        let p = Palette::for_theme("plain");
+
+        let rendered = render_session_cost_segment(
+            620_000_000_000,
+            true,
+            &with_limit(5.0),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert_eq!(rendered, "Session: 💸 ⚠️ $6.20");
     }
 }

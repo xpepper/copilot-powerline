@@ -15,12 +15,17 @@ Open work only, highest priority first. Completed items live in git history.
 
 ## Spend alerts
 
-- [ ] Absolute session spend threshold, e.g. `alert_above_usd = 5.0` under
-      `[session_cost]`: show the session cost with `⚠️` and the alert color
-      once it passes the limit. Stateless and predictable, and it covers what
-      the relative spike warning cannot: sessions that are expensive from the
-      start, and overall budget surprises. Consider the same for
-      `month_cost`.
+- [ ] `alert_above_usd` / `alert_icon` for `[month_cost]`, mirroring
+      `[session_cost]` (opt-in, strictly above, default `💸`). That makes three segments with the same "icon plus alert
+      color" logic (`tokens`, `session_cost`, `month_cost`): extract a shared
+      helper then, not before.
+- [ ] One distinct icon per kind of warning. The context token threshold
+      (`[tokens] alert_icon`) and the spend spike (`[session_cost]
+      spike_icon`) both default to `⚠️`, so the icon alone does not say
+      which alert fired. Pick distinct defaults (candidates: `🔥`, `🚨`,
+      `📈`; `⚡` is taken by the emoji cache icon) and update the README.
+      Changing a default changes what existing users see, so call it out in
+      the release notes.
 
 ## Housekeeping
 
