@@ -16,10 +16,6 @@ Open work only, highest priority first. Completed items live in git history.
 
 ## Agent environment (from the 2026-10-09 retro)
 
-- [ ] Lint shell scripts in CI: add a `shellcheck` job for `scripts/`
-      (`release.sh`, `fetch-github-copilot-usage`). Check whether
-      `tests/test-fetch-github-copilot-usage.sh` should run in CI too; it
-      does not today.
 - [ ] Make `scripts/release.sh` testable without a real release: a
       `--dry-run` flag that prints the commands, or a test with fake `git`
       and `gh`. Only worth it if more releases are coming; otherwise the

@@ -12,7 +12,8 @@ run_token() {
     printf '%s' "$started" | cksum | cut -d' ' -f1
 }
 
-readonly SESSION_NAME="${SESSION_PREFIX}$$-$(run_token $$)"
+SESSION_NAME="${SESSION_PREFIX}$$-$(run_token $$)"
+readonly SESSION_NAME
 
 profile="${COPILOT_USAGE_BROWSER_PROFILE:-${HOME}/.copilot/github-usage-profile}"
 cache_file="${COPILOT_USAGE_CACHE_FILE:-${HOME}/.copilot/github-usage.json}"

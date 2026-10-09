@@ -41,6 +41,20 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-targets -- -D warnings
 
+  # release.sh pushes a tag that cannot be undone, so lint it before it runs.
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lint shell scripts
+        run: shellcheck scripts/* tests/*.sh
+
+      - name: Test fetch-github-copilot-usage
+        run: bash tests/test-fetch-github-copilot-usage.sh
+
   # The release workflow publishes to crates.io, and a crates.io version
   # cannot be re-uploaded, so catch packaging problems before tagging.
   package:
