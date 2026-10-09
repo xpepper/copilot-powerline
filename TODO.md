@@ -43,8 +43,13 @@ completed items live in git history.
 
 ## CI
 
-- [ ] Check CI after GitHub moves `ubuntu-latest` to Ubuntu 26, from
-      2026-10-19 (annotation on the v0.7.0 release run). Affects `ci.yml`
-      and `publish-crates.yml`; `release.yml` pins `ubuntu-22.04`. Nothing
-      to do before then. A `publish-crates.yml` break would only surface
-      on the next release, so check it before tagging one.
+- [ ] Check the first release after the runner changes (PR #69). Neither
+      workflow can run its release path in a PR, so both are unverified there:
+      - `release.yml` now builds on `ubuntu-24.04` / `ubuntu-24.04-arm`
+        (set in `dist-workspace.toml`; 22.04 is retired 2027-04-17).
+        Linux binaries now need glibc 2.39 instead of 2.35: confirm the
+        shell installer still works on the oldest distro you care about.
+      - `publish-crates.yml` runs on `ubuntu-latest`, which GitHub moves to
+        26.04 between 2026-10-19 and 2026-11-19 (`ci.yml` is green on it).
+        Its steps (`jq`, `curl`, `cargo metadata`, the crates.io auth
+        action) are untested there; if they break, pin `ubuntu-24.04`.
