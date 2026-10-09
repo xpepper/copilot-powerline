@@ -29,13 +29,6 @@ completed items live in git history.
       read oddly mid-turn; it could silence the spike warning's expected
       alarm on the first turn after idle.
 
-- [ ] Watch whether the garbled status line seen in Copilot CLI with 0.5.0
-      comes back. 0.6.0 replaced the default `⚠️` alert icons (`U+26A0
-      U+FE0F`, measured as 1 or 2 columns) with `🔥` and `📈`, single
-      wide code points. If it stays away, the selector was the likely cause.
-      Only meaningful once the local config stops pinning `[tokens]
-      alert_icon = "⚠️ "` (copied from the pre-0.6.0 README sample).
-
 - [ ] Validate state-file pruning live (shipped in 0.7.1, PR #51).
       Installed locally late on 2026-10-09, after that day's last status
       line refresh, so the cache dir has no `last_prune` marker yet; the
