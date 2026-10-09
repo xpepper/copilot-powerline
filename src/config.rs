@@ -147,7 +147,7 @@ pub struct TokensConfig {
     pub show_percentage: bool,
     #[serde(default = "default_alert_threshold")]
     pub alert_threshold: u64,
-    #[serde(default = "default_alert_icon")]
+    #[serde(default = "default_tokens_alert_icon")]
     pub alert_icon: String,
 }
 
@@ -158,7 +158,7 @@ impl Default for TokensConfig {
             prefix: None,
             show_percentage: true,
             alert_threshold: 100_000,
-            alert_icon: "⚠️ ".to_string(),
+            alert_icon: default_tokens_alert_icon(),
         }
     }
 }
@@ -167,8 +167,8 @@ fn default_alert_threshold() -> u64 {
     100_000
 }
 
-fn default_alert_icon() -> String {
-    "⚠️ ".to_string()
+fn default_tokens_alert_icon() -> String {
+    "🔥 ".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -193,7 +193,7 @@ pub struct CostConfig {
     /// Steps cheaper than this (in USD) never count as a spike.
     #[serde(default = "default_spike_min_usd")]
     pub spike_min_usd: f64,
-    #[serde(default = "default_alert_icon")]
+    #[serde(default = "default_spike_icon")]
     pub spike_icon: String,
     /// Flag the session cost once it goes strictly above this many USD.
     /// Unset by default: there is no sensible budget to guess.
@@ -214,11 +214,15 @@ impl Default for CostConfig {
             spike_alert: false,
             spike_ratio: default_spike_ratio(),
             spike_min_usd: default_spike_min_usd(),
-            spike_icon: default_alert_icon(),
+            spike_icon: default_spike_icon(),
             alert_above_usd: None,
             alert_icon: default_spend_alert_icon(),
         }
     }
+}
+
+fn default_spike_icon() -> String {
+    "📈 ".to_string()
 }
 
 fn default_spend_alert_icon() -> String {
@@ -478,6 +482,9 @@ mod tests {
         assert_eq!(cfg.session_cost.alert_icon, "💸 ");
         assert_eq!(cfg.month_cost.alert_above_usd, None);
         assert_eq!(cfg.month_cost.alert_icon, "💸 ");
+        // One icon per kind of alert, so the icon alone says which one fired.
+        assert_eq!(cfg.tokens.alert_icon, "🔥 ");
+        assert_eq!(cfg.session_cost.spike_icon, "📈 ");
         assert!(cfg.pr.enabled);
         assert!(cfg.pr.hyperlinks);
         assert_eq!(cfg.pr.cache_ttl_seconds, 60);
@@ -520,6 +527,9 @@ mod tests {
 
             [session_cost]
             show_aic = true
+
+            [tokens]
+            alert_threshold = 100000
         "#;
         let parsed = Config::from_toml(toml_str).expect("partial TOML should parse");
         assert_eq!(parsed.style, Style::Capsule);
@@ -528,9 +538,11 @@ mod tests {
         assert!(parsed.session_cost.show_aic);
         // spike_alert omitted from a present [session_cost] section: opt-in
         assert!(!parsed.session_cost.spike_alert);
+        assert_eq!(parsed.session_cost.spike_icon, "📈 ");
         // month_cost was omitted, should take default
         assert!(!parsed.month_cost.show_aic);
         assert_eq!(parsed.tokens.alert_threshold, 100_000);
+        assert_eq!(parsed.tokens.alert_icon, "🔥 ");
     }
 
     #[test]

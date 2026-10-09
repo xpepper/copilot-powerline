@@ -116,7 +116,7 @@ mod tests {
 
         let rendered =
             render_session_cost_segment(80_000_000_000, true, &cfg, IconSet::Plain, &p).unwrap();
-        assert_eq!(rendered, "Session: ⚠️ $0.80");
+        assert_eq!(rendered, "Session: 📈 $0.80");
     }
 
     #[test]
@@ -253,6 +253,6 @@ mod tests {
             &p,
         )
         .unwrap();
-        assert_eq!(rendered, "Session: 💸 ⚠️ $6.20");
+        assert_eq!(rendered, "Session: 💸 📈 $6.20");
     }
 }
