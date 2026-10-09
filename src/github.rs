@@ -64,7 +64,7 @@ pub fn is_cache_fresh(entry: &PrCacheEntry, ttl_seconds: u64, now: u64) -> bool 
     now.saturating_sub(entry.timestamp) < ttl_seconds
 }
 
-fn lock_file_path(cache_path: &Path) -> PathBuf {
+pub fn lock_file_path(cache_path: &Path) -> PathBuf {
     cache_path.with_extension("lock")
 }
 
@@ -87,7 +87,7 @@ pub fn should_throttle_spawn(cache_path: &Path, now: u64, throttle_seconds: u64)
 /// process already holds a live claim (or won a concurrent race for a new
 /// one). The claim never reads or writes the cache entry, so a losing (or
 /// failing) refresh attempt can never mark stale cached data as fresh.
-fn try_claim_spawn(cache_path: &Path, now: u64, throttle_seconds: u64) -> bool {
+pub fn try_claim_spawn(cache_path: &Path, now: u64, throttle_seconds: u64) -> bool {
     if should_throttle_spawn(cache_path, now, throttle_seconds) {
         return false;
     }

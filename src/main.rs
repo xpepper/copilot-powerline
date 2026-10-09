@@ -5,6 +5,7 @@ use std::path::PathBuf;
 mod cache_trend;
 mod cli;
 mod config;
+mod cycle_usage;
 mod db;
 mod git;
 mod github;
@@ -25,6 +26,7 @@ use input::CopilotInput;
 use renderer::render_segments;
 use segments::cache::render_cache_segment;
 use segments::cache_expiry::render_cache_expiry_segment;
+use segments::cycle_cost::render_cycle_cost_segment;
 use segments::model::render_model_segment;
 use segments::month_cost::{self, render_month_cost_segment};
 use segments::pr::render_pr_segment;
@@ -57,6 +59,11 @@ fn main() {
     if let Some(cache_path) = cli.fetch_pr_cache {
         let repo_dir = cli.repo_dir.unwrap_or_else(|| PathBuf::from("."));
         github::fetch_and_write_pr_cache(&repo_dir, &cache_path);
+        return;
+    }
+
+    if let Some(cache_path) = cli.fetch_cycle_usage {
+        cycle_usage::fetch_and_write_cycle_cache(&cache_path);
         return;
     }
 
@@ -158,6 +165,20 @@ fn main() {
         None
     };
 
+    let cycle_usage = if config.cycle_cost.enabled
+        && segments.iter().any(|s| s == "cycle_cost")
+        && github::is_gh_available()
+    {
+        cycle_usage::get_cycle_usage(
+            &cycle_usage::cache_path(),
+            config.cycle_cost.cache_ttl_seconds,
+            github::current_timestamp(),
+            cycle_usage::spawn_background_fetch,
+        )
+    } else {
+        None
+    };
+
     let other_nano = if month_cost::is_visible(&segments, &config.month_cost) {
         let session_id = input.session_id.as_deref();
         let query = || db::get_month_other_sessions_nano(&db_path, session_id);
@@ -245,6 +266,16 @@ fn main() {
                 if let Some(s) = render_month_cost_segment(
                     total_month_nano,
                     &config.month_cost,
+                    config.icon_set,
+                    &palette,
+                ) {
+                    rendered_segments.push(s);
+                }
+            }
+            "cycle_cost" => {
+                if let Some(s) = render_cycle_cost_segment(
+                    cycle_usage.as_ref(),
+                    &config.cycle_cost,
                     config.icon_set,
                     &palette,
                 ) {

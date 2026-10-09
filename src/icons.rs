@@ -33,6 +33,17 @@ pub fn month_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
     }
 }
 
+pub fn cycle_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
+    if let Some(c) = custom {
+        return c;
+    }
+    match icon_set {
+        IconSet::Plain => "Cycle:",
+        IconSet::Nerd => "\u{f02a4}", // nf-md-github
+        IconSet::Emoji => "🐙",
+    }
+}
+
 pub fn cache_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
     if let Some(c) = custom {
         return c;

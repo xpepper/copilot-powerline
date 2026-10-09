@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod cache_expiry;
+pub mod cycle_cost;
 pub mod model;
 pub mod month_cost;
 pub mod pr;
