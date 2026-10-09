@@ -14,12 +14,26 @@ Open work only, highest priority first. Completed items live in git history.
       live; the cache trend arrow and `--toggle` are verified live.
       Enabled 2026-10-08; no spike seen as of 2026-10-09.
 
-- [ ] Verify the crates.io publish job on the next release tag
-      (`.github/workflows/publish-crates.yml`, see RELEASING.md). Before
-      tagging, configure the trusted publisher on crates.io (owner
-      `xpepper`, repo `copilot-powerline`, workflow `release.yml`). Then
-      check that the job published and that `cargo binstall` picks up the
-      new version.
+## Agent environment (from the 2026-10-09 retro)
+
+- [ ] Add a release pointer to `AGENTS.md`: "Releases: run
+      `scripts/release.sh` (see RELEASING.md); never run `cargo publish` by
+      hand." It has no mention of the release process today.
+- [ ] Lint shell scripts in CI: add a `shellcheck` job for `scripts/`
+      (`release.sh`, `fetch-github-copilot-usage`). Check whether
+      `tests/test-fetch-github-copilot-usage.sh` should run in CI too; it
+      does not today.
+- [ ] Make `scripts/release.sh` testable without a real release: a
+      `--dry-run` flag that prints the commands, or a test with fake `git`
+      and `gh`. Only worth it if more releases are coming; otherwise the
+      first real run is the test. A tag cannot be undone.
+- [ ] One source for commit rules: `AGENTS.md` section 6 overlaps the global
+      `source-control.md` (types, task ids). Replace it with a pointer, or
+      keep only the types this repo adds. Needs a decision.
+- [ ] The codebase map in `AGENTS.md` section 2 restates the directory
+      layout and is already stale (no `scripts/`, `.github/workflows/` or
+      `RELEASING.md`). Delete it and keep only the non-obvious notes, or
+      add the missing entries. Needs a decision.
 
 ## Spend alerts
 
