@@ -10,22 +10,24 @@ completed items live in git history.
       on by default. It ships opt-in (`spike_alert = false`) because the
       thresholds (`spike_ratio = 2.0`, `spike_min_usd = 0.05`) are guesses.
       Enable it for a few days of real sessions and note how often it fires.
-      Expected false alarms: the first turn after ~5 idle minutes (the prompt
-      cache TTL is 300 s, so the whole context is rewritten) and
-      output-heavy steps (output tokens cost more than input). Not yet seen
-      live; the cache trend arrow and `--toggle` are verified live.
-      Enabled 2026-10-08; no spike seen as of 2026-10-09.
+      Expected false alarms: the first turn after the prompt cache expires
+      (about 5 idle minutes for Claude, 30 for GPT-5.6 and later, see #67;
+      the whole context is rewritten) and output-heavy steps (output tokens
+      cost more than input). The cache trend arrow and `--toggle` are
+      verified live. Enabled 2026-10-08, not yet seen live, likely because
+      the verdict only lasts until the next step: replayed through 0.7.1,
+      the 2026-10-09 cold restart (one call at 19x the usual cost) shows
+      `📈`, and the next call 9 s later clears it.
 
 - [ ] Validate the idle cache-expiry warning (`cache_expiry`, on by
-      default) in real sessions: does it appear after ~5 idle minutes, and
-      clear on the next step? Verified only with a backdated snapshot. Open
-      questions: is the 50k `min_tokens` floor right; is 300 s right for
-      non-Anthropic models (their cache lifetimes may differ); a long tool run
+      default) in real sessions. Seen live on 2026-10-09: it appeared
+      during an 8-minute break with Claude and cleared on the next step,
+      which really did rewrite the whole context. The 300 s lifetime is
+      wrong for GPT models and the size shown is too low: tracked in #67.
+      Still open: is the 50k `min_tokens` floor right; a long tool run
       (e.g. a 10-minute build) also triggers it, which is accurate but may
-      read oddly mid-turn. If it fires reliably, it could also silence the
-      spike warning's expected false alarm on the first turn after idle.
-      Installed locally (0.7.0, `cache_expiry` added to the pinned
-      `segments`) on 2026-10-09.
+      read oddly mid-turn; it could silence the spike warning's expected
+      alarm on the first turn after idle.
 
 - [ ] Watch whether the garbled status line seen in Copilot CLI with 0.5.0
       comes back. 0.6.0 replaced the default `⚠️` alert icons (`U+26A0
