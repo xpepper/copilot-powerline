@@ -50,6 +50,16 @@ pub struct ModelInfo {
     pub display_name: Option<String>,
 }
 
+impl ContextWindow {
+    /// Cumulative session tokens: `total_tokens`, or input plus output when
+    /// the payload lacks it. Moves on every model call.
+    pub fn session_tokens(&self) -> u64 {
+        self.total_tokens.unwrap_or_else(|| {
+            self.total_input_tokens.unwrap_or(0) + self.total_output_tokens.unwrap_or(0)
+        })
+    }
+}
+
 impl CopilotInput {
     pub fn from_json(json_str: &str) -> Self {
         serde_json::from_str(json_str).unwrap_or_default()
@@ -114,6 +124,24 @@ mod tests {
         assert_eq!(input.context_window.current_context_tokens, None);
         assert_eq!(input.ai_used.total_nano_aiu, 0);
         assert!(input.model.is_none());
+    }
+
+    #[test]
+    fn test_session_tokens_prefers_total_then_input_plus_output() {
+        let with_total = ContextWindow {
+            total_tokens: Some(62_000),
+            total_input_tokens: Some(50_000),
+            total_output_tokens: Some(1_000),
+            ..Default::default()
+        };
+        assert_eq!(with_total.session_tokens(), 62_000);
+
+        let without_total = ContextWindow {
+            total_tokens: None,
+            ..with_total
+        };
+        assert_eq!(without_total.session_tokens(), 51_000);
+        assert_eq!(ContextWindow::default().session_tokens(), 0);
     }
 
     #[test]

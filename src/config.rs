@@ -110,6 +110,8 @@ pub struct Config {
     #[serde(default)]
     pub total_tokens: TotalTokensConfig,
     #[serde(default)]
+    pub cache_expiry: CacheExpiryConfig,
+    #[serde(default)]
     pub pr: PrConfig,
     #[serde(default)]
     pub model: ModelConfig,
@@ -124,6 +126,7 @@ fn default_compact_segments() -> Vec<String> {
         "tokens".to_string(),
         "session_cost".to_string(),
         "month_cost".to_string(),
+        "cache_expiry".to_string(),
     ]
 }
 
@@ -135,6 +138,7 @@ fn default_segments() -> Vec<String> {
         "cache".to_string(),
         "reasoning".to_string(),
         "total_tokens".to_string(),
+        "cache_expiry".to_string(),
     ]
 }
 
@@ -346,6 +350,52 @@ impl Default for TotalTokensConfig {
     }
 }
 
+/// Warning shown once the session has been idle longer than the prompt
+/// cache TTL, so the next turn rewrites the whole context (e.g.
+/// `~92k uncached · /clear to start fresh`). Renders nothing otherwise.
+///
+/// Needs `statusLine.refreshInterval` in Copilot CLI's settings: without it
+/// the status line is not refreshed while idle.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheExpiryConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub prefix: Option<String>,
+    /// Prompt cache lifetime: idle time after which the cache is assumed gone.
+    #[serde(default = "default_cache_ttl_seconds")]
+    pub ttl_seconds: u64,
+    /// Stay quiet below this context size, where starting fresh saves little.
+    #[serde(default = "default_cache_expiry_min_tokens")]
+    pub min_tokens: u64,
+    /// Shown after the uncached size; empty hides it.
+    #[serde(default = "default_cache_expiry_hint")]
+    pub hint: String,
+}
+
+fn default_cache_ttl_seconds() -> u64 {
+    300
+}
+
+fn default_cache_expiry_min_tokens() -> u64 {
+    50_000
+}
+
+fn default_cache_expiry_hint() -> String {
+    "/clear to start fresh".to_string()
+}
+
+impl Default for CacheExpiryConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            prefix: None,
+            ttl_seconds: default_cache_ttl_seconds(),
+            min_tokens: default_cache_expiry_min_tokens(),
+            hint: default_cache_expiry_hint(),
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -361,6 +411,7 @@ impl Default for Config {
             cache: CacheConfig::default(),
             reasoning: ReasoningConfig::default(),
             total_tokens: TotalTokensConfig::default(),
+            cache_expiry: CacheExpiryConfig::default(),
             pr: PrConfig::default(),
             model: ModelConfig::default(),
         }
@@ -468,7 +519,8 @@ mod tests {
                 "month_cost",
                 "cache",
                 "reasoning",
-                "total_tokens"
+                "total_tokens",
+                "cache_expiry"
             ]
         );
         assert!(!cfg.session_cost.show_aic);
@@ -491,6 +543,10 @@ mod tests {
         // "pr" is opt-in: it must not appear in the default segment list.
         assert!(!cfg.segments.iter().any(|s| s == "pr"));
         assert!(!cfg.segments.iter().any(|s| s == "model"));
+        assert!(cfg.cache_expiry.enabled);
+        assert_eq!(cfg.cache_expiry.ttl_seconds, 300);
+        assert_eq!(cfg.cache_expiry.min_tokens, 50_000);
+        assert_eq!(cfg.cache_expiry.hint, "/clear to start fresh");
     }
 
     #[test]
@@ -576,7 +632,7 @@ mod tests {
         assert_eq!(cfg.segments_for(DisplayMode::Full), cfg.segments.as_slice());
         assert_eq!(
             cfg.segments_for(DisplayMode::Compact),
-            ["tokens", "session_cost", "month_cost"]
+            ["tokens", "session_cost", "month_cost", "cache_expiry"]
         );
     }
 

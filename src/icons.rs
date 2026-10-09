@@ -88,6 +88,17 @@ pub fn pr_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
     }
 }
 
+pub fn cache_expiry_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
+    if let Some(c) = custom {
+        return c;
+    }
+    match icon_set {
+        IconSet::Plain => "Idle:",
+        IconSet::Nerd => "\u{f051f}", // nf-md-timer_sand
+        IconSet::Emoji => "⏳",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,6 +111,7 @@ mod tests {
         assert_eq!(total_tokens_icon(IconSet::Plain, None), "Total:");
         assert_eq!(pr_icon(IconSet::Plain, None), "PR");
         assert_eq!(model_icon(IconSet::Plain, None), "Model:");
+        assert_eq!(cache_expiry_icon(IconSet::Plain, None), "Idle:");
     }
 
     #[test]
@@ -121,6 +133,7 @@ mod tests {
         assert_eq!(total_tokens_icon(IconSet::Emoji, None), "📊");
         assert_eq!(pr_icon(IconSet::Emoji, None), "🔀");
         assert_eq!(model_icon(IconSet::Emoji, None), "🤖");
+        assert_eq!(cache_expiry_icon(IconSet::Emoji, None), "⏳");
     }
 
     #[test]

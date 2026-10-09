@@ -40,6 +40,8 @@ Then add it to `~/.copilot/settings.json`:
 }
 ```
 
+Keep `refreshInterval`: without it Copilot CLI only refreshes the status line on events, so the idle cache-expiry warning (`cache_expiry`) cannot appear while you are away.
+
 If the install directory is not on your `PATH`, use the full path as the command: `~/.local/bin/copilot-powerline` for the installer, or `~/.cargo/bin/copilot-powerline` for Cargo. Run `copilot-powerline --init` at any time to create the default configuration at `~/.copilot/powerline.toml`.
 
 ## See it in action
@@ -86,6 +88,7 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 
 - **Context Window Monitoring**: Real-time context tracking with percentage and warning alert threshold (`>100k`).
 - **Prompt Cache Tracking**: Real-time cache hit rate (or token count), automatically hidden when zero.
+- **Idle Cache-Expiry Warning**: After 5 idle minutes the prompt cache is gone and the next turn rewrites the whole context; shows how much (e.g. `~92k uncached · /clear to start fresh`).
 - **Reasoning Tokens**: Tracks thinking tokens for reasoning models (e.g. o3-mini, Claude 3.7 Sonnet thinking).
 - **Total Session Tokens**: Displays total accumulated token volume across all turns and compactions.
 - **Spend Tracking**: Real-time session spend and month-to-date aggregation from Copilot's local SQLite database.
@@ -168,6 +171,7 @@ This creates `~/.copilot/powerline.toml`.
 | `session_cost` | `󰄬` | `💰` | `Session:` | `$8.64` / `💸 $9.10` / `📈 $9.10` | **Current Session Cost**: Real-time spend accumulated in the active session in USD (optional AIC credit display). With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the session costs more than that limit. With `spike_alert = true` *(opt-in)*, shows `📈` and the alert color when the latest step cost much more per token than the session average, a hint of expensive model routing or a cache miss on a large context. Both icons appear when both apply. |
 | `month_cost` | `󰠠` | `📅` | `Month:` | `$281.66` / `💸 $312.40` | **Month-to-Date Cost**: Total cumulative monthly spend across all sessions, queried directly from Copilot's `~/.copilot/session-store.db`. The current session updates live; other sessions' spend is re-read at most once a minute. With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the month costs more than that limit. |
 | `cache` | `󰘸` | `⚡` | `Cache:` | `95% ↓` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Shows `↑` (green, or blue in `colorblind`) when the tokens added since the previous refresh hit the cache clearly more than the session average, and `↓` (red, or orange in `colorblind`) when they hit it clearly less. The arrow stays until the next step. Automatically hidden when 0. |
+| `cache_expiry` | `󰔟` | `⏳` | `Idle:` | `~92k uncached · /clear to start fresh` | **Idle Cache-Expiry Warning**: Appears once the session has been idle longer than the prompt cache TTL (`ttl_seconds`, default 300), when the next turn will rewrite the whole context uncached. Shows the context size at stake and a hint to start fresh. Hidden below `min_tokens` (default 50k) and whenever the cache is still warm. Needs `refreshInterval` in Copilot CLI's `statusLine` settings. |
 | `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative tokens used by thinking models (e.g. o3-mini, Claude 3.7 Sonnet). Automatically hidden when 0. |
 | `total_tokens` | `󰓅` | `📊` | `Total:` | `4.5M` | **Total Session Tokens**: Total cumulative token throughput (input + output + cached) exchanged across all turns and compactions in the session. |
 | `model` | `󰘚` | `🤖` | `Model:` | `Auto → Claude Opus 4.5` | **Active Model** *(optional, not in the default `segments` list)*: The model Copilot is using. With `auto`, shows which model the router picked, so a switch to a pricier model is visible. |
@@ -184,7 +188,7 @@ style = "minimal"      # Options: "minimal", "powerline", "capsule", "plain"
 icon_set = "nerd"      # Options: "nerd", "emoji", "plain"
 theme = "colorblind"   # Options: "colorblind", "github", "nord", "tokyo-night", "plain"
 mode = "full"          # "full" shows `segments`, "compact" shows `compact_segments`
-compact_segments = ["tokens", "session_cost", "month_cost"]
+compact_segments = ["tokens", "session_cost", "month_cost", "cache_expiry"]
 segments = [
     "tokens",
     "session_cost",
@@ -192,6 +196,7 @@ segments = [
     "cache",
     "reasoning",
     "total_tokens",
+    "cache_expiry",
     # "model", # Uncomment to show the active model (and where `auto` routed)
     # "pr",   # Uncomment to show the current branch's PR (requires the `gh` CLI)
 ]
@@ -236,6 +241,12 @@ auto_hide_zero = true      # Automatically hide if model has no reasoning tokens
 [total_tokens]
 enabled = true
 
+[cache_expiry]
+enabled = true
+ttl_seconds = 300      # Prompt cache lifetime: warn after this many idle seconds
+min_tokens = 50000     # Stay quiet for contexts smaller than this
+hint = "/clear to start fresh"  # Set to "" to show only the uncached size
+
 [model]
 enabled = true
 # prefix = "Model:"    # Optional custom override
@@ -246,6 +257,8 @@ hyperlinks = true      # Set to false to print "PR #50" as plain text
 cache_ttl_seconds = 60 # How long a cached PR lookup is considered fresh
 # prefix = "Pull:"      # Optional custom override
 ```
+
+If your `powerline.toml` sets `segments` or `compact_segments`, segments added in later releases (such as `cache_expiry`) only show once you add them to those lists.
 
 ### Compact mode
 
