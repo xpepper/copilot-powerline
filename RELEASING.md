@@ -13,11 +13,15 @@ The workflow then publishes the crate to crates.io (`.github/workflows/publish-c
 
 ## Shortcut: `scripts/release.sh`
 
-The steps below are automated by two commands. Merging the version-bump PR stays manual, as the review point.
+The steps below are automated by two commands. Merging the version-bump PR stays manual, as the review point. Pass `--dry-run` (or `-n`) to preview the planned commands without modifying state.
 
 ```bash
+# Optional preview:
+scripts/release.sh --dry-run prepare 0.5.2
+
 scripts/release.sh prepare 0.5.2   # bump, run the checks, open the bump PR
 # review and merge the PR, then:
+scripts/release.sh --dry-run tag   # optional preview
 scripts/release.sh tag             # tag main, watch the run, verify crates.io, append notes
 ```
 
