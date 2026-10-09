@@ -1,3 +1,4 @@
+use super::spend_limit;
 use crate::config::MonthCostConfig;
 use crate::theme::Palette;
 
@@ -28,13 +29,19 @@ pub fn render_month_cost_segment(
     let lbl = palette.label;
 
     let (usd, aic) = calculate_month_spend(total_month_nano);
+    let (limit_icon, color) =
+        if spend_limit::exceeds(usd, config.decimal_places, config.alert_above_usd) {
+            (config.alert_icon.as_str(), palette.tokens_alert)
+        } else {
+            ("", palette.spend)
+        };
     let cost_str = format!(
         "{}{}{:.*}{}",
-        palette.spend, config.currency_symbol, config.decimal_places, usd, r
+        color, config.currency_symbol, config.decimal_places, usd, r
     );
 
     let icon = crate::icons::month_icon(icon_set, config.prefix.as_deref());
-    let mut out = format!("{}{}{} {}", lbl, icon, r, cost_str);
+    let mut out = format!("{}{}{} {}{}", lbl, icon, r, limit_icon, cost_str);
 
     if config.show_aic && aic >= 1.0 {
         out.push_str(&format!(" ({}{:.0} AIC{})", d, aic, r));
@@ -105,5 +112,53 @@ mod tests {
         let rendered =
             render_month_cost_segment(25_938_000_000_000, &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Month: $259.38 (25938 AIC)");
+    }
+
+    fn with_limit(usd: f64) -> MonthCostConfig {
+        MonthCostConfig {
+            alert_above_usd: Some(usd),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_month_cost_at_limit_is_not_flagged() {
+        let p = Palette::for_theme("plain");
+
+        let rendered =
+            render_month_cost_segment(25_938_000_000_000, &with_limit(259.38), IconSet::Plain, &p)
+                .unwrap();
+        assert_eq!(rendered, "Month: $259.38");
+    }
+
+    #[test]
+    fn test_month_cost_over_limit_is_flagged() {
+        let p = Palette::for_theme("plain");
+
+        let rendered =
+            render_month_cost_segment(25_938_000_000_000, &with_limit(250.0), IconSet::Plain, &p)
+                .unwrap();
+        assert_eq!(rendered, "Month: 💸 $259.38");
+    }
+
+    #[test]
+    fn test_month_cost_over_limit_uses_alert_color() {
+        let p = Palette::for_theme("github");
+
+        let rendered =
+            render_month_cost_segment(25_938_000_000_000, &with_limit(250.0), IconSet::Plain, &p)
+                .unwrap();
+        assert!(rendered.contains(&format!("{}$259.38{}", p.tokens_alert, p.reset)));
+    }
+
+    #[test]
+    fn test_month_cost_without_limit_is_never_flagged() {
+        let cfg = MonthCostConfig::default(); // alert_above_usd: None
+        let p = Palette::for_theme("github");
+
+        let rendered =
+            render_month_cost_segment(25_938_000_000_000, &cfg, IconSet::Plain, &p).unwrap();
+        assert!(rendered.contains(&format!("{}$259.38{}", p.spend, p.reset)));
+        assert!(!rendered.contains("💸"));
     }
 }

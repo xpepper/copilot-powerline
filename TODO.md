@@ -15,10 +15,6 @@ Open work only, highest priority first. Completed items live in git history.
 
 ## Spend alerts
 
-- [ ] `alert_above_usd` / `alert_icon` for `[month_cost]`, mirroring
-      `[session_cost]` (opt-in, strictly above, default `💸`). That makes three segments with the same "icon plus alert
-      color" logic (`tokens`, `session_cost`, `month_cost`): extract a shared
-      helper then, not before.
 - [ ] One distinct icon per kind of warning. The context token threshold
       (`[tokens] alert_icon`) and the spend spike (`[session_cost]
       spike_icon`) both default to `⚠️`, so the icon alone does not say
@@ -40,6 +36,9 @@ Open work only, highest priority first. Completed items live in git history.
       could run the built binary (`env!("CARGO_BIN_EXE_copilot-powerline")`)
       against a temp config whose `[month_cost] db_path` points at a temp
       SQLite file, with no new dependency.
+- [ ] `calculate_session_spend` and `calculate_month_spend` are the same
+      nano AIU to (USD, AIC) conversion; keep one. A natural home is
+      `segments/spend_limit.rs`, renamed to something like `spend_format`.
 - [ ] Extract the repeated "is this segment shown" check in `main.rs`
       (`segments.iter().any(|s| s == "...")` for `pr`, `session_cost` and
       `cache`), as done with `month_cost::is_visible`.

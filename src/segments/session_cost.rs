@@ -1,3 +1,4 @@
+use super::spend_limit;
 use crate::config::CostConfig;
 use crate::theme::Palette;
 
@@ -24,13 +25,7 @@ pub fn render_session_cost_segment(
     let lbl = palette.label;
 
     let (usd, aic) = calculate_session_spend(total_nano_aiu);
-    // Compare the amount as shown, so the icon never contradicts the number
-    // and float noise (0.57 computing to 0.5700000000000001) cannot trip it.
-    let scale = 10f64.powi(config.decimal_places as i32);
-    let shown_usd = (usd * scale).round() / scale;
-    let over_limit = config
-        .alert_above_usd
-        .is_some_and(|limit| shown_usd > limit);
+    let over_limit = spend_limit::exceeds(usd, config.decimal_places, config.alert_above_usd);
     let limit_icon = if over_limit {
         config.alert_icon.as_str()
     } else {
