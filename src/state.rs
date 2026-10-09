@@ -98,10 +98,21 @@ where
     next
 }
 
+/// True only for names this tool generates: `<kind>_<16 lowercase hex>` plus
+/// `.json`, `.lock` or a leftover `.tmp.<pid>`. A bare prefix is not enough,
+/// so unrelated files that happen to share a kind's name are never deleted.
 fn is_prunable_name(name: &str) -> bool {
     PRUNABLE_KINDS.iter().any(|kind| {
         name.strip_prefix(kind)
-            .is_some_and(|rest| rest.starts_with('_'))
+            .and_then(|rest| rest.strip_prefix('_'))
+            .and_then(|rest| rest.split_at_checked(16))
+            .is_some_and(|(hash, suffix)| {
+                hash.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+                    && (matches!(suffix, ".json" | ".lock")
+                        || suffix.strip_prefix(".tmp.").is_some_and(|pid| {
+                            !pid.is_empty() && pid.bytes().all(|b| b.is_ascii_digit())
+                        }))
+            })
     })
 }
 
@@ -205,6 +216,35 @@ mod tests {
 
         assert!(removed.iter().all(|path| !path.exists()));
         assert!(recent.exists() && mode.exists() && unrelated.exists() && unseparated.exists());
+    }
+
+    #[test]
+    fn test_prune_stale_keeps_old_files_with_an_allowed_prefix_but_another_shape() {
+        let dir = tempfile::tempdir().unwrap();
+        let now = SystemTime::now();
+
+        let kept: Vec<PathBuf> = [
+            "spend_notes.txt",
+            "cache_backup",
+            "idle_0123456789abcdef.json.bak",
+            "month_0123456789abcdef",
+            "pr_0123456789abcdef.txt",
+            "spend_0123.json",
+            "cache_0123456789ABCDEF.json",
+            "spend_0123456789abcdef0.json",
+            "spend_0123456789abcdef.tmp.",
+            "spend_0123456789abcdef.tmp.pid",
+            "spend_0123456789abcdé.json",
+        ]
+        .iter()
+        .map(|name| touch(dir.path(), name, 31 * DAY, now))
+        .collect();
+
+        prune_stale(dir.path(), now);
+
+        for path in &kept {
+            assert!(path.exists(), "{} was pruned", path.display());
+        }
     }
 
     #[test]
