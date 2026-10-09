@@ -24,7 +24,13 @@ pub fn render_session_cost_segment(
     let lbl = palette.label;
 
     let (usd, aic) = calculate_session_spend(total_nano_aiu);
-    let over_limit = config.alert_above_usd.is_some_and(|limit| usd > limit);
+    // Compare the amount as shown, so the icon never contradicts the number
+    // and float noise (0.57 computing to 0.5700000000000001) cannot trip it.
+    let scale = 10f64.powi(config.decimal_places as i32);
+    let shown_usd = (usd * scale).round() / scale;
+    let over_limit = config
+        .alert_above_usd
+        .is_some_and(|limit| shown_usd > limit);
     let limit_icon = if over_limit {
         config.alert_icon.as_str()
     } else {
@@ -157,6 +163,38 @@ mod tests {
 
         let rendered = render_session_cost_segment(
             500_000_000_000,
+            false,
+            &with_limit(5.0),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert_eq!(rendered, "Session: $5.00");
+    }
+
+    #[test]
+    fn test_spend_at_limit_ignores_float_error() {
+        let p = Palette::for_theme("plain");
+
+        // 57 billion nano AIU computes to $0.5700000000000001 in f64.
+        let rendered = render_session_cost_segment(
+            57_000_000_000,
+            false,
+            &with_limit(0.57),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert_eq!(rendered, "Session: $0.57");
+    }
+
+    #[test]
+    fn test_spend_over_limit_only_once_the_shown_amount_is() {
+        let p = Palette::for_theme("plain");
+
+        // $5.004 is shown as $5.00: the icon must not contradict the number.
+        let rendered = render_session_cost_segment(
+            500_400_000_000,
             false,
             &with_limit(5.0),
             IconSet::Plain,
