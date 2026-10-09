@@ -12,6 +12,7 @@ Open work only, highest priority first. Completed items live in git history.
       cache TTL is 300 s, so the whole context is rewritten) and
       output-heavy steps (output tokens cost more than input). Not yet seen
       live; the cache trend arrow and `--toggle` are verified live.
+      Enabled 2026-10-08; no spike seen as of 2026-10-09.
 
 - [ ] Verify the crates.io publish job on the next release tag
       (`.github/workflows/publish-crates.yml`, see RELEASING.md). Before
