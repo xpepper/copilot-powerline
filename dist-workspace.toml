@@ -12,7 +12,7 @@ installers = ["shell", "homebrew"]
 # A GitHub repo to push Homebrew formulas to
 tap = "xpepper/homebrew-tap"
 # Publish jobs to run in CI
-publish-jobs = ["homebrew"]
+publish-jobs = ["homebrew", "./publish-crates"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu"]
 # Path that installers should place binaries in
@@ -21,3 +21,8 @@ install-path = "~/.local/bin"
 hosting = "github"
 # Whether to install an updater program
 install-updater = false
+
+# The crates.io job needs the repo contents to package the crate, and an
+# OIDC token for trusted publishing.
+[dist.github-custom-job-permissions]
+"publish-crates" = { contents = "read", id-token = "write" }
