@@ -13,6 +13,13 @@ Open work only, highest priority first. Completed items live in git history.
       output-heavy steps (output tokens cost more than input). Not yet seen
       live; the cache trend arrow and `--toggle` are verified live.
 
+- [ ] Verify the crates.io publish job on the next release tag
+      (`.github/workflows/publish-crates.yml`, see RELEASING.md). Before
+      tagging, configure the trusted publisher on crates.io (owner
+      `xpepper`, repo `copilot-powerline`, workflow `release.yml`). Then
+      check that the job published and that `cargo binstall` picks up the
+      new version.
+
 ## Spend alerts
 
 - [ ] One distinct icon per kind of warning. The context token threshold
@@ -78,14 +85,10 @@ Open work only, highest priority first. Completed items live in git history.
 
 ## Distribution
 
-- [ ] Publish to crates.io from the release workflow. Pushing a `v*` tag
-      publishes the GitHub release and the Homebrew formula, but crates.io
-      is still a manual `cargo publish`, and `cargo binstall` resolves the
-      version from crates.io: until it is run, binstall keeps installing
-      the previous release (seen with 0.5.0). Add a job to `release.yml`
-      that runs `cargo publish` on tag pushes with a `CARGO_REGISTRY_TOKEN`
-      secret, after the build jobs succeed. A crates.io version cannot be
-      deleted or re-uploaded, so keep it last.
+- [ ] Trim the published crate with an `include` list in `Cargo.toml`.
+      `cargo package` ships 48 files (1.4 MiB), mostly `assets/` (the demo
+      GIF and screenshot used only by the README), plus `.github/`,
+      `TODO.md` and `scripts/`.
 - [ ] macOS: consider signing/notarization for browser-downloaded binaries.
 - [ ] aqua / eget: not tested; document only if someone asks.
 - [ ] Later, on demand: Scoop/winget (needs Windows CI first), AUR, Nix,
