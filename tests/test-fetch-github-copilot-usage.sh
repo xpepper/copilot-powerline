@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Word-splitting the log is intended; mapfile is missing from macOS bash 3.2.
+# shellcheck disable=SC2207
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
