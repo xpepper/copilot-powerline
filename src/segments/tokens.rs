@@ -127,6 +127,6 @@ mod tests {
         let p = Palette::for_theme("plain");
 
         let rendered = render_tokens_segment(&ctx, &cfg, IconSet::Plain, &p).unwrap();
-        assert_eq!(rendered, "Tokens: ⚠️ 150k/200k (75%)");
+        assert_eq!(rendered, "Tokens: 🔥 150k/200k (75%)");
     }
 }

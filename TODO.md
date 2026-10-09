@@ -2,6 +2,15 @@
 
 Open work only, highest priority first. Completed items live in git history.
 
+## Next release
+
+- [ ] Call out the changed alert icon defaults in the release notes: the
+      context token alert is now `🔥` and the spend spike `📈` (both were
+      `⚠️`). Users who want the old look can set `[tokens] alert_icon` and
+      `[session_cost] spike_icon`. Also watch whether the garbled status
+      line seen with 0.5.0 comes back now that the default icons carry no
+      VS16 selector (`⚠️` is `U+26A0 U+FE0F`, measured as 1 or 2 columns).
+
 ## Validate new features
 
 - [ ] Tune the session-cost spike warning, then decide whether to turn it
@@ -22,19 +31,6 @@ Open work only, highest priority first. Completed items live in git history.
       first real run is the test. A tag cannot be undone.
 
 ## Spend alerts
-
-- [ ] One distinct icon per kind of warning. The context token threshold
-      (`[tokens] alert_icon`) and the spend spike (`[session_cost]
-      spike_icon`) both default to `⚠️`, so the icon alone does not say
-      which alert fired. Pick distinct defaults (candidates: `🔥`, `🚨`,
-      `📈`; `⚡` is taken by the emoji cache icon) and update the README.
-      Changing a default changes what existing users see, so call it out in
-      the release notes. Prefer emoji with an unambiguous width: `⚠️` is
-      `U+26A0` plus a VS16 selector, which terminals and TUIs measure as 1
-      or 2 columns. A suspected (unconfirmed) cause of a garbled status line
-      in Copilot CLI seen with 0.5.0, after frames with `⚠️`/`💸` were
-      replaced by one without; a terminal resize fixed it. Our output was
-      verified correct for that state.
 
 - [ ] Idle cache-expiry warning, like Claude Code's `~92k uncached ·
       /clear to start fresh`. After the prompt cache TTL (300 s) passes
