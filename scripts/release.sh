@@ -13,7 +13,6 @@ set -euo pipefail
 REPO="xpepper/copilot-powerline"
 CRATE="copilot-powerline"
 
-DRY_RUN=false
 case "${DRY_RUN:-false}" in
   1|true|yes) DRY_RUN=true ;;
   *) DRY_RUN=false ;;

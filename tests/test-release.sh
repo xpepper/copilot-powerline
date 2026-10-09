@@ -362,6 +362,12 @@ reset_env
 (cd "$work_dir" && "$release_script" -n prepare 0.8.0 >"$output_file" 2>"$error_file")
 grep -Fq "git checkout -b chore/release-0.8.0" "$output_file"
 
+# --- Test prepare: DRY_RUN=1 environment variable ---
+reset_env
+(cd "$work_dir" && DRY_RUN=1 "$release_script" prepare 0.8.0 >"$output_file" 2>"$error_file")
+grep -Fq "git checkout -b chore/release-0.8.0" "$output_file"
+if grep -Fq "checkout" "$git_log"; then echo "Unexpected checkout in git log" >&2; exit 1; fi
+
 # --- Test prepare: --dry-run warns on dirty tree and non-main branch without failing ---
 reset_env
 export MOCK_GIT_DIRTY=1
