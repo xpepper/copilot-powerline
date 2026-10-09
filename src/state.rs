@@ -129,9 +129,11 @@ fn prune_stale(dir: &Path, now: SystemTime) {
     }
 }
 
-/// Prunes `dir` at most once per `PRUNE_INTERVAL`, tracked by the mtime of a
-/// marker file, so the common case costs a single `stat`. Only ever call it
-/// with the state directory.
+/// Prunes `dir` about once per `PRUNE_INTERVAL`, tracked by the mtime of a
+/// marker file, so the common case costs a single `stat`. Refreshes that
+/// overlap at the moment the marker goes stale may each scan once; the scan
+/// is idempotent, so that is cheaper than a lock needing stale-lock handling.
+/// Only ever call it with the state directory.
 pub fn prune_if_due(dir: &Path, now: SystemTime) {
     let marker = dir.join(PRUNE_MARKER);
     let recently_pruned = fs::metadata(&marker)
