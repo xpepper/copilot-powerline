@@ -32,6 +32,14 @@ Open work only, highest priority first. Completed items live in git history.
       Only meaningful once the local config stops pinning `[tokens]
       alert_icon = "⚠️ "` (copied from the pre-0.6.0 README sample).
 
+- [ ] Validate state-file pruning live once it ships (PR #51, not yet
+      released or installed). The local cache dir (~145 files, oldest
+      2026-09-15) should first shrink after 2026-10-15; confirm `mode` and
+      the files of live sessions survive. Open question: the 30-day cutoff
+      deletes the `idle_*` snapshot of a session idle that long, so
+      resuming it hides the cache-expiry warning for one step; raise
+      `MAX_AGE` in `src/state.rs` (e.g. 90 days) if that ever matters.
+
 ## Agent environment (from the 2026-10-09 retro)
 
 - [ ] Make `scripts/release.sh` testable without a real release: a
@@ -50,18 +58,13 @@ Open work only, highest priority first. Completed items live in git history.
 
 ## Housekeeping
 
-- [ ] Prune stale state files in the cache dir: per-session
-      `spend_*.json`, `cache_*.json`, `idle_*.json` and `month_*.json`
-      snapshots and `pr_*.json` entries are never removed. Tiny, but they
-      grow forever.
-      Prune opportunistically (e.g. files older than 30 days, only when
-      creating a new one) to keep the hot path cheap.
-- [ ] Binary-level test for `main.rs` wiring. Nothing checks that `main`
-      actually skips the month query when `month_cost` is hidden, or reuses
-      the cached total; only `hyperfine` and manual runs showed it. A test
-      could run the built binary (`env!("CARGO_BIN_EXE_copilot-powerline")`)
-      against a temp config whose `[month_cost] db_path` points at a temp
-      SQLite file, with no new dependency.
+- [ ] Binary-level test for the rest of the `main.rs` wiring. Nothing
+      checks that `main` actually skips the month query when `month_cost`
+      is hidden, or reuses the cached total; only `hyperfine` and manual
+      runs showed it. `tests/prune_wiring.rs` already runs the built binary
+      (`env!("CARGO_BIN_EXE_copilot-powerline")`) with a temp `HOME`; reuse
+      it against a temp config whose `[month_cost] db_path` points at a
+      temp SQLite file, with no new dependency.
 - [ ] `calculate_session_spend` and `calculate_month_spend` are the same
       nano AIU to (USD, AIC) conversion; keep one. A natural home is
       `segments/spend_limit.rs`, renamed to something like `spend_format`.
