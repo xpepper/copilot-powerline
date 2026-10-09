@@ -1,6 +1,8 @@
 # TODO: copilot-powerline
 
-Open work only, highest priority first. Completed items live in git history.
+Short-lived checks and memos only, highest priority first. The backlog lives
+in [GitHub issues](https://github.com/xpepper/copilot-powerline/issues);
+completed items live in git history.
 
 ## Validate new features
 
@@ -48,42 +50,3 @@ Open work only, highest priority first. Completed items live in git history.
       and `publish-crates.yml`; `release.yml` pins `ubuntu-22.04`. Nothing
       to do before then. A `publish-crates.yml` break would only surface
       on the next release, so check it before tagging one.
-
-## Housekeeping
-
-- [ ] Binary-level test for the rest of the `main.rs` wiring. Nothing
-      checks that `main` actually skips the month query when `month_cost`
-      is hidden, or reuses the cached total; only `hyperfine` and manual
-      runs showed it. `tests/prune_wiring.rs` already runs the built binary
-      (`env!("CARGO_BIN_EXE_copilot-powerline")`) with a temp `HOME`; reuse
-      it against a temp config whose `[month_cost] db_path` points at a
-      temp SQLite file, with no new dependency.
-- [ ] `calculate_session_spend` and `calculate_month_spend` are the same
-      nano AIU to (USD, AIC) conversion; keep one. A natural home is
-      `segments/spend_limit.rs`, renamed to something like `spend_format`.
-- [ ] Extract the repeated "is this segment shown" check in `main.rs`
-      (`segments.iter().any(|s| s == "...")` for `pr`, `session_cost` and
-      `cache`), as done with `month_cost::is_visible`.
-
-## New optional segments (from unused payload fields)
-
-- [ ] Allow-all indicator from `allow_all_enabled` (safety signal).
-- [ ] Code churn from `cost.total_lines_added` / `total_lines_removed`
-      (e.g. `+120 -30`).
-- [ ] Premium requests from `cost.total_premium_requests`.
-- [ ] Session and API time from `cost.total_duration_ms` /
-      `total_api_duration_ms`.
-
-## `fetch-github-copilot-usage`
-
-- [ ] Optional spike detection: compare each new reading against the
-      previous history entry and warn (stderr, and/or a flag in the JSON
-      output) when the increase exceeds a configurable threshold. Deferred
-      until real history data exists to pick a sensible default threshold.
-
-## Distribution
-
-- [ ] macOS: consider signing/notarization for browser-downloaded binaries.
-- [ ] aqua / eget: not tested; document only if someone asks.
-- [ ] Later, on demand: Scoop/winget (needs Windows CI first), AUR, Nix,
-      `.deb`/`.rpm`.
