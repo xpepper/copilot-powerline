@@ -195,6 +195,12 @@ pub struct CostConfig {
     pub spike_min_usd: f64,
     #[serde(default = "default_alert_icon")]
     pub spike_icon: String,
+    /// Flag the session cost once it goes strictly above this many USD.
+    /// Unset by default: there is no sensible budget to guess.
+    #[serde(default)]
+    pub alert_above_usd: Option<f64>,
+    #[serde(default = "default_spend_alert_icon")]
+    pub alert_icon: String,
 }
 
 impl Default for CostConfig {
@@ -209,8 +215,14 @@ impl Default for CostConfig {
             spike_ratio: default_spike_ratio(),
             spike_min_usd: default_spike_min_usd(),
             spike_icon: default_alert_icon(),
+            alert_above_usd: None,
+            alert_icon: default_spend_alert_icon(),
         }
     }
+}
+
+fn default_spend_alert_icon() -> String {
+    "💸 ".to_string()
 }
 
 fn default_spike_ratio() -> f64 {
@@ -453,6 +465,9 @@ mod tests {
         assert!(!cfg.session_cost.spike_alert);
         assert_eq!(cfg.session_cost.spike_ratio, 2.0);
         assert_eq!(cfg.session_cost.spike_min_usd, 0.05);
+        // No sensible default budget: off until the user sets a limit.
+        assert_eq!(cfg.session_cost.alert_above_usd, None);
+        assert_eq!(cfg.session_cost.alert_icon, "💸 ");
         assert!(cfg.pr.enabled);
         assert!(cfg.pr.hyperlinks);
         assert_eq!(cfg.pr.cache_ttl_seconds, 60);
@@ -506,6 +521,17 @@ mod tests {
         // month_cost was omitted, should take default
         assert!(!parsed.month_cost.show_aic);
         assert_eq!(parsed.tokens.alert_threshold, 100_000);
+    }
+
+    #[test]
+    fn test_parse_session_cost_alert_limit() {
+        let toml_str = r#"
+            [session_cost]
+            alert_above_usd = 5.0
+        "#;
+        let parsed = Config::from_toml(toml_str).expect("TOML should parse");
+        assert_eq!(parsed.session_cost.alert_above_usd, Some(5.0));
+        assert_eq!(parsed.session_cost.alert_icon, "💸 ");
     }
 
     #[test]

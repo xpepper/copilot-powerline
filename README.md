@@ -165,7 +165,7 @@ This creates `~/.copilot/powerline.toml`.
 | Segment | Icon (`nerd`) | Icon (`emoji`) | Text (`plain`) | Example Value | Description |
 |---|:---:|:---:|---|---|---|
 | `tokens` | `󰮚` / `⚠️` | `🪙` / `⚠️` | `Tokens:` | `145k/400k (36%)` | **Context Window**: Active context tokens vs model limit (and percentage used). Automatically switches to `⚠️` when crossing the configured alert threshold (default `>100k`). |
-| `session_cost` | `󰄬` | `💰` | `Session:` | `$8.64` / `⚠️ $9.10` | **Current Session Cost**: Real-time spend accumulated in the active session in USD (optional AIC credit display). With `spike_alert = true` *(opt-in)*, turns to `⚠️` and the alert color when the latest step cost much more per token than the session average, a hint of expensive model routing or a cache miss on a large context. |
+| `session_cost` | `󰄬` | `💰` | `Session:` | `$8.64` / `💸 $9.10` / `⚠️ $9.10` | **Current Session Cost**: Real-time spend accumulated in the active session in USD (optional AIC credit display). With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the session costs more than that limit. With `spike_alert = true` *(opt-in)*, shows `⚠️` and the alert color when the latest step cost much more per token than the session average, a hint of expensive model routing or a cache miss on a large context. Both icons appear when both apply. |
 | `month_cost` | `󰠠` | `📅` | `Month:` | `$281.66` | **Month-to-Date Cost**: Total cumulative monthly spend across all sessions, queried directly from Copilot's `~/.copilot/session-store.db`. The current session updates live; other sessions' spend is re-read at most once a minute. |
 | `cache` | `󰘸` | `⚡` | `Cache:` | `95% ↓` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Shows `↑` (green, or blue in `colorblind`) when the tokens added since the previous refresh hit the cache clearly more than the session average, and `↓` (red, or orange in `colorblind`) when they hit it clearly less. The arrow stays until the next step. Automatically hidden when 0. |
 | `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative tokens used by thinking models (e.g. o3-mini, Claude 3.7 Sonnet). Automatically hidden when 0. |
@@ -212,6 +212,8 @@ spike_alert = false    # Opt-in: flag steps that cost much more per token than t
 spike_ratio = 2.0      # ...this many times the average
 spike_min_usd = 0.05   # ...and at least this much in a single step
 spike_icon = "⚠️ "
+# alert_above_usd = 5.0  # Opt-in: flag the session once it costs more than this
+alert_icon = "💸 "
 
 [month_cost]
 enabled = true
