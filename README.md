@@ -321,29 +321,47 @@ complete personal usage counter, including usage that is absent from the local
 database.
 
 The experimental helper is a separate script, not part of the status-line
-binary, so it is only available from a clone of this repository. It fetches
-that displayed counter through a dedicated local browser profile. It never sends the profile or cookies anywhere, and it
-does not run as part of the status-line refresh loop.
+binary, so it is only available from a clone of this repository. It reads
+that counter from GitHub's Copilot user API (`/copilot_internal/user`) with
+your GitHub token, and it does not run as part of the status-line refresh
+loop. It needs `curl` and `jq`.
 
 ```bash
-# Install the browser dependency once.
-npm install --global agent-browser
-agent-browser install
-
-# Open a visible browser once and complete GitHub login, SSO, and 2FA.
-./scripts/fetch-github-copilot-usage --login
+# Once, if you have not already: sign in to GitHub CLI.
+gh auth login
 
 # Fetch the current value and save a private local cache.
 ./scripts/fetch-github-copilot-usage
 # {"ai_credits_used":49854,"usd":"498.54","cycle":"September 1-30, 2026"}
 ```
 
-By default, browser state is stored in
-`~/.copilot/github-usage-profile` and the output cache in
-`~/.copilot/github-usage.json`. Set `COPILOT_USAGE_BROWSER_PROFILE` or
-`COPILOT_USAGE_CACHE_FILE` to use different paths. The helper depends on an
-undocumented GitHub settings page and may need updating if GitHub changes its
-markup.
+The token is looked up in the same order Copilot CLI uses:
+`COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, then `gh auth token`. No
+extra scope is needed. The output cache is `~/.copilot/github-usage.json`; set
+`COPILOT_USAGE_CACHE_FILE` to use a different path.
+
+`usd` is the list price of the credits (USD 0.01 each), not what your
+organization pays: plans with included credits use those first.
+
+The API endpoint is internal and undocumented, so GitHub may change it
+without notice. If that happens, `--browser` falls back to reading
+**Settings > Copilot > Features** through a dedicated local browser profile,
+which needs [agent-browser](https://github.com/vercel-labs/agent-browser) and
+a GitHub web login that has to be repeated when it expires:
+
+```bash
+npm install --global agent-browser
+agent-browser install
+
+# Open a visible browser once and complete GitHub login, SSO, and 2FA.
+./scripts/fetch-github-copilot-usage --login
+
+./scripts/fetch-github-copilot-usage --browser
+```
+
+Browser state is stored in `~/.copilot/github-usage-profile`; set
+`COPILOT_USAGE_BROWSER_PROFILE` to use a different path. The profile and its
+cookies never leave your machine.
 
 Every run also appends a timestamped entry to a local JSON Lines history log
 at `~/.copilot/github-usage-history.jsonl` (one JSON object per line: `ts`,
