@@ -1,0 +1,26 @@
+{
+  "copilot_plan": "business",
+  "access_type_sku": "copilot_for_business_seat_quota",
+  "token_based_billing": true,
+  "quota_reset_date": "2026-11-01",
+  "quota_reset_date_utc": "2026-11-01T00:00:00.000Z",
+  "quota_snapshots": {
+    "chat": {
+      "credits_used": 0,
+      "unlimited": true,
+      "entitlement": 0,
+      "percent_remaining": 100.0
+    },
+    "premium_interactions": {
+      "credits_used": 15649,
+      "unlimited": true,
+      "entitlement": 0,
+      "has_quota": true,
+      "overage_permitted": true,
+      "percent_remaining": 100.0,
+      "quota_reset_at": 0,
+      "token_based_billing": true,
+      "timestamp_utc": "2026-10-09T19:11:27.918Z"
+    }
+  }
+}
