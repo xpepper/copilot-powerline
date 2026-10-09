@@ -36,14 +36,17 @@ completed items live in git history.
       Only meaningful once the local config stops pinning `[tokens]
       alert_icon = "⚠️ "` (copied from the pre-0.6.0 README sample).
 
-- [ ] Validate state-file pruning live (shipped in 0.7.1, PR #51; not yet
-      installed locally). Install 0.7.1, then the local cache dir (~145
-      files, oldest 2026-09-15) should first shrink after 2026-10-15;
-      confirm `mode` and the files of live sessions survive. Open question:
-      the 30-day cutoff deletes the `idle_*` snapshot of a session idle
-      that long, so resuming it hides the cache-expiry warning for one
-      step; raise `MAX_AGE` in `src/state.rs` (e.g. 90 days) if that ever
-      matters.
+- [ ] Validate state-file pruning live (shipped in 0.7.1, PR #51).
+      Installed locally late on 2026-10-09, after that day's last status
+      line refresh, so the cache dir has no `last_prune` marker yet; the
+      first refresh with 0.7.1 creates it. The dir (148 files, oldest
+      2026-09-15) should first shrink after 2026-10-15; confirm the files
+      of live sessions survive, and the `mode` override if one is set (it
+      only exists while toggled away from the configured mode). Open
+      question: the 30-day cutoff deletes the `idle_*` snapshot of a
+      session idle that long, so resuming it hides the cache-expiry
+      warning for one step; raise `MAX_AGE` in `src/state.rs` (e.g. 90
+      days) if that ever matters.
 
 ## CI
 
