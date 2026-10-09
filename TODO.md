@@ -21,7 +21,12 @@ Open work only, highest priority first. Completed items live in git history.
       which alert fired. Pick distinct defaults (candidates: `🔥`, `🚨`,
       `📈`; `⚡` is taken by the emoji cache icon) and update the README.
       Changing a default changes what existing users see, so call it out in
-      the release notes.
+      the release notes. Prefer emoji with an unambiguous width: `⚠️` is
+      `U+26A0` plus a VS16 selector, which terminals and TUIs measure as 1
+      or 2 columns. A suspected (unconfirmed) cause of a garbled status line
+      in Copilot CLI seen with 0.5.0, after frames with `⚠️`/`💸` were
+      replaced by one without; a terminal resize fixed it. Our output was
+      verified correct for that state.
 
 ## Housekeeping
 
