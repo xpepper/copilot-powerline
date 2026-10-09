@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+readonly API_URL="https://api.github.com/copilot_internal/user"
 readonly FEATURES_URL="https://github.com/settings/copilot/features"
 readonly SESSION_PREFIX="copilot-powerline-github-usage-"
 
@@ -19,22 +20,29 @@ profile="${COPILOT_USAGE_BROWSER_PROFILE:-${HOME}/.copilot/github-usage-profile}
 cache_file="${COPILOT_USAGE_CACHE_FILE:-${HOME}/.copilot/github-usage.json}"
 history_file="${COPILOT_USAGE_HISTORY_FILE:-${HOME}/.copilot/github-usage-history.jsonl}"
 html_file=""
+browser=false
 login=false
 write_cache=true
 write_history=true
 
 usage() {
     cat <<'EOF'
-Usage: fetch-github-copilot-usage [--login] [--html-file FILE] [--no-cache] [--no-history]
+Usage: fetch-github-copilot-usage [--browser] [--login] [--html-file FILE] [--no-cache] [--no-history]
 
-Fetch the signed-in user's GitHub Copilot usage counter and print JSON.
+Fetch the signed-in user's GitHub Copilot usage counter for the current
+billing cycle and print JSON. By default it reads GitHub's Copilot user API
+with your GitHub token (requires curl and jq).
 
+  --browser           Scrape the Copilot settings page with agent-browser instead.
   --login             Open a persistent browser profile for one-time GitHub login.
   --html-file FILE    Parse a saved page text fixture instead of opening a browser.
   --no-cache          Do not write the result to ~/.copilot/github-usage.json.
   --no-history        Do not append the result to ~/.copilot/github-usage-history.jsonl.
 
 Environment:
+  COPILOT_GITHUB_TOKEN, GH_TOKEN, GITHUB_TOKEN
+                                 GitHub token, checked in this order before
+                                 falling back to `gh auth token`.
   COPILOT_USAGE_BROWSER_PROFILE  Persistent browser profile location.
   COPILOT_USAGE_CACHE_FILE       Output cache location.
   COPILOT_USAGE_HISTORY_FILE     Append-only run history location (JSON Lines).
@@ -43,6 +51,9 @@ EOF
 
 while (($#)); do
     case "$1" in
+        --browser)
+            browser=true
+            ;;
         --login)
             login=true
             ;;
@@ -108,49 +119,147 @@ EOF
     exit 0
 fi
 
-if [[ -n "$html_file" ]]; then
-    [[ -r "$html_file" ]] || {
-        echo "Cannot read page text: $html_file" >&2
-        exit 1
-    }
-    page_text="$(<"$html_file")"
-else
-    command -v agent-browser >/dev/null || {
-        echo "agent-browser is required. Run this script with --login after installing it." >&2
-        exit 1
-    }
-
-    close_stale_browser_sessions
-    cleanup_browser_session() {
-        agent-browser --session "$SESSION_NAME" close >/dev/null 2>&1 || true
-    }
-    trap cleanup_browser_session EXIT
-    agent-browser --session "$SESSION_NAME" --profile "$profile" open "$FEATURES_URL" >/dev/null
-    page_text="$(agent-browser --session "$SESSION_NAME" read)"
-    agent-browser --session "$SESSION_NAME" close >/dev/null
-    trap - EXIT
-fi
-
-if [[ "$page_text" == *"Sign in to GitHub"* ]]; then
-    echo "GitHub login is required. Run: $0 --login" >&2
-    exit 1
-fi
-
-if ! credits="$(printf '%s\n' "$page_text" |
-    grep -Em1 -o '[0-9][0-9,]* AI credits used' |
-    tr -cd '0-9')"; then
-    credits=""
-fi
-
-if ! cycle="$(printf '%s\n' "$page_text" |
-    grep -Em1 -o '[A-Z][a-z]+ [0-9]{1,2}-[0-9]{1,2}, [0-9]{4}')"; then
-    cycle=""
-fi
-
-[[ -n "$credits" && -n "$cycle" ]] || {
-    echo "Could not find Copilot usage on the features page. GitHub may have changed the page." >&2
-    exit 1
+# Prints the first GitHub token found, in Copilot CLI's documented order.
+github_token() {
+    local name
+    for name in COPILOT_GITHUB_TOKEN GH_TOKEN GITHUB_TOKEN; do
+        [[ -z "${!name:-}" ]] || {
+            printf '%s' "${!name}"
+            return
+        }
+    done
+    command -v gh >/dev/null && gh auth token 2>/dev/null
 }
+
+# Reads a /copilot_internal/user response and prints "ok<TAB>credits<TAB>cycle",
+# or "error<TAB>message" when a field is missing. With no per-user budget
+# (unlimited), credits_used is the cycle total; with one, the used part of the
+# budget is entitlement - quota_remaining, as VS Code computes it. Cycles are
+# calendar months that reset on the 1st, so the cycle is the month before
+# quota_reset_date.
+# shellcheck disable=SC2016 # A jq program: its $names are jq variables.
+readonly API_USAGE_FILTER='
+def months: ["January", "February", "March", "April", "May", "June", "July",
+    "August", "September", "October", "November", "December"];
+def credits:
+    if . == null then error("quota_snapshots.premium_interactions is missing")
+    elif .unlimited == true then
+        if (.credits_used | type) == "number" then .credits_used
+        else error("credits_used is missing") end
+    elif .unlimited == false then
+        if (.entitlement | type) == "number" and .entitlement > 0
+            and (.quota_remaining | type) == "number"
+        then [0, .entitlement - .quota_remaining] | max
+        else error("a per-user budget needs entitlement and quota_remaining") end
+    else error("unlimited is missing") end;
+def cycle:
+    if type != "string" then error("quota_reset_date is missing") else . end
+    | (capture("^(?<y>[0-9]{4})-(?<m>[0-9]{2})-01$")
+        // error("quota_reset_date \(.) is not the 1st of a month"))
+    | (.y | tonumber) as $reset_year
+    | (.m | tonumber) as $reset_month
+    | (if $reset_month == 1 then [$reset_year - 1, 12]
+        else [$reset_year, $reset_month - 1] end) as [$year, $month]
+    | (if $month == 2 then
+            (if ($year % 4 == 0 and $year % 100 != 0) or $year % 400 == 0
+            then 29 else 28 end)
+        elif ($month | IN(4, 6, 9, 11)) then 30
+        else 31 end) as $days
+    | "\(months[$month - 1]) 1-\($days), \($year)";
+try "ok\t\(.quota_snapshots.premium_interactions | credits)\t\(.quota_reset_date | cycle)"
+catch "error\t\(.)"
+'
+
+read_api_usage() {
+    local tool token response parsed
+    for tool in curl jq; do
+        command -v "$tool" >/dev/null || {
+            echo "$tool is required. Install it, or pass --browser to scrape the settings page." >&2
+            exit 1
+        }
+    done
+
+    token="$(github_token)" || token=""
+    [[ -n "$token" ]] || {
+        echo "No GitHub token found. Run gh auth login, or set GH_TOKEN." >&2
+        exit 1
+    }
+
+    # The token goes in on stdin, so it never shows up in the process list.
+    response="$(printf 'Authorization: Bearer %s\n' "$token" |
+        curl --silent --show-error --fail --max-time 15 \
+            --header @- --header 'Accept: application/json' "$API_URL")" || {
+        echo "GitHub API request failed: $API_URL" >&2
+        exit 1
+    }
+
+    parsed="$(printf '%s' "$response" | jq -r "$API_USAGE_FILTER" 2>/dev/null)" || {
+        echo "The GitHub API response is not valid JSON." >&2
+        exit 1
+    }
+    case "$parsed" in
+        ok$'\t'*)
+            IFS=$'\t' read -r _ credits cycle <<<"$parsed"
+            ;;
+        *)
+            echo "Unexpected Copilot user API response: ${parsed#error$'\t'}" >&2
+            exit 1
+            ;;
+    esac
+}
+
+read_page_usage() {
+    local page_text
+    if [[ -n "$html_file" ]]; then
+        [[ -r "$html_file" ]] || {
+            echo "Cannot read page text: $html_file" >&2
+            exit 1
+        }
+        page_text="$(<"$html_file")"
+    else
+        command -v agent-browser >/dev/null || {
+            echo "agent-browser is required. Run this script with --login after installing it." >&2
+            exit 1
+        }
+
+        close_stale_browser_sessions
+        cleanup_browser_session() {
+            agent-browser --session "$SESSION_NAME" close >/dev/null 2>&1 || true
+        }
+        trap cleanup_browser_session EXIT
+        agent-browser --session "$SESSION_NAME" --profile "$profile" open "$FEATURES_URL" >/dev/null
+        page_text="$(agent-browser --session "$SESSION_NAME" read)"
+        agent-browser --session "$SESSION_NAME" close >/dev/null
+        trap - EXIT
+    fi
+
+    if [[ "$page_text" == *"Sign in to GitHub"* ]]; then
+        echo "GitHub login is required. Run: $0 --login" >&2
+        exit 1
+    fi
+
+    if ! credits="$(printf '%s\n' "$page_text" |
+        grep -Em1 -o '[0-9][0-9,]* AI credits used' |
+        tr -cd '0-9')"; then
+        credits=""
+    fi
+
+    if ! cycle="$(printf '%s\n' "$page_text" |
+        grep -Em1 -o '[A-Z][a-z]+ [0-9]{1,2}-[0-9]{1,2}, [0-9]{4}')"; then
+        cycle=""
+    fi
+
+    [[ -n "$credits" && -n "$cycle" ]] || {
+        echo "Could not find Copilot usage on the features page. GitHub may have changed the page." >&2
+        exit 1
+    }
+}
+
+if "$browser" || [[ -n "$html_file" ]]; then
+    read_page_usage
+else
+    read_api_usage
+fi
 
 usd="$(awk -v credits="$credits" 'BEGIN { printf "%.2f", credits / 100 }')"
 result="$(printf '{"ai_credits_used":%s,"usd":"%s","cycle":"%s"}' "$credits" "$usd" "$cycle")"
