@@ -2,15 +2,6 @@
 
 Open work only, highest priority first. Completed items live in git history.
 
-## Next release
-
-- [ ] Call out the changed alert icon defaults in the release notes: the
-      context token alert is now `🔥` and the spend spike `📈` (both were
-      `⚠️`). Users who want the old look can set `[tokens] alert_icon` and
-      `[session_cost] spike_icon`. Also watch whether the garbled status
-      line seen with 0.5.0 comes back now that the default icons carry no
-      VS16 selector (`⚠️` is `U+26A0 U+FE0F`, measured as 1 or 2 columns).
-
 ## Validate new features
 
 - [ ] Tune the session-cost spike warning, then decide whether to turn it
@@ -23,12 +14,20 @@ Open work only, highest priority first. Completed items live in git history.
       live; the cache trend arrow and `--toggle` are verified live.
       Enabled 2026-10-08; no spike seen as of 2026-10-09.
 
+- [ ] Watch whether the garbled status line seen in Copilot CLI with 0.5.0
+      comes back. 0.6.0 replaced the default `⚠️` alert icons (`U+26A0
+      U+FE0F`, measured as 1 or 2 columns) with `🔥` and `📈`, single
+      wide code points. If it stays away, the selector was the likely cause.
+      Only meaningful once the local config stops pinning `[tokens]
+      alert_icon = "⚠️ "` (copied from the pre-0.6.0 README sample).
+
 ## Agent environment (from the 2026-10-09 retro)
 
 - [ ] Make `scripts/release.sh` testable without a real release: a
       `--dry-run` flag that prints the commands, or a test with fake `git`
-      and `gh`. Only worth it if more releases are coming; otherwise the
-      first real run is the test. A tag cannot be undone.
+      and `gh`. Only worth it if more releases are coming. Both
+      subcommands ran cleanly for real on the 0.6.0 release. A tag cannot
+      be undone.
 
 ## Spend alerts
 
