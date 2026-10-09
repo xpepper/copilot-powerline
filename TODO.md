@@ -35,6 +35,18 @@ Open work only, highest priority first. Completed items live in git history.
       replaced by one without; a terminal resize fixed it. Our output was
       verified correct for that state.
 
+- [ ] Idle cache-expiry warning, like Claude Code's `~92k uncached ·
+      /clear to start fresh`. After the prompt cache TTL (300 s) passes
+      without a new step, the next turn rewrites the whole context, so show
+      the context size that will go uncached and a hint to start fresh.
+      Feasible because Copilot CLI refreshes the status line on a timer
+      while idle (`cache_trend.rs` already sees those refreshes). Needs the
+      time of the last counter change in a per-session snapshot (none of
+      them stores a time yet). Copilot CLI has `/clear` and `/new` (seen in
+      the 1.0.94 bundle) for the hint. Probably shown only above a token
+      floor, so small contexts stay quiet. Overlaps with the spike
+      warning's expected false alarm after idle time.
+
 ## Housekeeping
 
 - [ ] Prune stale state files in the cache dir: per-session
