@@ -26,3 +26,9 @@ install-updater = false
 # OIDC token for trusted publishing.
 [dist.github-custom-job-permissions]
 "publish-crates" = { contents = "read", id-token = "write" }
+
+# dist defaults to ubuntu-22.04, which GitHub retires on 2027-04-17.
+[dist.github-custom-runners]
+global = "ubuntu-24.04"
+x86_64-unknown-linux-gnu = "ubuntu-24.04"
+aarch64-unknown-linux-gnu = "ubuntu-24.04-arm"

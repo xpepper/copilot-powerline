@@ -43,14 +43,13 @@ completed items live in git history.
 
 ## CI
 
-- [ ] Check `publish-crates.yml` on Ubuntu 26 before the next release.
-      GitHub rolls `ubuntu-latest` over to Ubuntu 26.04 gradually, from
-      2026-10-19 to 2026-11-19. `ci.yml` was verified green on
-      `ubuntu-26.04` on 2026-10-09 (all jobs, PR #69), so nothing to do
-      there. `publish-crates.yml` only runs on release, so its steps
-      (`jq`, `curl`, `cargo metadata`, the crates.io auth action) are
-      unverified on 26.04; the image ships jq 1.8.1 and curl 8.18. If it
-      breaks, pin `ubuntu-24.04` there. `release.yml` runs on
-      `ubuntu-22.04` (dist's default, not set in `dist-workspace.toml`).
-      GitHub retires that image on 2027-04-17, with brownouts from
-      2027-03-23: upgrade dist or set a custom runner before then.
+- [ ] Check the first release after the runner changes (PR #69). Neither
+      workflow can run its release path in a PR, so both are unverified there:
+      - `release.yml` now builds on `ubuntu-24.04` / `ubuntu-24.04-arm`
+        (set in `dist-workspace.toml`; 22.04 is retired 2027-04-17).
+        Linux binaries now need glibc 2.39 instead of 2.35: confirm the
+        shell installer still works on the oldest distro you care about.
+      - `publish-crates.yml` runs on `ubuntu-latest`, which GitHub moves to
+        26.04 between 2026-10-19 and 2026-11-19 (`ci.yml` is green on it).
+        Its steps (`jq`, `curl`, `cargo metadata`, the crates.io auth
+        action) are untested there; if they break, pin `ubuntu-24.04`.
