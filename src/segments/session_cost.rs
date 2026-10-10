@@ -1,13 +1,6 @@
-use super::spend_limit;
+use super::spend_format::{self, aic_to_usd, nano_to_aic};
 use crate::config::CostConfig;
 use crate::theme::Palette;
-
-pub fn calculate_session_spend(total_nano_aiu: u64) -> (f64, f64) {
-    // 1 AIC = $0.01 USD; 1 nano AIU = 1e-9 AIC = 1e-11 USD
-    let aic = total_nano_aiu as f64 / 1e9;
-    let usd = aic * 0.01;
-    (usd, aic)
-}
 
 pub fn render_session_cost_segment(
     total_nano_aiu: u64,
@@ -24,8 +17,9 @@ pub fn render_session_cost_segment(
     let d = palette.dim;
     let lbl = palette.label;
 
-    let (usd, aic) = calculate_session_spend(total_nano_aiu);
-    let over_limit = spend_limit::exceeds(usd, config.decimal_places, config.alert_above_usd);
+    let aic = nano_to_aic(total_nano_aiu);
+    let usd = aic_to_usd(aic);
+    let over_limit = spend_format::exceeds(usd, config.decimal_places, config.alert_above_usd);
     let limit_icon = if over_limit {
         config.alert_icon.as_str()
     } else {

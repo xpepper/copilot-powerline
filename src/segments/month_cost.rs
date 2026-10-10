@@ -1,10 +1,7 @@
+use super::spend_format::nano_to_aic;
 use super::spend_total::{self, SpendTotal};
 use crate::config::MonthCostConfig;
 use crate::theme::Palette;
-
-fn nano_to_aic(total_nano: u64) -> f64 {
-    total_nano as f64 / 1e9
-}
 
 /// Whether the segment will render, so callers can skip the month-to-date
 /// query (a full scan of the usage table) when nothing would show it.

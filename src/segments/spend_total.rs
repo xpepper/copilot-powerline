@@ -1,7 +1,7 @@
 //! Rendering shared by the running spend totals, `month_cost` and
 //! `cycle_cost`, so their alert and AIC formatting stay the same.
 
-use super::spend_limit;
+use super::spend_format::{self, aic_to_usd};
 use crate::theme::Palette;
 
 /// The display settings both totals' configs carry.
@@ -20,9 +20,9 @@ pub fn render(icon: &str, aic: f64, total: &SpendTotal, palette: &Palette) -> St
     let d = palette.dim;
     let lbl = palette.label;
 
-    let usd = aic * 0.01;
+    let usd = aic_to_usd(aic);
     let (limit_icon, color) =
-        if spend_limit::exceeds(usd, total.decimal_places, total.alert_above_usd) {
+        if spend_format::exceeds(usd, total.decimal_places, total.alert_above_usd) {
             (total.alert_icon, palette.tokens_alert)
         } else {
             ("", palette.spend)

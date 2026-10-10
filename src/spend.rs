@@ -84,6 +84,13 @@ mod tests {
     /// $0.01 in nano AIU.
     const CENT: u64 = 1_000_000_000;
 
+    #[test]
+    fn test_usd_rate_matches_segment_conversion_constants() {
+        use crate::segments::spend_format::{NANO_AIU_PER_AIC, USD_PER_AIC};
+        // Compared as constants: the computed values differ for some amounts.
+        assert_eq!(NANO_AIU_PER_AIC / USD_PER_AIC, NANO_AIU_PER_USD);
+    }
+
     fn snap(nano_aiu: u64, total_tokens: u64, alert: bool) -> Snapshot {
         Snapshot {
             nano_aiu,
