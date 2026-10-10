@@ -71,8 +71,14 @@ impl Sandbox {
     /// `HOME` and the working directory are set on the child only, so tests
     /// can run in parallel without sharing process state.
     pub fn refresh(&self, payload: &str, args: &[&str]) -> String {
+        self.refresh_with_env(payload, args, &[])
+    }
+
+    /// Like `refresh`, with extra environment variables set on the child.
+    pub fn refresh_with_env(&self, payload: &str, args: &[&str], envs: &[(&str, &Path)]) -> String {
         let mut child = Command::new(env!("CARGO_BIN_EXE_copilot-powerline"))
             .args(args)
+            .envs(envs.iter().copied())
             .env("HOME", self.home())
             .env_remove("XDG_CACHE_HOME")
             .current_dir(self.home())
