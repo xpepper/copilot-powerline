@@ -220,9 +220,20 @@ mod tests {
 
     #[test]
     fn test_fully_cached_step_is_not_a_miss_even_with_a_zero_floor() {
+        // 10k step, all 10k read from the cache: 0 missed.
         let prev = snap(1_000_000, 900_000, None);
         let next = super::assess(Some(prev), 1_010_000, 910_000, NOW, 0);
         assert_eq!(next.last_miss, None);
+    }
+
+    #[test]
+    fn test_fully_cached_step_keeps_the_last_miss_with_a_zero_floor() {
+        let prev = Snapshot {
+            last_miss: miss(5_000, NOW - 60),
+            ..snap(1_000_000, 900_000, None)
+        };
+        let next = super::assess(Some(prev), 1_010_000, 910_000, NOW, 0);
+        assert_eq!(next.last_miss, miss(5_000, NOW - 60));
     }
 
     #[test]
