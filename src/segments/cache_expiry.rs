@@ -4,9 +4,10 @@ use crate::input::ContextWindow;
 use crate::segments::tokens::format_tokens;
 use crate::theme::Palette;
 
-/// Renders the idle cache-expiry warning: the context size the next turn
-/// will rewrite uncached, plus a hint. `idle_seconds` is the time since the
-/// session's last step (see `idle`), `None` when unknown.
+/// Renders the long-break reminder: how long the session has been idle and
+/// that the prompt cache is likely cold. It only claims "likely": the idle
+/// time is all that is measured, not the provider's cache. `idle_seconds` is
+/// the time since the session's last step (see `idle`), `None` when unknown.
 pub fn render_cache_expiry_segment(
     ctx: &ContextWindow,
     idle_seconds: Option<u64>,
@@ -14,7 +15,8 @@ pub fn render_cache_expiry_segment(
     icon_set: IconSet,
     palette: &Palette,
 ) -> Option<String> {
-    if !config.enabled || idle_seconds? < config.ttl_seconds {
+    let idle = idle_seconds?;
+    if !config.enabled || idle < config.idle_seconds {
         return None;
     }
 
@@ -25,22 +27,35 @@ pub fn render_cache_expiry_segment(
 
     let icon = cache_expiry_icon(icon_set, config.prefix.as_deref());
     let r = palette.reset;
-    let hint = if config.hint.is_empty() {
-        String::new()
+    let context = if config.show_tokens {
+        format!(" · {} context", format_tokens(Some(context_tokens)))
     } else {
-        format!("{} · {}{}", palette.dim, config.hint, r)
+        String::new()
     };
 
     Some(format!(
-        "{}{}{} {}~{} uncached{}{}",
+        "{}{}{} {}{}{}{} · cache likely cold{}{}",
         palette.label,
         icon,
         r,
         palette.tokens_alert,
-        format_tokens(Some(context_tokens)),
+        format_idle(idle),
         r,
-        hint
+        palette.dim,
+        context,
+        r
     ))
+}
+
+/// Idle time as `45s`, `54m`, `1h` or `1h 12m`.
+fn format_idle(seconds: u64) -> String {
+    let (hours, minutes) = (seconds / 3_600, seconds % 3_600 / 60);
+    match (hours, minutes) {
+        (0, 0) => format!("{seconds}s"),
+        (0, m) => format!("{m}m"),
+        (h, 0) => format!("{h}h"),
+        (h, m) => format!("{h}h {m}m"),
+    }
 }
 
 #[cfg(test)]
@@ -59,18 +74,19 @@ mod tests {
     }
 
     #[test]
-    fn test_warns_once_idle_past_the_ttl() {
+    fn test_reminds_after_thirty_idle_minutes() {
         let cfg = CacheExpiryConfig::default();
         assert_eq!(
-            render(&ctx_with(92_000), Some(300), &cfg).as_deref(),
-            Some("Idle: ~92k uncached · /clear to start fresh")
+            render(&ctx_with(92_000), Some(1_800), &cfg).as_deref(),
+            Some("Idle: 30m · cache likely cold")
         );
     }
 
     #[test]
-    fn test_quiet_while_the_cache_is_warm() {
+    fn test_quiet_through_ordinary_pauses() {
         let cfg = CacheExpiryConfig::default();
-        assert_eq!(render(&ctx_with(92_000), Some(299), &cfg), None);
+        assert_eq!(render(&ctx_with(92_000), Some(300), &cfg), None);
+        assert_eq!(render(&ctx_with(92_000), Some(1_799), &cfg), None);
     }
 
     #[test]
@@ -96,9 +112,9 @@ mod tests {
     }
 
     #[test]
-    fn test_custom_ttl_and_floor() {
+    fn test_custom_threshold_and_floor() {
         let cfg = CacheExpiryConfig {
-            ttl_seconds: 3_600,
+            idle_seconds: 3_600,
             min_tokens: 10_000,
             ..Default::default()
         };
@@ -107,14 +123,24 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_hint_shows_only_the_size() {
+    fn test_idle_time_reads_in_minutes_then_hours() {
+        assert_eq!(format_idle(45), "45s");
+        assert_eq!(format_idle(1_800), "30m");
+        assert_eq!(format_idle(3_299), "54m");
+        assert_eq!(format_idle(3_600), "1h");
+        assert_eq!(format_idle(4_320), "1h 12m");
+        assert_eq!(format_idle(93_600), "26h");
+    }
+
+    #[test]
+    fn test_context_size_is_opt_in() {
         let cfg = CacheExpiryConfig {
-            hint: String::new(),
+            show_tokens: true,
             ..Default::default()
         };
         assert_eq!(
-            render(&ctx_with(92_000), Some(300), &cfg).as_deref(),
-            Some("Idle: ~92k uncached")
+            render(&ctx_with(92_000), Some(3_299), &cfg).as_deref(),
+            Some("Idle: 54m · cache likely cold · 92k context")
         );
     }
 
@@ -123,14 +149,15 @@ mod tests {
         let p = Palette::for_theme("github");
         let rendered = render_cache_expiry_segment(
             &ctx_with(92_000),
-            Some(300),
+            Some(3_299),
             &CacheExpiryConfig::default(),
             IconSet::Emoji,
             &p,
         )
         .unwrap();
         assert!(rendered.contains("⏳"));
-        assert!(rendered.contains(&format!("{}~92k uncached{}", p.tokens_alert, p.reset)));
-        assert!(rendered.contains(&format!("{} · /clear to start fresh{}", p.dim, p.reset)));
+        assert!(rendered.contains(&format!("{}54m{}", p.tokens_alert, p.reset)));
+        assert!(rendered.contains(&format!("{} · cache likely cold{}", p.dim, p.reset)));
+        assert!(!rendered.contains("context"));
     }
 }

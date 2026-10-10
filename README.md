@@ -40,7 +40,7 @@ Then add it to `~/.copilot/settings.json`:
 }
 ```
 
-Keep `refreshInterval`: without it Copilot CLI only refreshes the status line on events, so the idle cache-expiry warning (`cache_expiry`) cannot appear while you are away.
+Keep `refreshInterval`: without it Copilot CLI only refreshes the status line on events, so the long-break reminder (`cache_expiry`) cannot appear while you are away.
 
 If the install directory is not on your `PATH`, use the full path as the command: `~/.local/bin/copilot-powerline` for the installer, or `~/.cargo/bin/copilot-powerline` for Cargo. Run `copilot-powerline --init` at any time to create the default configuration at `~/.copilot/powerline.toml`.
 
@@ -93,7 +93,7 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 
 - **Context Window Monitoring**: Real-time context tracking with percentage and warning alert threshold (`>100k`).
 - **Prompt Cache Tracking**: Real-time cache hit rate (or token count), automatically hidden when zero.
-- **Idle Cache-Expiry Warning**: After 5 idle minutes the prompt cache is gone and the next turn rewrites the whole context; shows how much (e.g. `~92k uncached · /clear to start fresh`).
+- **Long-Break Reminder**: After 30 idle minutes, shows how long the session has been idle and that the prompt cache is likely cold, so the next turn re-reads the whole context at full price (e.g. `54m · cache likely cold`).
 - **Reasoning Tokens**: Tracks the thinking tokens spent by reasoning models, or models with extended thinking enabled.
 - **Total Session Tokens**: Displays total accumulated token volume across all turns and compactions.
 - **Spend Tracking**: Real-time session spend and month-to-date aggregation from Copilot's local SQLite database.
@@ -164,7 +164,7 @@ cargo install --path .
 | `month_cost` | `󰠠` | `📅` | `Month:` | `$281.66` / `💸 $312.40` | **Month-to-Date Cost**: Total cumulative monthly spend across all sessions, queried directly from Copilot's `~/.copilot/session-store.db`. The current session updates live; other sessions' spend is re-read at most once a minute. With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the month costs more than that limit. |
 | `cycle_cost` | `󰊤` | `🐙` | `Cycle:` | `$159.48` / `💸 $159.48` | **GitHub Cycle Usage** *(optional, not in the default `segments` list)*: The AI credits GitHub counts for your current billing cycle, in USD at list price (1 credit = $0.01), across every Copilot surface, not just this CLI. With a per-user budget, it shows the part of the budget used. Read from GitHub's internal `/copilot_internal/user` API, refreshed every `cache_ttl_seconds` (default 300). Requires an authenticated `gh` CLI; hidden until the first fetch completes, and after the cycle resets until the next fetch. When a fetch fails, it keeps showing the last value. With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the cycle costs more than that limit. |
 | `cache` | `󰘸` | `⚡` | `Cache:` | `95% ↓` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Shows `↑` (green, or blue in `colorblind`) when the tokens added since the previous refresh hit the cache clearly more than the session average, and `↓` (red, or orange in `colorblind`) when they hit it clearly less. The arrow stays until the next step. Automatically hidden when 0. |
-| `cache_expiry` | `󰔟` | `⏳` | `Idle:` | `~92k uncached · /clear to start fresh` | **Idle Cache-Expiry Warning**: Appears once the session has been idle longer than the prompt cache TTL (`ttl_seconds`, default 300), when the next turn will rewrite the whole context uncached. Shows the context size at stake and a hint to start fresh. Hidden below `min_tokens` (default 50k) and whenever the cache is still warm. Needs `refreshInterval` in Copilot CLI's `statusLine` settings. |
+| `cache_expiry` | `󰔟` | `⏳` | `Idle:` | `54m · cache likely cold` | **Long-Break Reminder**: Appears once the session has been idle for `idle_seconds` (default 1800, 30 minutes). That is past the prompt cache lifetimes Copilot CLI uses for Claude (5 minutes) and GPT-5.6 and later (30 minutes), so the next turn most likely re-reads the whole context at full price. It measures idle time, not the cache, hence "likely". Goes away with the next model call. Hidden below `min_tokens` (default 50k). With `show_tokens = true` *(opt-in)*, adds the context size (`· 92k context`). Needs `refreshInterval` in Copilot CLI's `statusLine` settings. |
 | `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative thinking tokens used by reasoning models in the session. Automatically hidden when 0. |
 | `total_tokens` | `󰓅` | `📊` | `Total:` | `4.5M` | **Total Session Tokens**: Total cumulative token throughput (input + output + cached) exchanged across all turns and compactions in the session. |
 | `model` | `󰘚` | `🤖` | `Model:` | `Auto → Claude Opus 4.5` | **Active Model** *(optional, not in the default `segments` list)*: The model Copilot is using. With `auto`, shows which model the router picked, so a switch to a pricier model is visible. |

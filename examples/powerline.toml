@@ -16,7 +16,7 @@ segments = [             # Full mode segments in display order (default list exc
     "pr",                # Current branch's open GitHub PR reference (requires `gh`)
     "reasoning",         # Thinking tokens used by reasoning models
     "total_tokens",      # Cumulative token volume across turns and compactions
-    "cache_expiry",      # Warning shown when idle long enough for prompt cache to expire
+    "cache_expiry",      # Reminder after a long break: idle time, prompt cache likely cold
     # "model",           # Active model, and where `auto` routing sent the request
 ]
 compact_segments = [     # Compact mode segments (default: tokens, session_cost, month_cost, cache_expiry)
@@ -80,10 +80,10 @@ auto_hide_zero = true    # Hide segment when the active model has 0 reasoning to
 enabled = true           # Enable cumulative session tokens segment (default: true)
 
 [cache_expiry]
-enabled = true           # Enable idle cache-expiry warning (default: true); needs `refreshInterval` in Copilot's statusLine settings
-ttl_seconds = 300        # Prompt cache lifetime: warn after this many idle seconds (default: 300)
+enabled = true           # Enable the long-break reminder (default: true); needs `refreshInterval` in Copilot's statusLine settings
+idle_seconds = 1800      # Remind after this many idle seconds (default: 1800)
 min_tokens = 50000       # Stay quiet for contexts smaller than this (default: 50000)
-hint = "/clear to start fresh"  # Shown after the uncached size; "" hides it (default: "/clear to start fresh")
+show_tokens = false      # Also show the context size, e.g. "· 92k context" (default: false)
 
 [pr]
 enabled = true           # Enable pull request segment (default: true; still needs "pr" in `segments`)

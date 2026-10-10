@@ -402,9 +402,10 @@ impl Default for TotalTokensConfig {
     }
 }
 
-/// Warning shown once the session has been idle longer than the prompt
-/// cache TTL, so the next turn rewrites the whole context (e.g.
-/// `~92k uncached · /clear to start fresh`). Renders nothing otherwise.
+/// Reminder shown once the session has been idle past `idle_seconds`: the
+/// idle time and that the prompt cache is likely cold (e.g.
+/// `54m · cache likely cold`), so the next turn most likely re-reads the
+/// whole context at full price. Renders nothing otherwise.
 ///
 /// Needs `statusLine.refreshInterval` in Copilot CLI's settings: without it
 /// the status line is not refreshed while idle.
@@ -413,27 +414,27 @@ pub struct CacheExpiryConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
     pub prefix: Option<String>,
-    /// Prompt cache lifetime: idle time after which the cache is assumed gone.
-    #[serde(default = "default_cache_ttl_seconds")]
-    pub ttl_seconds: u64,
-    /// Stay quiet below this context size, where starting fresh saves little.
+    /// Idle time before the reminder shows.
+    #[serde(default = "default_cache_expiry_idle_seconds")]
+    pub idle_seconds: u64,
+    /// Stay quiet below this context size, where re-reading it costs little.
     #[serde(default = "default_cache_expiry_min_tokens")]
     pub min_tokens: u64,
-    /// Shown after the uncached size; empty hides it.
-    #[serde(default = "default_cache_expiry_hint")]
-    pub hint: String,
+    /// Also show the context size. It is Copilot CLI's own count, so the
+    /// prompt actually re-sent is somewhat larger.
+    #[serde(default)]
+    pub show_tokens: bool,
 }
 
-fn default_cache_ttl_seconds() -> u64 {
-    300
+/// Thirty minutes: past every lifetime Copilot CLI assumes (300 s for
+/// Claude, 1,800 s for GPT-5.6 and later), so ordinary pauses stay quiet and
+/// the cache is very likely cold when the reminder shows (see #67).
+fn default_cache_expiry_idle_seconds() -> u64 {
+    1_800
 }
 
 fn default_cache_expiry_min_tokens() -> u64 {
     50_000
-}
-
-fn default_cache_expiry_hint() -> String {
-    "/clear to start fresh".to_string()
 }
 
 impl Default for CacheExpiryConfig {
@@ -441,9 +442,9 @@ impl Default for CacheExpiryConfig {
         Self {
             enabled: true,
             prefix: None,
-            ttl_seconds: default_cache_ttl_seconds(),
+            idle_seconds: default_cache_expiry_idle_seconds(),
             min_tokens: default_cache_expiry_min_tokens(),
-            hint: default_cache_expiry_hint(),
+            show_tokens: false,
         }
     }
 }
@@ -603,9 +604,9 @@ mod tests {
         assert_eq!(cfg.cycle_cost.cache_ttl_seconds, 300);
         assert_eq!(cfg.cycle_cost.alert_above_usd, None);
         assert!(cfg.cache_expiry.enabled);
-        assert_eq!(cfg.cache_expiry.ttl_seconds, 300);
+        assert_eq!(cfg.cache_expiry.idle_seconds, 1_800);
         assert_eq!(cfg.cache_expiry.min_tokens, 50_000);
-        assert_eq!(cfg.cache_expiry.hint, "/clear to start fresh");
+        assert!(!cfg.cache_expiry.show_tokens);
     }
 
     #[test]
