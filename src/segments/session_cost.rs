@@ -1,6 +1,13 @@
+use super::is_listed;
 use super::spend_format::{self, aic_to_usd, nano_to_aic};
 use crate::config::CostConfig;
 use crate::theme::Palette;
+
+/// Whether the spend spike check needs to run: the segment is listed and
+/// `spike_alert` is on. Like it always has, this ignores `enabled`.
+pub fn needs_spike_check(segments: &[String], config: &CostConfig) -> bool {
+    config.spike_alert && is_listed(segments, "session_cost")
+}
 
 pub fn render_session_cost_segment(
     total_nano_aiu: u64,
@@ -248,5 +255,34 @@ mod tests {
         )
         .unwrap();
         assert_eq!(rendered, "Session: 💸 📈 $6.20");
+    }
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(ToString::to_string).collect()
+    }
+
+    #[test]
+    fn test_spike_check_needs_opt_in_and_a_listed_segment() {
+        let on = CostConfig {
+            spike_alert: true,
+            ..Default::default()
+        };
+        assert!(needs_spike_check(&names(&["session_cost"]), &on));
+        assert!(!needs_spike_check(&names(&["tokens"]), &on));
+        assert!(!needs_spike_check(
+            &names(&["session_cost"]),
+            &CostConfig::default()
+        ));
+    }
+
+    #[test]
+    fn test_spike_check_ignores_enabled() {
+        // Gated on `spike_alert` only, as it was in main.
+        let cfg = CostConfig {
+            enabled: false,
+            spike_alert: true,
+            ..Default::default()
+        };
+        assert!(needs_spike_check(&names(&["session_cost"]), &cfg));
     }
 }

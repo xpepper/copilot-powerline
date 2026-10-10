@@ -24,14 +24,14 @@ use cli::Cli;
 use config::{Config, IconSet, Style};
 use input::CopilotInput;
 use renderer::render_segments;
-use segments::cache::render_cache_segment;
-use segments::cache_expiry::render_cache_expiry_segment;
-use segments::cycle_cost::render_cycle_cost_segment;
+use segments::cache::{self, render_cache_segment};
+use segments::cache_expiry::{self, render_cache_expiry_segment};
+use segments::cycle_cost::{self, render_cycle_cost_segment};
 use segments::model::render_model_segment;
 use segments::month_cost::{self, render_month_cost_segment};
-use segments::pr::render_pr_segment;
+use segments::pr::{self, render_pr_segment};
 use segments::reasoning::render_reasoning_segment;
-use segments::session_cost::render_session_cost_segment;
+use segments::session_cost::{self, render_session_cost_segment};
 use segments::tokens::render_tokens_segment;
 use segments::total_tokens::render_total_tokens_segment;
 use theme::Palette;
@@ -144,9 +144,7 @@ fn main() {
     // working directory (it follows `/cwd` and session switches), so the
     // process cwd is the right place for PR lookups. The payload's `cwd`
     // field carries the same value, so it is not parsed.
-    let pr_segment_enabled = config.pr.enabled && segments.iter().any(|s| s == "pr");
-
-    let pr_info = if pr_segment_enabled {
+    let pr_info = if pr::is_visible(&segments, &config.pr) {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         // Use the resolved repository root (not the raw cwd) so the cache
         // key and gh working directory stay stable regardless of which
@@ -165,19 +163,17 @@ fn main() {
         None
     };
 
-    let cycle_usage = if config.cycle_cost.enabled
-        && segments.iter().any(|s| s == "cycle_cost")
-        && github::is_gh_available()
-    {
-        cycle_usage::get_cycle_usage(
-            &cycle_usage::cache_path(),
-            config.cycle_cost.cache_ttl_seconds,
-            github::current_timestamp(),
-            cycle_usage::spawn_background_fetch,
-        )
-    } else {
-        None
-    };
+    let cycle_usage =
+        if cycle_cost::is_visible(&segments, &config.cycle_cost) && github::is_gh_available() {
+            cycle_usage::get_cycle_usage(
+                &cycle_usage::cache_path(),
+                config.cycle_cost.cache_ttl_seconds,
+                github::current_timestamp(),
+                cycle_usage::spawn_background_fetch,
+            )
+        } else {
+            None
+        };
 
     let other_nano = if month_cost::is_visible(&segments, &config.month_cost) {
         let session_id = input.session_id.as_deref();
@@ -196,8 +192,7 @@ fn main() {
     let session_nano = input.ai_used.total_nano_aiu;
     let total_month_nano = other_nano + session_nano;
 
-    let spend_spike = config.session_cost.spike_alert
-        && segments.iter().any(|s| s == "session_cost")
+    let spend_spike = session_cost::needs_spike_check(&segments, &config.session_cost)
         && input.session_id.as_deref().is_some_and(|id| {
             spend::check_spike(
                 &spend::snapshot_path(id),
@@ -210,8 +205,7 @@ fn main() {
             )
         });
 
-    let latest_cache_trend = if config.cache.show_trend
-        && segments.iter().any(|s| s == "cache")
+    let latest_cache_trend = if cache::needs_trend(&segments, &config.cache)
         && let Some(id) = input.session_id.as_deref()
         && let Some(input_tokens) = input.context_window.total_input_tokens
     {
@@ -224,8 +218,7 @@ fn main() {
         None
     };
 
-    let idle_seconds = if config.cache_expiry.enabled
-        && segments.iter().any(|s| s == "cache_expiry")
+    let idle_seconds = if cache_expiry::is_visible(&segments, &config.cache_expiry)
         && let Some(id) = input.session_id.as_deref()
     {
         idle::idle_seconds(

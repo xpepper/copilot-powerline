@@ -1,8 +1,15 @@
+use super::is_listed;
 use crate::config::{CacheExpiryConfig, IconSet};
 use crate::icons::cache_expiry_icon;
 use crate::input::ContextWindow;
 use crate::segments::tokens::format_tokens;
 use crate::theme::Palette;
+
+/// Whether the segment will render, so callers can skip the idle-time
+/// snapshot (a state file read and write) when nothing would show it.
+pub fn is_visible(segments: &[String], config: &CacheExpiryConfig) -> bool {
+    config.enabled && is_listed(segments, "cache_expiry")
+}
 
 /// Renders the long-break reminder: how long the session has been idle and
 /// that the prompt cache is likely cold. It only claims "likely": the idle
@@ -159,5 +166,30 @@ mod tests {
         assert!(rendered.contains(&format!("{}54m{}", p.tokens_alert, p.reset)));
         assert!(rendered.contains(&format!("{} · cache likely cold{}", p.dim, p.reset)));
         assert!(!rendered.contains("context"));
+    }
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(ToString::to_string).collect()
+    }
+
+    #[test]
+    fn test_visible_when_listed_and_enabled() {
+        let cfg = CacheExpiryConfig::default();
+        assert!(is_visible(&names(&["tokens", "cache_expiry"]), &cfg));
+    }
+
+    #[test]
+    fn test_hidden_when_not_listed() {
+        let cfg = CacheExpiryConfig::default();
+        assert!(!is_visible(&names(&["tokens"]), &cfg));
+    }
+
+    #[test]
+    fn test_hidden_when_disabled() {
+        let cfg = CacheExpiryConfig {
+            enabled: false,
+            ..Default::default()
+        };
+        assert!(!is_visible(&names(&["cache_expiry"]), &cfg));
     }
 }

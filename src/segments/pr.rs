@@ -1,7 +1,15 @@
+use super::is_listed;
 use crate::config::{IconSet, PrConfig};
 use crate::github::PullRequestInfo;
 use crate::icons::pr_icon;
 use crate::theme::Palette;
+
+/// Whether the segment will render, so callers can skip the PR lookup (a
+/// disk cache read and a possible background `gh` refresh) when nothing
+/// would show it.
+pub fn is_visible(segments: &[String], config: &PrConfig) -> bool {
+    config.enabled && is_listed(segments, "pr")
+}
 
 /// Returns true if `url` is safe to splice into a raw terminal escape
 /// sequence: a `https://github.com` URL containing no control characters.
@@ -190,5 +198,30 @@ mod tests {
         // Must NOT contain OSC 8 sequence.
         assert!(!rendered.contains("\x1b]8;;"));
         assert!(rendered.contains("#50"));
+    }
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(ToString::to_string).collect()
+    }
+
+    #[test]
+    fn test_visible_when_listed_and_enabled() {
+        let cfg = PrConfig::default();
+        assert!(is_visible(&names(&["tokens", "pr"]), &cfg));
+    }
+
+    #[test]
+    fn test_hidden_when_not_listed() {
+        let cfg = PrConfig::default();
+        assert!(!is_visible(&names(&["tokens"]), &cfg));
+    }
+
+    #[test]
+    fn test_hidden_when_disabled() {
+        let cfg = PrConfig {
+            enabled: false,
+            ..Default::default()
+        };
+        assert!(!is_visible(&names(&["pr"]), &cfg));
     }
 }

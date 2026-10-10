@@ -1,3 +1,4 @@
+use super::is_listed;
 use super::spend_format::nano_to_aic;
 use super::spend_total::{self, SpendTotal};
 use crate::config::MonthCostConfig;
@@ -6,7 +7,7 @@ use crate::theme::Palette;
 /// Whether the segment will render, so callers can skip the month-to-date
 /// query (a full scan of the usage table) when nothing would show it.
 pub fn is_visible(segments: &[String], config: &MonthCostConfig) -> bool {
-    config.enabled && segments.iter().any(|s| s == "month_cost")
+    config.enabled && is_listed(segments, "month_cost")
 }
 
 pub fn render_month_cost_segment(
