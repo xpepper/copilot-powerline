@@ -301,26 +301,36 @@ The `cycle_cost` segment works the same way with `gh api /copilot_internal/user`
 # Test with sample JSON from stdin
 echo '{"context_window":{"current_context_tokens":0,"displayed_context_limit":200000,"current_context_used_percentage":0},"ai_used":{"total_nano_aiu":0}}' | copilot-powerline
 
-# Override icon set on the fly
+# Override icon set on the fly (-i)
 copilot-powerline --icon-set nerd
 copilot-powerline --icon-set emoji
 copilot-powerline --icon-set plain
 
-# Override style on the fly
+# Override style on the fly (-s)
 copilot-powerline --style capsule
 copilot-powerline --style powerline
 copilot-powerline --style minimal
+copilot-powerline --style plain
 
-# Override theme on the fly
+# Override theme on the fly (-t)
 copilot-powerline --theme nord
 copilot-powerline --theme tokyo-night
+
+# Use a custom configuration file (-c)
+copilot-powerline --config /path/to/custom-powerline.toml
+
+# Write the default configuration to ~/.copilot/powerline.toml (never overwrites an existing file)
+copilot-powerline --init
 
 # Switch between full and compact mode
 copilot-powerline --toggle
 
-# Use a custom configuration file
-copilot-powerline --config /path/to/custom-powerline.toml
+# Show all options, or the installed version
+copilot-powerline --help
+copilot-powerline --version
 ```
+
+The overrides also work in the `command` of Copilot CLI's `statusLine` setting, for example `"command": "copilot-powerline --style capsule"`.
 
 ---
 
