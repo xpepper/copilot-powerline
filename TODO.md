@@ -25,6 +25,13 @@ completed items live in git history.
       the first new model call. Still open: is the 50k `min_tokens` floor
       right.
 
+- [ ] Validate the last-miss label (`cache`, `· miss 133k`, on by
+      default, #83). Check it appears after the first turn following a
+      long break, survives the next well-cached call, and clears after
+      5 minutes. Watch for false alarms from large tool outputs or file
+      reads (they count too, as they cost the same), and whether the 50k
+      `miss_min_tokens` floor and 5-minute window feel right.
+
 - [ ] Watch for stale status line payloads. On 2026-10-10 the status line
       still showed the totals from before a 54-minute break ($0.62, 94%,
       2.0M) after a 2-minute turn had finished, so the idle clock kept
