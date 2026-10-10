@@ -98,7 +98,7 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 - **Pull Request Reference** *(optional)*: Shows the current branch's pull request (e.g. `PR #50`) as a clickable link, via the `gh` CLI. Disabled from the default segment list; opt in by adding `pr` to `segments`.
 - **Configurable AIC Display**: Toggle whether AI Credits (`... AIC`) appear alongside dollar amounts.
 - **Multiple Styles & Icon Sets**: Choose from `minimal`, `powerline`, `capsule`, or `plain`, with `nerd`, `emoji`, or `plain` icons.
-- **Themes**: Built-in support for `colorblind`, `github`, `nord`, `tokyo-night`, and `plain`. Automatically syncs with your Copilot CLI theme if set to default.
+- **Themes**: Built-in `colorblind` (default), `github`, `nord`, `tokyo-night`, and `plain` palettes. Can follow the `theme` in your Copilot CLI settings (see [Configuration](#configuration-copilotpowerlinetoml)).
 - **Bundled SQLite**: SQLite and JSON parsing ship with the executable; no status-line service is required.
 
 ---
@@ -271,6 +271,8 @@ hyperlinks = true      # Set to false to print "PR #50" as plain text
 cache_ttl_seconds = 60 # How long a cached PR lookup is considered fresh
 # prefix = "Pull:"      # Optional custom override
 ```
+
+While `theme` is `colorblind` (the default), the status line reads `theme` from Copilot CLI's `~/.copilot/settings.json` and uses it when it names one of the palettes above; Copilot's `default` theme maps to `github`, and any other value (such as `auto`) keeps `colorblind`. Because of this, `theme = "colorblind"` cannot force the colorblind palette while Copilot's theme is `default`; pass `--theme colorblind` in the status-line command instead.
 
 If your `powerline.toml` sets `segments` or `compact_segments`, segments added in later releases (such as `cache_expiry`) only show once you add them to those lists.
 
