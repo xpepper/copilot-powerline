@@ -166,7 +166,11 @@ mod tests {
         }
     }
 
-    fn assess(prev: Option<Snapshot>, input_tokens: u64, cache_read_tokens: u64) -> Snapshot {
+    fn assess_at_now(
+        prev: Option<Snapshot>,
+        input_tokens: u64,
+        cache_read_tokens: u64,
+    ) -> Snapshot {
         super::assess(prev, input_tokens, cache_read_tokens, NOW, MISS_MIN)
     }
 
@@ -179,7 +183,7 @@ mod tests {
         // The #83 cold restart: a 2.0M-token session at 94%, then a step of
         // 133k tokens with nothing read from the cache.
         let prev = snap(2_000_000, 1_886_000, None);
-        let next = assess(Some(prev), 2_133_000, 1_886_000);
+        let next = assess_at_now(Some(prev), 2_133_000, 1_886_000);
         assert_eq!(next.last_miss, miss(133_000, NOW));
     }
 
@@ -187,7 +191,7 @@ mod tests {
     fn test_miss_counts_only_the_uncached_part_of_the_step() {
         // 200k step, 120k of it read from the cache: 80k missed.
         let prev = snap(1_000_000, 900_000, None);
-        let next = assess(Some(prev), 1_200_000, 1_020_000);
+        let next = assess_at_now(Some(prev), 1_200_000, 1_020_000);
         assert_eq!(next.last_miss, miss(80_000, NOW));
     }
 
@@ -198,7 +202,7 @@ mod tests {
             ..snap(2_133_000, 1_886_000, None)
         };
         // 140k step, 130k cached: only 10k missed.
-        let next = assess(Some(prev), 2_273_000, 2_016_000);
+        let next = assess_at_now(Some(prev), 2_273_000, 2_016_000);
         assert_eq!(next.last_miss, miss(133_000, NOW - 60));
     }
 
@@ -208,7 +212,7 @@ mod tests {
             last_miss: miss(133_000, NOW - 60),
             ..snap(2_133_000, 1_886_000, None)
         };
-        let next = assess(Some(prev), 2_193_000, 1_886_000);
+        let next = assess_at_now(Some(prev), 2_193_000, 1_886_000);
         assert_eq!(next.last_miss, miss(60_000, NOW));
     }
 
@@ -216,7 +220,7 @@ mod tests {
     fn test_first_step_of_a_session_is_not_a_miss() {
         // Nothing can be cached before the first call.
         let prev = snap(0, 0, None);
-        assert_eq!(assess(Some(prev), 80_000, 0).last_miss, None);
+        assert_eq!(assess_at_now(Some(prev), 80_000, 0).last_miss, None);
     }
 
     #[test]
@@ -243,7 +247,7 @@ mod tests {
             last_miss: miss(133_000, NOW - 60),
             ..snap(2_133_000, 1_886_000, None)
         };
-        assert_eq!(assess(Some(prev), 5_000, 0).last_miss, None);
+        assert_eq!(assess_at_now(Some(prev), 5_000, 0).last_miss, None);
     }
 
     #[test]
@@ -252,7 +256,7 @@ mod tests {
             last_miss: miss(133_000, NOW - 60),
             ..snap(2_133_000, 1_886_000, None)
         };
-        assert_eq!(assess(Some(prev), 2_133_000, 1_886_000), prev);
+        assert_eq!(assess_at_now(Some(prev), 2_133_000, 1_886_000), prev);
     }
 
     #[test]
@@ -290,7 +294,10 @@ mod tests {
 
     #[test]
     fn test_first_observation_is_baseline_only() {
-        assert_eq!(assess(None, 100_000, 60_000), snap(100_000, 60_000, None));
+        assert_eq!(
+            assess_at_now(None, 100_000, 60_000),
+            snap(100_000, 60_000, None)
+        );
     }
 
     #[test]
@@ -298,7 +305,7 @@ mod tests {
         // Session at 60%; the step adds 10k tokens, 9k from cache (90%).
         let prev = snap(100_000, 60_000, None);
         assert_eq!(
-            assess(Some(prev), 110_000, 69_000),
+            assess_at_now(Some(prev), 110_000, 69_000),
             snap(110_000, 69_000, Some(Trend::Up))
         );
     }
@@ -307,32 +314,35 @@ mod tests {
     fn test_step_missing_cache_trends_down() {
         // Session at 60%; the step adds 10k tokens, 1k from cache (10%).
         let prev = snap(100_000, 60_000, None);
-        assert_eq!(assess(Some(prev), 110_000, 61_000).trend, Some(Trend::Down));
+        assert_eq!(
+            assess_at_now(Some(prev), 110_000, 61_000).trend,
+            Some(Trend::Down)
+        );
     }
 
     #[test]
     fn test_step_close_to_average_has_no_trend() {
         // Session at 60%; the step hits 62%.
         let prev = snap(100_000, 60_000, Some(Trend::Down));
-        assert_eq!(assess(Some(prev), 110_000, 66_200).trend, None);
+        assert_eq!(assess_at_now(Some(prev), 110_000, 66_200).trend, None);
     }
 
     #[test]
     fn test_unchanged_counters_keep_previous_verdict() {
         let prev = snap(110_000, 61_000, Some(Trend::Down));
-        assert_eq!(assess(Some(prev), 110_000, 61_000), prev);
+        assert_eq!(assess_at_now(Some(prev), 110_000, 61_000), prev);
     }
 
     #[test]
     fn test_counters_going_down_rebaseline() {
         let prev = snap(110_000, 61_000, Some(Trend::Down));
-        assert_eq!(assess(Some(prev), 5_000, 0), snap(5_000, 0, None));
+        assert_eq!(assess_at_now(Some(prev), 5_000, 0), snap(5_000, 0, None));
     }
 
     #[test]
     fn test_no_baseline_without_prior_input() {
         let prev = snap(0, 0, None);
-        assert_eq!(assess(Some(prev), 10_000, 0).trend, None);
+        assert_eq!(assess_at_now(Some(prev), 10_000, 0).trend, None);
     }
 
     /// Regression: replays counters from a live Copilot CLI 1.0.93 payload,

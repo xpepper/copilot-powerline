@@ -68,14 +68,15 @@ pub fn render_cache_segment(
     let miss = signals
         .recent_miss
         .filter(|_| config.show_last_miss)
-        .map_or(String::new(), |tokens| {
+        .map(|tokens| {
             format!(
                 " · {}miss {}{}",
                 palette.trend_down,
                 format_tokens(Some(tokens)),
                 r
             )
-        });
+        })
+        .unwrap_or_default();
 
     Some(format!(
         "{}{}{} {}{}{}{}{}",
