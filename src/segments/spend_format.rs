@@ -2,9 +2,9 @@
 //! conversion and the `alert_above_usd` check.
 
 /// 1 AIC (AI credit) = 1e9 nano AIU.
-pub const NANO_AIU_PER_AIC: f64 = 1e9;
+const NANO_AIU_PER_AIC: f64 = 1e9;
 /// List price of one AIC, in USD.
-pub const USD_PER_AIC: f64 = 0.01;
+const USD_PER_AIC: f64 = 0.01;
 
 /// AI credits for a count of nano AIU.
 pub fn nano_to_aic(nano_aiu: u64) -> f64 {
@@ -43,6 +43,16 @@ mod tests {
     fn test_aic_to_usd() {
         assert_eq!(aic_to_usd(0.0), 0.0);
         assert_eq!(aic_to_usd(100.0), 1.0);
+    }
+
+    #[test]
+    fn test_rate_matches_the_spike_check_rate() {
+        // `spend` keeps its own constant; compared as constants because the
+        // computed values differ for some amounts.
+        assert_eq!(
+            NANO_AIU_PER_AIC / USD_PER_AIC,
+            crate::spend::NANO_AIU_PER_USD
+        );
     }
 
     #[test]
