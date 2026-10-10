@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// 1 USD = 100 AIC = 1e11 nano AIU.
-const NANO_AIU_PER_USD: f64 = 1e11;
+pub(crate) const NANO_AIU_PER_USD: f64 = 1e11;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Snapshot {

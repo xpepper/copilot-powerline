@@ -4,6 +4,9 @@ use crate::input::ContextWindow;
 use crate::segments::tokens::format_tokens;
 use crate::theme::Palette;
 
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "total_tokens";
+
 pub fn render_total_tokens_segment(
     ctx: &ContextWindow,
     config: &TotalTokensConfig,

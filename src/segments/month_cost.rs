@@ -1,15 +1,16 @@
+use super::is_listed;
+use super::spend_format::nano_to_aic;
 use super::spend_total::{self, SpendTotal};
 use crate::config::MonthCostConfig;
 use crate::theme::Palette;
 
-fn nano_to_aic(total_nano: u64) -> f64 {
-    total_nano as f64 / 1e9
-}
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "month_cost";
 
 /// Whether the segment will render, so callers can skip the month-to-date
 /// query (a full scan of the usage table) when nothing would show it.
 pub fn is_visible(segments: &[String], config: &MonthCostConfig) -> bool {
-    config.enabled && segments.iter().any(|s| s == "month_cost")
+    config.enabled && is_listed(segments, NAME)
 }
 
 pub fn render_month_cost_segment(
@@ -38,6 +39,7 @@ pub fn render_month_cost_segment(
 mod tests {
     use super::*;
     use crate::config::IconSet;
+    use crate::segments::names;
 
     #[test]
     fn test_month_cost_no_aic() {
@@ -58,10 +60,6 @@ mod tests {
         let rendered =
             render_month_cost_segment(25_938_000_000_000, &cfg, IconSet::Emoji, &p).unwrap();
         assert_eq!(rendered, "📅 $259.38");
-    }
-
-    fn names(list: &[&str]) -> Vec<String> {
-        list.iter().map(ToString::to_string).collect()
     }
 
     #[test]

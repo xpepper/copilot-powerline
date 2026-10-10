@@ -1,7 +1,18 @@
+use super::is_listed;
 use super::spend_total::{self, SpendTotal};
 use crate::config::CycleCostConfig;
 use crate::cycle_usage::CycleUsage;
 use crate::theme::Palette;
+
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "cycle_cost";
+
+/// Whether the segment will render, so callers can skip the cycle usage
+/// lookup (a disk cache read and a possible background `gh` refresh) when
+/// nothing would show it.
+pub fn is_visible(segments: &[String], config: &CycleCostConfig) -> bool {
+    config.enabled && is_listed(segments, NAME)
+}
 
 pub fn render_cycle_cost_segment(
     usage: Option<&CycleUsage>,
@@ -28,6 +39,7 @@ pub fn render_cycle_cost_segment(
 mod tests {
     use super::*;
     use crate::config::IconSet;
+    use crate::segments::names;
 
     fn usage(credits: f64) -> CycleUsage {
         CycleUsage {
@@ -122,5 +134,26 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(render(15649.0, &disabled, IconSet::Plain), None);
+    }
+
+    #[test]
+    fn test_visible_when_listed_and_enabled() {
+        let cfg = CycleCostConfig::default();
+        assert!(is_visible(&names(&["tokens", "cycle_cost"]), &cfg));
+    }
+
+    #[test]
+    fn test_hidden_when_not_listed() {
+        let cfg = CycleCostConfig::default();
+        assert!(!is_visible(&names(&["tokens"]), &cfg));
+    }
+
+    #[test]
+    fn test_hidden_when_disabled() {
+        let cfg = CycleCostConfig {
+            enabled: false,
+            ..Default::default()
+        };
+        assert!(!is_visible(&names(&["cycle_cost"]), &cfg));
     }
 }

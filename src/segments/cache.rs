@@ -1,9 +1,20 @@
+use super::is_listed;
 use crate::cache_trend::Trend;
 use crate::config::{CacheConfig, IconSet};
 use crate::icons::cache_icon;
 use crate::input::ContextWindow;
 use crate::segments::tokens::format_tokens;
 use crate::theme::Palette;
+
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "cache";
+
+/// Whether the trend arrow needs the per-session hit rate snapshot: the
+/// segment is listed and `show_trend` is on. Like it always has, this ignores
+/// `enabled`, so a disabled but listed segment still records snapshots.
+pub fn needs_trend(segments: &[String], config: &CacheConfig) -> bool {
+    config.show_trend && is_listed(segments, NAME)
+}
 
 fn hit_rate(cache_read: u64, input: u64) -> Option<f64> {
     (input > 0).then(|| ((cache_read as f64 / input as f64) * 100.0).clamp(0.0, 100.0))
@@ -62,6 +73,7 @@ pub fn render_cache_segment(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::segments::names;
 
     #[test]
     fn test_cache_hidden_when_zero() {
@@ -215,5 +227,27 @@ mod tests {
         )
         .unwrap();
         assert!(rendered.contains(&format!("{}60% ↓{}", p.trend_down, p.reset)));
+    }
+
+    #[test]
+    fn test_trend_needs_the_flag_and_a_listed_segment() {
+        let cfg = CacheConfig::default();
+        assert!(needs_trend(&names(&["cache"]), &cfg));
+        assert!(!needs_trend(&names(&["tokens"]), &cfg));
+        let off = CacheConfig {
+            show_trend: false,
+            ..Default::default()
+        };
+        assert!(!needs_trend(&names(&["cache"]), &off));
+    }
+
+    #[test]
+    fn test_trend_ignores_enabled() {
+        // Gated on `show_trend` only, as it was in main.
+        let cfg = CacheConfig {
+            enabled: false,
+            ..Default::default()
+        };
+        assert!(needs_trend(&names(&["cache"]), &cfg));
     }
 }

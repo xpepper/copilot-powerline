@@ -1,12 +1,15 @@
-use super::spend_limit;
+use super::is_listed;
+use super::spend_format::{self, aic_to_usd, nano_to_aic};
 use crate::config::CostConfig;
 use crate::theme::Palette;
 
-pub fn calculate_session_spend(total_nano_aiu: u64) -> (f64, f64) {
-    // 1 AIC = $0.01 USD; 1 nano AIU = 1e-9 AIC = 1e-11 USD
-    let aic = total_nano_aiu as f64 / 1e9;
-    let usd = aic * 0.01;
-    (usd, aic)
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "session_cost";
+
+/// Whether the spend spike check needs to run: the segment is listed and
+/// `spike_alert` is on. Like it always has, this ignores `enabled`.
+pub fn needs_spike_check(segments: &[String], config: &CostConfig) -> bool {
+    config.spike_alert && is_listed(segments, NAME)
 }
 
 pub fn render_session_cost_segment(
@@ -24,8 +27,9 @@ pub fn render_session_cost_segment(
     let d = palette.dim;
     let lbl = palette.label;
 
-    let (usd, aic) = calculate_session_spend(total_nano_aiu);
-    let over_limit = spend_limit::exceeds(usd, config.decimal_places, config.alert_above_usd);
+    let aic = nano_to_aic(total_nano_aiu);
+    let usd = aic_to_usd(aic);
+    let over_limit = spend_format::exceeds(usd, config.decimal_places, config.alert_above_usd);
     let limit_icon = if over_limit {
         config.alert_icon.as_str()
     } else {
@@ -63,6 +67,7 @@ pub fn render_session_cost_segment(
 mod tests {
     use super::*;
     use crate::config::IconSet;
+    use crate::segments::names;
 
     #[test]
     fn test_zero_spend_no_aic() {
@@ -254,5 +259,30 @@ mod tests {
         )
         .unwrap();
         assert_eq!(rendered, "Session: 💸 📈 $6.20");
+    }
+
+    #[test]
+    fn test_spike_check_needs_opt_in_and_a_listed_segment() {
+        let on = CostConfig {
+            spike_alert: true,
+            ..Default::default()
+        };
+        assert!(needs_spike_check(&names(&["session_cost"]), &on));
+        assert!(!needs_spike_check(&names(&["tokens"]), &on));
+        assert!(!needs_spike_check(
+            &names(&["session_cost"]),
+            &CostConfig::default()
+        ));
+    }
+
+    #[test]
+    fn test_spike_check_ignores_enabled() {
+        // Gated on `spike_alert` only, as it was in main.
+        let cfg = CostConfig {
+            enabled: false,
+            spike_alert: true,
+            ..Default::default()
+        };
+        assert!(needs_spike_check(&names(&["session_cost"]), &cfg));
     }
 }
