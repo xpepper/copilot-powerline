@@ -1,5 +1,6 @@
-//! Idle time since the session's last step, used to warn when the prompt
-//! cache has likely expired and the next turn will rewrite the whole context.
+//! Idle time since the session's last step, used by the long-break reminder
+//! (`cache_expiry`). A step is any model call, sub-agents included; typing,
+//! reading and long tool runs all count as idle.
 //!
 //! The payload carries no timestamps, so the time the session's token counter
 //! last moved is kept in a per-session snapshot. Copilot CLI refreshes the
