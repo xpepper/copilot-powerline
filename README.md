@@ -234,6 +234,7 @@ show_aic = false       # Set to true to show "(X AIC)"
 decimal_places = 2
 # alert_above_usd = 300.0  # Opt-in: flag the month once it costs more than this
 alert_icon = "💸 "
+# db_path = "/path/to/session-store.db"  # Absolute path; defaults to ~/.copilot/session-store.db
 
 [cycle_cost]
 enabled = true
@@ -274,6 +275,8 @@ hyperlinks = true      # Set to false to print "PR #50" as plain text
 cache_ttl_seconds = 60 # How long a cached PR lookup is considered fresh
 # prefix = "Pull:"      # Optional custom override
 ```
+
+Every segment section also accepts `prefix`, which replaces the segment's icon or text label in any icon set (for example `prefix = "Ctx:"` under `[tokens]`).
 
 While `theme` is `colorblind` (the default), the status line reads `theme` from Copilot CLI's `~/.copilot/settings.json` and uses it when it names one of the palettes above; Copilot's `default` theme maps to `github`, and any other value (such as `auto`) keeps `colorblind`. Because of this, `theme = "colorblind"` cannot force the colorblind palette while Copilot's theme is `default`; pass `--theme colorblind` in the status-line command instead.
 
