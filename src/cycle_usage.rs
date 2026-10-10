@@ -165,9 +165,14 @@ impl PremiumSnapshot {
 /// when a field it needs is missing (never a guessed 0).
 pub fn parse_user_response(json: &str) -> Option<CycleUsage> {
     let response: UserResponse = serde_json::from_str(json).ok()?;
+    let reset_date = response.quota_reset_date?;
+    // The cycle resets on the 1st of a month, like the script's jq filter.
+    if !reset_date.ends_with("-01") {
+        return None;
+    }
     Some(CycleUsage {
         credits: response.quota_snapshots?.premium_interactions?.credits()?,
-        resets_at: utc_midnight(&response.quota_reset_date?)?,
+        resets_at: utc_midnight(&reset_date)?,
     })
 }
 
@@ -230,6 +235,16 @@ mod tests {
                 resets_at: 1_793_491_200, // 2026-11-01T00:00:00Z
             })
         );
+    }
+
+    #[test]
+    fn test_reset_date_must_be_the_first_of_a_month() {
+        for date in ["2026-11-15", "2026-10-31", "2026-11-02"] {
+            let json = edited(UNLIMITED, |v| v["quota_reset_date"] = date.into());
+            assert_eq!(parse_user_response(&json), None, "{date}");
+        }
+        let json = edited(UNLIMITED, |v| v["quota_reset_date"] = "2026-12-01".into());
+        assert!(parse_user_response(&json).is_some());
     }
 
     #[test]
