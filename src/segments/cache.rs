@@ -8,7 +8,7 @@ use crate::theme::Palette;
 
 /// Whether the trend arrow needs the per-session hit rate snapshot: the
 /// segment is listed and `show_trend` is on. Like it always has, this ignores
-/// `enabled`, which the cache segment does not use.
+/// `enabled`, so a disabled but listed segment still records snapshots.
 pub fn needs_trend(segments: &[String], config: &CacheConfig) -> bool {
     config.show_trend && is_listed(segments, "cache")
 }
