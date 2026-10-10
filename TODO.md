@@ -43,20 +43,20 @@ completed items live in git history.
       reminder for one step; raise `MAX_AGE` in `src/state.rs` (e.g. 90
       days) if that ever matters.
 
-- [ ] Validate the opt-in `cycle_cost` segment (PR #73, #74, unreleased)
-      against the GitHub billing page: the total, the budget vs unlimited
-      display, and the behaviour after the cycle resets.
+- [ ] Validate the opt-in `cycle_cost` segment (shipped in 0.8.0, PRs
+      #73 and #74) against the GitHub billing page: the total, the budget
+      vs unlimited display, and the behaviour after the cycle resets.
 
 ## CI
 
-- [ ] Check the first release after the runner changes (PR #69, merged;
-      no release cut since 0.7.1). Neither
-      workflow can run its release path in a PR, so both are unverified there:
-      - `release.yml` now builds on `ubuntu-24.04` / `ubuntu-24.04-arm`
-        (set in `dist-workspace.toml`; 22.04 is retired 2027-04-17).
-        Linux binaries now need glibc 2.39 instead of 2.35: confirm the
+- [ ] Finish checking the runner changes (PR #69). The 0.8.0 release ran
+      `release.yml` on `ubuntu-24.04` / `ubuntu-24.04-arm` (set in
+      `dist-workspace.toml`; 22.04 is retired 2027-04-17) and every job
+      passed, including the crates.io and Homebrew publish. Still open:
+      - Linux binaries now need glibc 2.39 instead of 2.35: confirm the
         shell installer still works on the oldest distro you care about.
-      - `publish-crates.yml` runs on `ubuntu-latest`, which GitHub moves to
-        26.04 between 2026-10-19 and 2026-11-19 (`ci.yml` is green on it).
-        Its steps (`jq`, `curl`, `cargo metadata`, the crates.io auth
+      - `publish-crates.yml` runs on `ubuntu-latest`, still 24.04 for
+        0.8.0. GitHub moves it to 26.04 between 2026-10-19 and 2026-11-19
+        (`ci.yml` is green on it). Check the first release after the move:
+        its steps (`jq`, `curl`, `cargo metadata`, the crates.io auth
         action) are untested there; if they break, pin `ubuntu-24.04`.
