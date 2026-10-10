@@ -204,6 +204,8 @@ While `theme` is `colorblind` (the default), the status line reads `theme` from 
 
 If your `powerline.toml` sets `segments` or `compact_segments`, segments added in later releases (such as `cache_expiry`) only show once you add them to those lists.
 
+Upgrading from 0.8.0 or earlier: `[cache_expiry]` no longer reads `ttl_seconds` or `hint`, and ignores them if set. The reminder now waits `idle_seconds` (default 1800), and the `/clear` hint is gone. An old `ttl_seconds` is not carried over, because it was the cache lifetime (300) and would bring back the 5-minute warning.
+
 ### Compact mode
 
 Cache hit rate, reasoning and total tokens are useful when diagnosing a session but noisy during normal work. Switch to the shorter `compact_segments` list and back at any time:
