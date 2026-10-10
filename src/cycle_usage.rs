@@ -44,9 +44,7 @@ pub fn get_cycle_usage(
     now: u64,
     spawn_refresh: impl FnOnce(&Path),
 ) -> Option<CycleUsage> {
-    let entry: Option<CacheEntry> = std::fs::read_to_string(cache_path)
-        .ok()
-        .and_then(|content| serde_json::from_str(&content).ok());
+    let entry = read_entry(cache_path);
 
     let fresh = entry
         .as_ref()
@@ -58,6 +56,12 @@ pub fn get_cycle_usage(
     entry
         .and_then(|e| e.usage)
         .filter(|usage| now < usage.resets_at)
+}
+
+fn read_entry(cache_path: &Path) -> Option<CacheEntry> {
+    std::fs::read_to_string(cache_path)
+        .ok()
+        .and_then(|content| serde_json::from_str(&content).ok())
 }
 
 /// Re-invokes this binary as a detached `--fetch-cycle-usage` worker.
@@ -79,9 +83,11 @@ pub fn spawn_background_fetch(cache_path: &Path) {
 /// worker started by `spawn_background_fetch`, never on the hot path.
 pub fn fetch_and_write_cycle_cache(cache_path: &Path) {
     let now = crate::github::current_timestamp();
-    let entry = match api_command(std::env::var_os("COPILOT_GITHUB_TOKEN")).output() {
-        Ok(out) => entry_from(out.status.success(), &out.stdout, now),
-        Err(_) => entry_from(false, &[], now),
+    let previous = read_entry(cache_path);
+    let mut command = api_command(std::env::var_os("COPILOT_GITHUB_TOKEN"));
+    let entry = match crate::github::output_with_timeout(&mut command, crate::github::GH_TIMEOUT) {
+        Some(out) => entry_from(out.status.success(), &out.stdout, now, previous.as_ref()),
+        None => entry_from(false, &[], now, previous.as_ref()),
     };
     if let Ok(json) = serde_json::to_string(&entry) {
         let _ = crate::state::write_private_atomic(cache_path, json.as_bytes());
@@ -101,11 +107,20 @@ fn api_command(copilot_token: Option<OsString>) -> Command {
     command
 }
 
-fn entry_from(succeeded: bool, stdout: &[u8], now: u64) -> CacheEntry {
+/// The cache entry a refresh produces. A failed refresh keeps the last known
+/// usage (and backs off for a full TTL) instead of hiding the segment on a
+/// transient error; usage from an ended cycle is dropped on read anyway.
+fn entry_from(
+    succeeded: bool,
+    stdout: &[u8],
+    now: u64,
+    previous: Option<&CacheEntry>,
+) -> CacheEntry {
     let usage = succeeded
         .then(|| std::str::from_utf8(stdout).ok())
         .flatten()
-        .and_then(parse_user_response);
+        .and_then(parse_user_response)
+        .or_else(|| previous.and_then(|p| p.usage.clone()));
     CacheEntry {
         timestamp: now,
         usage,
@@ -156,6 +171,15 @@ pub fn parse_user_response(json: &str) -> Option<CycleUsage> {
     })
 }
 
+fn days_in_month(year: i64, month: i64) -> i64 {
+    match month {
+        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    }
+}
+
 /// Midnight UTC of a `YYYY-MM-DD` date, in Unix seconds.
 fn utc_midnight(date: &str) -> Option<u64> {
     let mut parts = date.split('-');
@@ -165,7 +189,7 @@ fn utc_midnight(date: &str) -> Option<u64> {
     }
     let (year, month, day): (i64, i64, i64) =
         (year.parse().ok()?, month.parse().ok()?, day.parse().ok()?);
-    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+    if !(1..=12).contains(&month) || !(1..=days_in_month(year, month)).contains(&day) {
         return None;
     }
 
@@ -352,12 +376,55 @@ mod tests {
 
     #[test]
     fn test_refresh_result_becomes_the_cache_entry() {
-        let ok = entry_from(true, UNLIMITED.as_bytes(), NOW);
+        let ok = entry_from(true, UNLIMITED.as_bytes(), NOW, None);
         assert_eq!(ok.timestamp, NOW);
         assert_eq!(ok.usage, Some(usage()));
         // A failed call or an unexpected response hides the segment.
-        assert_eq!(entry_from(false, UNLIMITED.as_bytes(), NOW).usage, None);
-        assert_eq!(entry_from(true, b"{}", NOW).usage, None);
+        assert_eq!(
+            entry_from(false, UNLIMITED.as_bytes(), NOW, None).usage,
+            None
+        );
+        assert_eq!(entry_from(true, b"{}", NOW, None).usage, None);
+    }
+
+    #[test]
+    fn test_failed_refresh_keeps_the_last_known_usage() {
+        let previous = Some(CacheEntry {
+            timestamp: NOW - TTL,
+            usage: Some(usage()),
+        });
+        let failed = entry_from(false, &[], NOW, previous.as_ref());
+        assert_eq!(failed.timestamp, NOW);
+        assert_eq!(failed.usage, Some(usage()));
+        // An unexpected response is a failure too.
+        assert_eq!(
+            entry_from(true, b"{}", NOW, previous.as_ref()).usage,
+            Some(usage())
+        );
+    }
+
+    #[test]
+    fn test_successful_refresh_replaces_the_last_known_usage() {
+        let previous = CacheEntry {
+            timestamp: NOW - TTL,
+            usage: Some(CycleUsage {
+                credits: 1.0,
+                resets_at: 1_793_491_200,
+            }),
+        };
+        let ok = entry_from(true, UNLIMITED.as_bytes(), NOW, Some(&previous));
+        assert_eq!(ok.usage, Some(usage()));
+    }
+
+    #[test]
+    fn test_utc_midnight_rejects_days_the_month_does_not_have() {
+        assert_eq!(utc_midnight("2026-02-31"), None);
+        assert_eq!(utc_midnight("2026-02-29"), None);
+        assert_eq!(utc_midnight("2026-04-31"), None);
+        assert_eq!(utc_midnight("2026-00-10"), None);
+        assert_eq!(utc_midnight("2026-01-00"), None);
+        assert!(utc_midnight("2028-02-29").is_some());
+        assert!(utc_midnight("2026-12-31").is_some());
     }
 
     #[test]

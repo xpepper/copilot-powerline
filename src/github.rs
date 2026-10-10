@@ -2,9 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
+use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::process::{Command, Output, Stdio};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PullRequestInfo {
@@ -58,6 +59,52 @@ pub fn write_cache_entry(cache_path: &Path, entry: &PrCacheEntry) -> std::io::Re
     let json = serde_json::to_string(entry)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     crate::state::write_private_atomic(cache_path, json.as_bytes())
+}
+
+/// How long a background `gh` call may run. Shorter than the refresh
+/// throttle, so a hung call is killed before the next worker can start.
+pub const GH_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Runs `command` and returns its stdout, or `None` when it cannot start or
+/// is still running after `timeout` (it is killed). stderr is discarded.
+///
+/// Without a deadline, a `gh` call stuck on the network would hold the
+/// refresh claim until it goes stale, and the next worker would pile on.
+pub fn output_with_timeout(command: &mut Command, timeout: Duration) -> Option<Output> {
+    let mut child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    let mut pipe = child.stdout.take()?;
+    // Drained on its own thread so a large response cannot fill the pipe and
+    // stall the child while this thread polls.
+    let reader = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let _ = pipe.read_to_end(&mut buf);
+        buf
+    });
+
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(25));
+            }
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+        }
+    };
+    Some(Output {
+        status,
+        stdout: reader.join().ok()?,
+        stderr: Vec::new(),
+    })
 }
 
 pub fn is_cache_fresh(entry: &PrCacheEntry, ttl_seconds: u64, now: u64) -> bool {
@@ -134,13 +181,15 @@ struct GhPrViewPayload {
 pub fn fetch_and_write_pr_cache(repo_dir: &Path, cache_path: &Path) {
     let now = current_timestamp();
 
-    let output = Command::new("gh")
-        .args(["pr", "view", "--json", "number,url"])
-        .current_dir(repo_dir)
-        .output();
+    let output = output_with_timeout(
+        Command::new("gh")
+            .args(["pr", "view", "--json", "number,url"])
+            .current_dir(repo_dir),
+        GH_TIMEOUT,
+    );
 
     let entry = match output {
-        Ok(out) if out.status.success() => {
+        Some(out) if out.status.success() => {
             if let Ok(payload) = serde_json::from_slice::<GhPrViewPayload>(&out.stdout) {
                 PrCacheEntry {
                     timestamp: now,
@@ -225,6 +274,32 @@ pub fn get_pr_info(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn test_output_with_timeout_returns_stdout_of_a_finished_command() {
+        let mut command = Command::new("echo");
+        command.arg("hello");
+        let out = output_with_timeout(&mut command, Duration::from_secs(5)).unwrap();
+        assert!(out.status.success());
+        assert_eq!(out.stdout, b"hello\n");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_output_with_timeout_kills_a_command_that_hangs() {
+        let started = std::time::Instant::now();
+        let mut command = Command::new("sleep");
+        command.arg("30");
+        assert!(output_with_timeout(&mut command, Duration::from_millis(200)).is_none());
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    #[test]
+    fn test_output_with_timeout_is_none_when_the_command_is_missing() {
+        let mut command = Command::new("copilot-powerline-no-such-command");
+        assert!(output_with_timeout(&mut command, Duration::from_secs(1)).is_none());
+    }
 
     #[test]
     fn test_cache_entry_roundtrip() {
