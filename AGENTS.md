@@ -15,7 +15,7 @@ Welcome! This document provides architecture overviews, design constraints, and 
 4. **PR Lookup (optional)**: If the `pr` segment is enabled, reads a disk-cached PR reference for the current branch; a stale or missing cache triggers a throttled, detached background refresh via `gh pr view` (see `--fetch-pr-cache` below) so the hot path never blocks on a network call. The `cycle_cost` segment does the same with `gh api /copilot_internal/user` (`--fetch-cycle-usage`, `src/cycle_usage.rs`).
 5. **Cross-refresh State**: Every refresh is a fresh process, so anything compared across refreshes lives in small private files under the user cache dir (`src/state.rs`): the `--toggle` display mode override, per-session snapshots used to flag spend spikes, the cache hit trend and idle time (for the long-break reminder), and the cached month-to-date total of other sessions. Note that the payload's `current_usage` mirrors session totals, so per-step values must be derived from these snapshots.
 6. **Payload Log (optional)**: When `COPILOT_POWERLINE_LOG` names a file, appends one line per refresh (time, hashed session id, totals, idle time) to diagnose stale displays (`src/payload_log.rs`). Never log paths or prompt content.
-7. **Segment Assembly**: Picks `segments` or `compact_segments` based on the display mode, then iterates through them (`tokens`, `session_cost`, `month_cost`, `cycle_cost`, `cache`, `reasoning`, `total_tokens`, `cache_expiry`, `model`, `pr`), formatting each.
+7. **Segment Assembly**: Picks `segments` or `compact_segments` based on the display mode, then formats each through the segment dispatch `match` in [src/main.rs](src/main.rs).
 8. **Rendering**: The `renderer` applies the configured style (`minimal`, `powerline`, `capsule`, `plain`) and theme ANSI colors.
 9. **Stdout Output**: Emits the single-line formatted status line to standard output.
 
@@ -49,9 +49,7 @@ List the tree for the layout; one file per segment lives in `src/segments/`. Not
    - When querying `~/.copilot/session-store.db`, always open the connection with `OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI`.
    - Never write to or lock the Copilot database.
    - Always set a short timeout (`busy_timeout(500ms)`) to prevent blocking the status line if Copilot is writing to SQLite.
-5. **Zero Compiler Warnings**:
-   - All code must compile cleanly with `cargo check` and `cargo test` without warnings.
-6. **No Machine-Specific Paths**: [scripts/check-machine-paths](scripts/check-machine-paths) enforces portable paths in tracked files.
+5. **No Machine-Specific Paths**: [scripts/check-machine-paths](scripts/check-machine-paths) enforces portable paths in tracked files.
 
 ---
 
@@ -76,26 +74,18 @@ When adding a new segment (e.g., `git`, `model`, `duration`):
 
 ## 5. Development & Verification Workflow
 
-Always follow test-first development for behavioural changes:
+Always follow test-first development for behavioural changes.
+
+Run the checks defined in [the CI workflow](.github/workflows/ci.yml), the source of truth for formatting, linting (including compiler warnings), tests, packaging, and release builds.
+
+Also run these local smoke checks, which CI does not cover:
 
 ```bash
-# 1. Check code formatting
-cargo fmt --check
-
-# 2. Run all unit tests
-cargo test
-
-# 3. Run linter
-cargo clippy --all-targets -- -D warnings
-
-# 4. Test with a sample Copilot CLI stdin payload
+# Test with a sample Copilot CLI stdin payload
 echo '{"context_window":{"current_context_tokens":0,"displayed_context_limit":200000,"current_context_used_percentage":0},"ai_used":{"total_nano_aiu":0}}' | cargo run --
 
-# 5. Test style overrides
+# Test style and theme overrides
 echo '{"context_window":{"current_context_tokens":120000,"displayed_context_limit":200000,"current_context_used_percentage":60},"ai_used":{"total_nano_aiu":500000000000}}' | cargo run -- --style capsule --theme nord
-
-# 6. Build optimized release binary
-cargo build --release
 ```
 
 ---
