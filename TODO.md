@@ -28,7 +28,7 @@ completed items live in git history.
 - [ ] Watch for stale status line payloads. On 2026-10-10 the status line
       still showed the totals from before a 54-minute break ($0.62, 94%,
       2.0M) after a 2-minute turn had finished, so the idle clock kept
-      running through active work (#67). Copilot CLI 1.0.95 should refresh
+      running through active work (#81). Copilot CLI 1.0.95 should refresh
       on every usage event; cause not found. If it recurs, log each payload
       with a timestamp (a wrapper around the `statusLine` command) to tell
       a stale payload from a missed repaint.
