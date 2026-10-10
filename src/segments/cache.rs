@@ -9,11 +9,11 @@ use crate::theme::Palette;
 /// The name that lists this segment in `segments` and `compact_segments`.
 pub const NAME: &str = "cache";
 
-/// Whether the trend arrow needs the per-session hit rate snapshot: the
-/// segment is listed and `show_trend` is on. Like it always has, this ignores
+/// Whether the segment needs the per-session snapshot: it is listed and
+/// shows the trend arrow or the last miss. Like it always has, this ignores
 /// `enabled`, so a disabled but listed segment still records snapshots.
-pub fn needs_trend(segments: &[String], config: &CacheConfig) -> bool {
-    config.show_trend && is_listed(segments, NAME)
+pub fn needs_snapshot(segments: &[String], config: &CacheConfig) -> bool {
+    (config.show_trend || config.show_last_miss) && is_listed(segments, NAME)
 }
 
 fn hit_rate(cache_read: u64, input: u64) -> Option<f64> {
@@ -22,9 +22,12 @@ fn hit_rate(cache_read: u64, input: u64) -> Option<f64> {
 
 /// Renders the session cache hit rate. `trend` is the latest step's
 /// direction (see `cache_trend`), shown only in percentage mode.
+/// `recent_miss` is the size of a recent large cache miss, shown in both
+/// modes.
 pub fn render_cache_segment(
     ctx: &ContextWindow,
     trend: Option<Trend>,
+    recent_miss: Option<u64>,
     config: &CacheConfig,
     icon_set: IconSet,
     palette: &Palette,
@@ -63,10 +66,20 @@ pub fn render_cache_segment(
         Some(Trend::Down) => (palette.trend_down, " ↓"),
         None => (palette.tokens_normal, ""),
     };
+    let miss = recent_miss
+        .filter(|_| config.show_last_miss)
+        .map_or(String::new(), |tokens| {
+            format!(
+                " · {}miss {}{}",
+                palette.trend_down,
+                format_tokens(Some(tokens)),
+                r
+            )
+        });
 
     Some(format!(
-        "{}{}{} {}{}{}{}",
-        lbl, icon, r, color, value_str, arrow, r
+        "{}{}{} {}{}{}{}{}",
+        lbl, icon, r, color, value_str, arrow, r, miss
     ))
 }
 
@@ -81,7 +94,7 @@ mod tests {
         let cfg = CacheConfig::default();
         let p = Palette::for_theme("plain");
 
-        assert!(render_cache_segment(&ctx, None, &cfg, IconSet::Plain, &p).is_none());
+        assert!(render_cache_segment(&ctx, None, None, &cfg, IconSet::Plain, &p).is_none());
     }
 
     #[test]
@@ -94,7 +107,7 @@ mod tests {
         let cfg = CacheConfig::default();
         let p = Palette::for_theme("plain");
 
-        let rendered = render_cache_segment(&ctx, None, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered = render_cache_segment(&ctx, None, None, &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Cache: 85%");
     }
 
@@ -108,7 +121,7 @@ mod tests {
         let cfg = CacheConfig::default();
         let p = Palette::for_theme("plain");
 
-        let rendered = render_cache_segment(&ctx, None, &cfg, IconSet::Emoji, &p).unwrap();
+        let rendered = render_cache_segment(&ctx, None, None, &cfg, IconSet::Emoji, &p).unwrap();
         assert_eq!(rendered, "⚡ 85%");
     }
 
@@ -125,7 +138,7 @@ mod tests {
         };
         let p = Palette::for_theme("plain");
 
-        let rendered = render_cache_segment(&ctx, None, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered = render_cache_segment(&ctx, None, None, &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Cache: 85k");
     }
 
@@ -143,6 +156,7 @@ mod tests {
         let rendered = render_cache_segment(
             &ctx_at_60_pct(),
             Some(Trend::Up),
+            None,
             &CacheConfig::default(),
             IconSet::Plain,
             &p,
@@ -157,6 +171,7 @@ mod tests {
         let rendered = render_cache_segment(
             &ctx_at_60_pct(),
             Some(Trend::Down),
+            None,
             &CacheConfig::default(),
             IconSet::Plain,
             &p,
@@ -170,6 +185,7 @@ mod tests {
         let p = Palette::for_theme("plain");
         let rendered = render_cache_segment(
             &ctx_at_60_pct(),
+            None,
             None,
             &CacheConfig::default(),
             IconSet::Plain,
@@ -189,6 +205,7 @@ mod tests {
         let rendered = render_cache_segment(
             &ctx_at_60_pct(),
             Some(Trend::Down),
+            None,
             &cfg,
             IconSet::Plain,
             &p,
@@ -207,6 +224,7 @@ mod tests {
         let rendered = render_cache_segment(
             &ctx_at_60_pct(),
             Some(Trend::Down),
+            None,
             &cfg,
             IconSet::Plain,
             &p,
@@ -221,6 +239,7 @@ mod tests {
         let rendered = render_cache_segment(
             &ctx_at_60_pct(),
             Some(Trend::Down),
+            None,
             &CacheConfig::default(),
             IconSet::Plain,
             &p,
@@ -229,25 +248,129 @@ mod tests {
         assert!(rendered.contains(&format!("{}60% ↓{}", p.trend_down, p.reset)));
     }
 
-    #[test]
-    fn test_trend_needs_the_flag_and_a_listed_segment() {
-        let cfg = CacheConfig::default();
-        assert!(needs_trend(&names(&["cache"]), &cfg));
-        assert!(!needs_trend(&names(&["tokens"]), &cfg));
-        let off = CacheConfig {
-            show_trend: false,
+    fn ctx_after_miss() -> ContextWindow {
+        ContextWindow {
+            total_cache_read_tokens: Some(2_016_000),
+            total_input_tokens: Some(2_143_000),
             ..Default::default()
-        };
-        assert!(!needs_trend(&names(&["cache"]), &off));
+        }
     }
 
     #[test]
-    fn test_trend_ignores_enabled() {
-        // Gated on `show_trend` only, as it was in main.
+    fn test_recent_miss_shown_after_the_rate() {
+        let p = Palette::for_theme("plain");
+        let rendered = render_cache_segment(
+            &ctx_after_miss(),
+            None,
+            Some(133_000),
+            &CacheConfig::default(),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert_eq!(rendered, "Cache: 94% · miss 133k");
+    }
+
+    #[test]
+    fn test_recent_miss_follows_the_trend_arrow() {
+        // The call after a miss is well cached: the arrow says so, and the
+        // miss stays visible next to it.
+        let p = Palette::for_theme("plain");
+        let rendered = render_cache_segment(
+            &ctx_after_miss(),
+            Some(Trend::Up),
+            Some(133_000),
+            &CacheConfig::default(),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert_eq!(rendered, "Cache: 94% ↑ · miss 133k");
+    }
+
+    #[test]
+    fn test_recent_miss_colored_as_a_drop() {
+        let p = Palette::for_theme("github");
+        let rendered = render_cache_segment(
+            &ctx_after_miss(),
+            None,
+            Some(133_000),
+            &CacheConfig::default(),
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert!(rendered.ends_with(&format!(" · {}miss 133k{}", p.trend_down, p.reset)));
+    }
+
+    #[test]
+    fn test_recent_miss_shown_in_token_count_mode() {
+        let cfg = CacheConfig {
+            show_as_percentage: false,
+            ..Default::default()
+        };
+        let p = Palette::for_theme("plain");
+        let rendered = render_cache_segment(
+            &ctx_after_miss(),
+            None,
+            Some(133_000),
+            &cfg,
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert_eq!(rendered, "Cache: 2.0M · miss 133k");
+    }
+
+    #[test]
+    fn test_recent_miss_can_be_disabled() {
+        let cfg = CacheConfig {
+            show_last_miss: false,
+            ..Default::default()
+        };
+        let p = Palette::for_theme("plain");
+        let rendered = render_cache_segment(
+            &ctx_after_miss(),
+            None,
+            Some(133_000),
+            &cfg,
+            IconSet::Plain,
+            &p,
+        )
+        .unwrap();
+        assert_eq!(rendered, "Cache: 94%");
+    }
+
+    #[test]
+    fn test_snapshot_needs_a_flag_and_a_listed_segment() {
+        let cfg = CacheConfig::default();
+        assert!(needs_snapshot(&names(&["cache"]), &cfg));
+        assert!(!needs_snapshot(&names(&["tokens"]), &cfg));
+        let trend_only = CacheConfig {
+            show_last_miss: false,
+            ..Default::default()
+        };
+        assert!(needs_snapshot(&names(&["cache"]), &trend_only));
+        let miss_only = CacheConfig {
+            show_trend: false,
+            ..Default::default()
+        };
+        assert!(needs_snapshot(&names(&["cache"]), &miss_only));
+        let off = CacheConfig {
+            show_trend: false,
+            show_last_miss: false,
+            ..Default::default()
+        };
+        assert!(!needs_snapshot(&names(&["cache"]), &off));
+    }
+
+    #[test]
+    fn test_snapshot_ignores_enabled() {
+        // Gated on the display flags only, as it was in main.
         let cfg = CacheConfig {
             enabled: false,
             ..Default::default()
         };
-        assert!(needs_trend(&names(&["cache"]), &cfg));
+        assert!(needs_snapshot(&names(&["cache"]), &cfg));
     }
 }

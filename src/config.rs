@@ -353,6 +353,25 @@ pub struct CacheConfig {
     /// cache hit rate is clearly above or below the session average.
     #[serde(default = "default_true")]
     pub show_trend: bool,
+    /// Keep the size of the latest large cache miss on screen for a while
+    /// (`· miss 133k`), which the cumulative rate and the one-step arrow hide.
+    #[serde(default = "default_true")]
+    pub show_last_miss: bool,
+    /// A step is a miss when at least this many of its input tokens were not
+    /// read from the cache.
+    #[serde(default = "default_cache_miss_min_tokens")]
+    pub miss_min_tokens: u64,
+    /// How long the latest miss stays on screen.
+    #[serde(default = "default_cache_miss_visible_seconds")]
+    pub miss_visible_seconds: u64,
+}
+
+fn default_cache_miss_min_tokens() -> u64 {
+    50_000
+}
+
+fn default_cache_miss_visible_seconds() -> u64 {
+    300
 }
 
 impl Default for CacheConfig {
@@ -363,6 +382,9 @@ impl Default for CacheConfig {
             show_as_percentage: true,
             auto_hide_zero: true,
             show_trend: true,
+            show_last_miss: true,
+            miss_min_tokens: default_cache_miss_min_tokens(),
+            miss_visible_seconds: default_cache_miss_visible_seconds(),
         }
     }
 }
@@ -607,6 +629,18 @@ mod tests {
         assert_eq!(cfg.cache_expiry.idle_seconds, 1_800);
         assert_eq!(cfg.cache_expiry.min_tokens, 50_000);
         assert!(!cfg.cache_expiry.show_tokens);
+        assert!(cfg.cache.show_last_miss);
+        assert_eq!(cfg.cache.miss_min_tokens, 50_000);
+        assert_eq!(cfg.cache.miss_visible_seconds, 300);
+    }
+
+    #[test]
+    fn test_cache_section_without_miss_keys_gets_defaults() {
+        let cfg = Config::from_toml("[cache]\nshow_trend = false\n").unwrap();
+        assert!(!cfg.cache.show_trend);
+        assert!(cfg.cache.show_last_miss);
+        assert_eq!(cfg.cache.miss_min_tokens, 50_000);
+        assert_eq!(cfg.cache.miss_visible_seconds, 300);
     }
 
     #[test]

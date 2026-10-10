@@ -71,6 +71,9 @@ enabled = true            # Enable prompt cache segment (default: true)
 show_as_percentage = true # Show cache rate as percentage (95%) instead of raw token count (85k) (default: true)
 auto_hide_zero = true     # Hide segment when 0 tokens were read from cache (default: true)
 show_trend = true         # ↑/↓ when the latest step hits the cache clearly more or less than the session average (default: true)
+show_last_miss = true     # Keep the latest large cache miss on screen for a while, e.g. "94% · miss 133k" (default: true)
+miss_min_tokens = 50000   # A step is a miss when at least this many input tokens were not read from the cache (default: 50000)
+miss_visible_seconds = 300 # How long the latest miss stays on screen (default: 300)
 
 [reasoning]
 enabled = true           # Enable reasoning tokens segment (default: true)
