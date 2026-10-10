@@ -36,6 +36,7 @@ pub fn render_month_cost_segment(
 mod tests {
     use super::*;
     use crate::config::IconSet;
+    use crate::segments::names;
 
     #[test]
     fn test_month_cost_no_aic() {
@@ -56,10 +57,6 @@ mod tests {
         let rendered =
             render_month_cost_segment(25_938_000_000_000, &cfg, IconSet::Emoji, &p).unwrap();
         assert_eq!(rendered, "📅 $259.38");
-    }
-
-    fn names(list: &[&str]) -> Vec<String> {
-        list.iter().map(ToString::to_string).collect()
     }
 
     #[test]

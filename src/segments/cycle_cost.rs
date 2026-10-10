@@ -36,6 +36,7 @@ pub fn render_cycle_cost_segment(
 mod tests {
     use super::*;
     use crate::config::IconSet;
+    use crate::segments::names;
 
     fn usage(credits: f64) -> CycleUsage {
         CycleUsage {
@@ -130,10 +131,6 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(render(15649.0, &disabled, IconSet::Plain), None);
-    }
-
-    fn names(list: &[&str]) -> Vec<String> {
-        list.iter().map(ToString::to_string).collect()
     }
 
     #[test]

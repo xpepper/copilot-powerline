@@ -18,13 +18,15 @@ pub fn is_listed(segments: &[String], name: &str) -> bool {
     segments.iter().any(|s| s == name)
 }
 
+/// Test helper: owned segment names, the shape `segments` comes in.
+#[cfg(test)]
+fn names(list: &[&str]) -> Vec<String> {
+    list.iter().map(ToString::to_string).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn names(list: &[&str]) -> Vec<String> {
-        list.iter().map(ToString::to_string).collect()
-    }
 
     #[test]
     fn test_listed_segment_is_found() {

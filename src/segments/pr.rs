@@ -73,6 +73,7 @@ pub fn render_pr_segment(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::segments::names;
 
     #[test]
     fn test_render_pr_none() {
@@ -198,10 +199,6 @@ mod tests {
         // Must NOT contain OSC 8 sequence.
         assert!(!rendered.contains("\x1b]8;;"));
         assert!(rendered.contains("#50"));
-    }
-
-    fn names(list: &[&str]) -> Vec<String> {
-        list.iter().map(ToString::to_string).collect()
     }
 
     #[test]

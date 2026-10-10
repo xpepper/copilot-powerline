@@ -68,6 +68,7 @@ fn format_idle(seconds: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::segments::names;
 
     fn ctx_with(tokens: u64) -> ContextWindow {
         ContextWindow {
@@ -166,10 +167,6 @@ mod tests {
         assert!(rendered.contains(&format!("{}54m{}", p.tokens_alert, p.reset)));
         assert!(rendered.contains(&format!("{} · cache likely cold{}", p.dim, p.reset)));
         assert!(!rendered.contains("context"));
-    }
-
-    fn names(list: &[&str]) -> Vec<String> {
-        list.iter().map(ToString::to_string).collect()
     }
 
     #[test]

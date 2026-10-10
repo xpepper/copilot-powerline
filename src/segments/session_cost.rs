@@ -64,6 +64,7 @@ pub fn render_session_cost_segment(
 mod tests {
     use super::*;
     use crate::config::IconSet;
+    use crate::segments::names;
 
     #[test]
     fn test_zero_spend_no_aic() {
@@ -255,10 +256,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(rendered, "Session: 💸 📈 $6.20");
-    }
-
-    fn names(list: &[&str]) -> Vec<String> {
-        list.iter().map(ToString::to_string).collect()
     }
 
     #[test]

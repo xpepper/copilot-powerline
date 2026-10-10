@@ -70,6 +70,7 @@ pub fn render_cache_segment(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::segments::names;
 
     #[test]
     fn test_cache_hidden_when_zero() {
@@ -223,10 +224,6 @@ mod tests {
         )
         .unwrap();
         assert!(rendered.contains(&format!("{}60% ↓{}", p.trend_down, p.reset)));
-    }
-
-    fn names(list: &[&str]) -> Vec<String> {
-        list.iter().map(ToString::to_string).collect()
     }
 
     #[test]
