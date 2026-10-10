@@ -9,13 +9,13 @@
 
 mod common;
 
-use common::{LONG_AGO, NOW, SESSION, Sandbox, create_db, insert_usage};
+use common::{LONG_AGO, NOW, SESSION, Sandbox, assert_shows, create_db, insert_usage};
 
 /// $250.00 in nano AIU.
 const OTHER_SPEND: i64 = 25_000_000_000_000;
 
-/// Values the built-in defaults never produce (a custom prefix, AIC shown, a
-/// single segment), so the line only comes out right when the file is read.
+/// Values the built-in defaults never produce (a custom prefix, AIC shown), so
+/// the segment only comes out right when the file is read.
 const CONFIG: &str = r#"
 theme = "plain"
 segments = ["month_cost"]
@@ -39,7 +39,7 @@ fn test_month_cost_adds_the_default_database_to_the_session_spend() {
     sandbox.write_config(CONFIG);
     seed(&sandbox.create_default_db());
 
-    assert_eq!(sandbox.refresh_plain(), "MTD: $300.00 (30000 AIC)");
+    assert_shows(&sandbox.refresh_plain(), "MTD: $300.00 (30000 AIC)");
 }
 
 #[test]
@@ -49,5 +49,5 @@ fn test_month_cost_reads_the_database_named_by_db_path() {
     sandbox.write_config(&format!("{CONFIG}db_path = \"{}\"\n", db_path.display()));
     seed(&create_db(&db_path));
 
-    assert_eq!(sandbox.refresh_plain(), "MTD: $300.00 (30000 AIC)");
+    assert_shows(&sandbox.refresh_plain(), "MTD: $300.00 (30000 AIC)");
 }

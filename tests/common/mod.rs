@@ -141,6 +141,13 @@ pub fn create_db(path: &Path) -> Connection {
     conn
 }
 
+/// Asserts that a refreshed `line` shows the segment text `text`. Matching
+/// the segment rather than the whole line leaves separators and padding free
+/// to change.
+pub fn assert_shows(line: &str, text: &str) {
+    assert!(line.contains(text), "expected {text:?} in {line:?}");
+}
+
 pub fn insert_usage(conn: &Connection, session_id: &str, nano_aiu: i64, created_at: &str) {
     conn.execute(
         "INSERT INTO assistant_usage_events (session_id, total_nano_aiu, created_at)
