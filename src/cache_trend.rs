@@ -37,7 +37,8 @@ pub struct Snapshot {
     /// Verdict for the last step, kept while the counters don't move so
     /// timer-driven refreshes don't make the arrow flicker.
     pub trend: Option<Trend>,
-    /// Latest step with at least `miss_min_tokens` uncached input tokens.
+    /// Latest step with at least `miss_min_tokens` (and at least one)
+    /// uncached input tokens.
     /// Defaults so snapshots written before it existed still load.
     #[serde(default)]
     pub last_miss: Option<Miss>,
@@ -54,8 +55,8 @@ impl Snapshot {
 }
 
 /// Decides the trend of the step from `prev` to the current counters, and
-/// whether it was a miss of at least `miss_min_tokens` uncached tokens,
-/// returning the snapshot to persist.
+/// whether it was a miss of at least `miss_min_tokens` (and at least one)
+/// uncached tokens, returning the snapshot to persist.
 pub fn assess(
     prev: Option<Snapshot>,
     input_tokens: u64,

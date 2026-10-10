@@ -357,8 +357,8 @@ pub struct CacheConfig {
     /// (`· miss 133k`), which the cumulative rate and the one-step arrow hide.
     #[serde(default = "default_true")]
     pub show_last_miss: bool,
-    /// A step is a miss when at least this many of its input tokens were not
-    /// read from the cache.
+    /// A step is a miss when at least this many (and at least one) of its
+    /// input tokens were not read from the cache.
     #[serde(default = "default_cache_miss_min_tokens")]
     pub miss_min_tokens: u64,
     /// How long the latest miss stays on screen.
