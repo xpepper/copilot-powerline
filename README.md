@@ -112,11 +112,7 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 
 Each [GitHub Release](https://github.com/xpepper/copilot-powerline/releases) ships binaries for macOS (Apple Silicon and Intel) and Linux (x86_64 and arm64, glibc 2.35 or newer), with SHA-256 checksums. The shell installer from the [quick start](#install-and-connect-it-to-copilot-cli) picks the right one and installs it to `~/.local/bin`, adding that directory to your `PATH` if needed.
 
-Homebrew (macOS or Linux) installs the same binaries from the [xpepper/homebrew-tap](https://github.com/xpepper/homebrew-tap) tap:
-
-```bash
-brew install xpepper/tap/copilot-powerline
-```
+Homebrew (macOS or Linux) installs the same binaries from the [xpepper/homebrew-tap](https://github.com/xpepper/homebrew-tap) tap.
 
 If you use [cargo-binstall](https://github.com/cargo-bins/cargo-binstall), it downloads the same binaries instead of compiling:
 
@@ -134,11 +130,7 @@ For the status-line command, use the real binary path printed by `mise which cop
 
 ### Install with Cargo
 
-```bash
-cargo install copilot-powerline
-```
-
-It requires a current stable Rust toolchain with Cargo.
+`cargo install copilot-powerline` compiles the crate from crates.io. It requires a current stable Rust toolchain with Cargo.
 
 However you install it, the executable runs locally during Copilot CLI status-line refreshes and never makes network requests itself. The only exceptions are the optional `pr` and `cycle_cost` segments, which run `gh` in a detached background process, never inline in the refresh.
 
@@ -157,14 +149,6 @@ git clone https://github.com/xpepper/copilot-powerline.git
 cd copilot-powerline
 cargo install --path .
 ```
-
-To configure a generated default, run:
-
-```bash
-copilot-powerline --init
-```
-
-This creates `~/.copilot/powerline.toml`.
 
 ---
 
