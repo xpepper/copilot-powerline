@@ -292,6 +292,8 @@ copilot-powerline --toggle   # prints "copilot-powerline: compact mode" or "... 
 
 From inside Copilot CLI, run it as a shell command: `!copilot-powerline --toggle`. The change shows up on the next status line refresh, with no restart. The toggle is stored in your user cache directory and is cleared when you toggle back to the `mode` set in `powerline.toml`.
 
+### GitHub lookups (`pr` and `cycle_cost`)
+
 The `pr` segment shells out to `gh pr view --json number,url` for the current branch. To avoid blocking the status line on a network call, lookups are cached to disk and refreshed by a throttled, detached background process; the segment is hidden until the first refresh completes, and again whenever the branch has no open PR or `gh` is not installed/authenticated.
 
 The `cycle_cost` segment works the same way with `gh api /copilot_internal/user`, which takes about a second per call; the background `gh` call is killed after 10 seconds, as is the `pr` one. If `COPILOT_GITHUB_TOKEN` is set, it is passed to `gh` as `GH_TOKEN`, so the token is picked in the same order Copilot CLI uses. The endpoint is internal and undocumented, so GitHub may change it without notice; when the response lacks the fields the segment needs, it keeps the last known value, or stays hidden if there is none, rather than showing a wrong number. `month_cost` and `cycle_cost` measure different things: `month_cost` estimates this CLI's spend from local data, while `cycle_cost` is GitHub's own counter for all your Copilot usage.
