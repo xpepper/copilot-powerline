@@ -20,30 +20,31 @@ completed items live in git history.
       `📈`, and the next call 9 s later clears it.
 
 - [ ] Validate the idle cache-expiry warning (`cache_expiry`, on by
-      default) in real sessions. Seen live on 2026-10-09: it appeared
-      during an 8-minute break with Claude and cleared on the next step,
-      which really did rewrite the whole context. The 300 s lifetime is
-      wrong for GPT models and the size shown is too low: tracked in #67.
-      Still open: is the 50k `min_tokens` floor right; a long tool run
+      default). Confirmed live with Claude (2026-10-09). Still open: the
+      300 s lifetime is wrong for GPT models and the size shown is too
+      low (#67); is the 50k `min_tokens` floor right; a long tool run
       (e.g. a 10-minute build) also triggers it, which is accurate but may
       read oddly mid-turn; it could silence the spike warning's expected
       alarm on the first turn after idle.
 
-- [ ] Validate state-file pruning live (shipped in 0.7.1, PR #51).
-      Installed locally late on 2026-10-09, after that day's last status
-      line refresh, so the cache dir has no `last_prune` marker yet; the
-      first refresh with 0.7.1 creates it. The dir (148 files, oldest
-      2026-09-15) should first shrink after 2026-10-15; confirm the files
-      of live sessions survive, and the `mode` override if one is set (it
-      only exists while toggled away from the configured mode). Open
-      question: the 30-day cutoff deletes the `idle_*` snapshot of a
+- [ ] Validate state-file pruning live (shipped in 0.7.1, PR #51). The
+      `last_prune` marker exists (2026-10-09). The cache dir (177 files,
+      oldest 2026-09-15) should first shrink after 2026-10-15; confirm the
+      files of live sessions survive, and the `mode` override if one is
+      set (it only exists while toggled away from the configured mode).
+      Open question: the 30-day cutoff deletes the `idle_*` snapshot of a
       session idle that long, so resuming it hides the cache-expiry
       warning for one step; raise `MAX_AGE` in `src/state.rs` (e.g. 90
       days) if that ever matters.
 
+- [ ] Validate the opt-in `cycle_cost` segment (PR #73, #74, unreleased)
+      against the GitHub billing page: the total, the budget vs unlimited
+      display, and the behaviour after the cycle resets.
+
 ## CI
 
-- [ ] Check the first release after the runner changes (PR #69). Neither
+- [ ] Check the first release after the runner changes (PR #69, merged;
+      no release cut since 0.7.1). Neither
       workflow can run its release path in a PR, so both are unverified there:
       - `release.yml` now builds on `ubuntu-24.04` / `ubuntu-24.04-arm`
         (set in `dist-workspace.toml`; 22.04 is retired 2027-04-17).
