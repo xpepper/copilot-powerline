@@ -174,7 +174,7 @@ cargo install --path .
 
 ## Configuration (`~/.copilot/powerline.toml`)
 
-`copilot-powerline` is configured via a simple TOML file:
+`copilot-powerline` is configured via a simple TOML file. These are the defaults; for a complete, annotated real-world setup, see [`examples/powerline.toml`](examples/powerline.toml).
 
 ```toml
 style = "minimal"      # Options: "minimal", "powerline", "capsule", "plain"
