@@ -45,9 +45,10 @@ pub struct Snapshot {
 
 impl Snapshot {
     /// Size of the last miss while it is at most `visible_seconds` old.
+    /// Skips the zero-token misses older versions saved with a floor of 0.
     pub fn recent_miss(&self, now: u64, visible_seconds: u64) -> Option<u64> {
         self.last_miss
-            .filter(|miss| now.saturating_sub(miss.at) <= visible_seconds)
+            .filter(|miss| miss.tokens > 0 && now.saturating_sub(miss.at) <= visible_seconds)
             .map(|miss| miss.tokens)
     }
 }
@@ -251,6 +252,16 @@ mod tests {
         assert_eq!(s.recent_miss(NOW, 300), Some(133_000));
         assert_eq!(s.recent_miss(NOW + 300, 300), Some(133_000));
         assert_eq!(s.recent_miss(NOW + 301, 300), None);
+    }
+
+    #[test]
+    fn test_zero_token_miss_saved_by_an_older_version_is_not_recent() {
+        // Before a miss needed an uncached token, a floor of 0 saved these.
+        let s = Snapshot {
+            last_miss: miss(0, NOW),
+            ..snap(2_133_000, 1_886_000, None)
+        };
+        assert_eq!(s.recent_miss(NOW, 300), None);
     }
 
     #[test]
