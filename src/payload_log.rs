@@ -62,8 +62,9 @@ fn format_line(entry: &Entry) -> String {
     )
 }
 
-/// Appends one line for `entry` to `path`. Failures are ignored: diagnostics
-/// must never break or slow the status line.
+/// Appends one line for `entry` to `path`. Failures are ignored so a bad log
+/// path never breaks the status line. The write is one small synchronous
+/// append, an accepted cost of this opt-in diagnostic.
 pub fn append(path: &Path, entry: &Entry) {
     let mut options = OpenOptions::new();
     options.create(true).append(true);
