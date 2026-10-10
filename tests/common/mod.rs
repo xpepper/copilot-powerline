@@ -78,6 +78,7 @@ impl Sandbox {
     pub fn refresh_with_env(&self, payload: &str, args: &[&str], envs: &[(&str, &Path)]) -> String {
         let mut child = Command::new(env!("CARGO_BIN_EXE_copilot-powerline"))
             .args(args)
+            .env_remove("COPILOT_POWERLINE_LOG")
             .envs(envs.iter().copied())
             .env("HOME", self.home())
             .env_remove("XDG_CACHE_HOME")
