@@ -2,10 +2,8 @@ use super::spend_total::{self, SpendTotal};
 use crate::config::MonthCostConfig;
 use crate::theme::Palette;
 
-pub fn calculate_month_spend(total_month_nano: u64) -> (f64, f64) {
-    let aic = total_month_nano as f64 / 1e9;
-    let usd = aic * 0.01;
-    (usd, aic)
+fn nano_to_aic(total_nano: u64) -> f64 {
+    total_nano as f64 / 1e9
 }
 
 /// Whether the segment will render, so callers can skip the month-to-date
@@ -24,7 +22,7 @@ pub fn render_month_cost_segment(
         return None;
     }
 
-    let (_, aic) = calculate_month_spend(total_month_nano);
+    let aic = nano_to_aic(total_month_nano);
     let icon = crate::icons::month_icon(icon_set, config.prefix.as_deref());
     let total = SpendTotal {
         currency_symbol: &config.currency_symbol,
