@@ -65,14 +65,17 @@ Text preview: a Copilot CLI status line showing a context warning, current-sessi
 Choose the presentation that fits your terminal:
 
 ```text
-# Minimal (Nerd icons)
+# style = "minimal", icon_set = "nerd"
 󰮚 89k/400k (22%)  │  󰄬 $2.20  │  󰠠 $273.88  │  󰘸 80%  │  󰚩 4.2k  │  󰓅 175k
 
-# Capsule (Nerd icons)
+# style = "powerline", icon_set = "nerd"
+󰮚 89k/400k (22%)  󰄬 $2.20  󰠠 $273.88  󰘸 80%  󰚩 4.2k  󰓅 175k
+
+# style = "capsule", icon_set = "nerd"
 󰮚 89k/400k (22%)  󰄬 $2.20  󰠠 $273.88  󰘸 80%  󰚩 4.2k  󰓅 175k 
 
-# Plain (text labels)
-Tokens: 89k/400k (22%)  │  Session: $2.20  │  Month: $273.88  │  Cache: 80%  │  Think: 4.2k  │  Total: 175k
+# style = "plain", icon_set = "plain"
+Tokens: 89k/400k (22%)  |  Session: $2.20  |  Month: $273.88  |  Cache: 80%  |  Think: 4.2k  |  Total: 175k
 ```
 
 ## Why copilot-powerline?
