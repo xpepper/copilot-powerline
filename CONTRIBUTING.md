@@ -25,6 +25,8 @@ cargo test --verbose
 cargo build --release --verbose
 ```
 
+CI also checks shell scripts and enforces the mechanical repository rules (portable paths and bundled SQLite). See [the CI workflow](.github/workflows/ci.yml) for the complete checks and commands.
+
 Documentation-only changes do not need Rust checks, but please confirm Markdown renders correctly and that commands and claims match the current implementation.
 
 ## Scope and design
