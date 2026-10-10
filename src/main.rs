@@ -283,8 +283,7 @@ fn main() {
             cache::NAME => {
                 if let Some(s) = render_cache_segment(
                     &input.context_window,
-                    cache_signals.trend,
-                    cache_signals.recent_miss,
+                    cache_signals,
                     &config.cache,
                     config.icon_set,
                     &palette,

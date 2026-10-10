@@ -1,5 +1,5 @@
 use super::is_listed;
-use crate::cache_trend::Trend;
+use crate::cache_trend::{Signals, Trend};
 use crate::config::{CacheConfig, IconSet};
 use crate::icons::cache_icon;
 use crate::input::ContextWindow;
@@ -20,14 +20,13 @@ fn hit_rate(cache_read: u64, input: u64) -> Option<f64> {
     (input > 0).then(|| ((cache_read as f64 / input as f64) * 100.0).clamp(0.0, 100.0))
 }
 
-/// Renders the session cache hit rate. `trend` is the latest step's
+/// Renders the session cache hit rate. `signals.trend` is the latest step's
 /// direction (see `cache_trend`), shown only in percentage mode.
-/// `recent_miss` is the size of a recent large cache miss, shown in both
-/// modes.
+/// `signals.recent_miss` is the size of a recent large cache miss, shown in
+/// both modes.
 pub fn render_cache_segment(
     ctx: &ContextWindow,
-    trend: Option<Trend>,
-    recent_miss: Option<u64>,
+    signals: Signals,
     config: &CacheConfig,
     icon_set: IconSet,
     palette: &Palette,
@@ -56,7 +55,7 @@ pub fn render_cache_segment(
         };
 
         let pct = hit_rate(cache_read, denom).map_or("0%".to_string(), |p| format!("{:.0}%", p));
-        (pct, trend.filter(|_| config.show_trend))
+        (pct, signals.trend.filter(|_| config.show_trend))
     } else {
         (format_tokens(Some(cache_read)), None)
     };
@@ -66,7 +65,8 @@ pub fn render_cache_segment(
         Some(Trend::Down) => (palette.trend_down, " ↓"),
         None => (palette.tokens_normal, ""),
     };
-    let miss = recent_miss
+    let miss = signals
+        .recent_miss
         .filter(|_| config.show_last_miss)
         .map_or(String::new(), |tokens| {
             format!(
@@ -88,13 +88,19 @@ mod tests {
     use super::*;
     use crate::segments::names;
 
+    fn signals(trend: Option<Trend>, recent_miss: Option<u64>) -> Signals {
+        Signals { trend, recent_miss }
+    }
+
     #[test]
     fn test_cache_hidden_when_zero() {
         let ctx = ContextWindow::default();
         let cfg = CacheConfig::default();
         let p = Palette::for_theme("plain");
 
-        assert!(render_cache_segment(&ctx, None, None, &cfg, IconSet::Plain, &p).is_none());
+        assert!(
+            render_cache_segment(&ctx, signals(None, None), &cfg, IconSet::Plain, &p).is_none()
+        );
     }
 
     #[test]
@@ -107,7 +113,8 @@ mod tests {
         let cfg = CacheConfig::default();
         let p = Palette::for_theme("plain");
 
-        let rendered = render_cache_segment(&ctx, None, None, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered =
+            render_cache_segment(&ctx, signals(None, None), &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Cache: 85%");
     }
 
@@ -121,7 +128,8 @@ mod tests {
         let cfg = CacheConfig::default();
         let p = Palette::for_theme("plain");
 
-        let rendered = render_cache_segment(&ctx, None, None, &cfg, IconSet::Emoji, &p).unwrap();
+        let rendered =
+            render_cache_segment(&ctx, signals(None, None), &cfg, IconSet::Emoji, &p).unwrap();
         assert_eq!(rendered, "⚡ 85%");
     }
 
@@ -138,7 +146,8 @@ mod tests {
         };
         let p = Palette::for_theme("plain");
 
-        let rendered = render_cache_segment(&ctx, None, None, &cfg, IconSet::Plain, &p).unwrap();
+        let rendered =
+            render_cache_segment(&ctx, signals(None, None), &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "Cache: 85k");
     }
 
@@ -155,8 +164,7 @@ mod tests {
         let p = Palette::for_theme("plain");
         let rendered = render_cache_segment(
             &ctx_at_60_pct(),
-            Some(Trend::Up),
-            None,
+            signals(Some(Trend::Up), None),
             &CacheConfig::default(),
             IconSet::Plain,
             &p,
@@ -170,8 +178,7 @@ mod tests {
         let p = Palette::for_theme("plain");
         let rendered = render_cache_segment(
             &ctx_at_60_pct(),
-            Some(Trend::Down),
-            None,
+            signals(Some(Trend::Down), None),
             &CacheConfig::default(),
             IconSet::Plain,
             &p,
@@ -185,8 +192,7 @@ mod tests {
         let p = Palette::for_theme("plain");
         let rendered = render_cache_segment(
             &ctx_at_60_pct(),
-            None,
-            None,
+            signals(None, None),
             &CacheConfig::default(),
             IconSet::Plain,
             &p,
@@ -204,8 +210,7 @@ mod tests {
         let p = Palette::for_theme("plain");
         let rendered = render_cache_segment(
             &ctx_at_60_pct(),
-            Some(Trend::Down),
-            None,
+            signals(Some(Trend::Down), None),
             &cfg,
             IconSet::Plain,
             &p,
@@ -223,8 +228,7 @@ mod tests {
         let p = Palette::for_theme("plain");
         let rendered = render_cache_segment(
             &ctx_at_60_pct(),
-            Some(Trend::Down),
-            None,
+            signals(Some(Trend::Down), None),
             &cfg,
             IconSet::Plain,
             &p,
@@ -238,8 +242,7 @@ mod tests {
         let p = Palette::for_theme("github");
         let rendered = render_cache_segment(
             &ctx_at_60_pct(),
-            Some(Trend::Down),
-            None,
+            signals(Some(Trend::Down), None),
             &CacheConfig::default(),
             IconSet::Plain,
             &p,
@@ -261,8 +264,7 @@ mod tests {
         let p = Palette::for_theme("plain");
         let rendered = render_cache_segment(
             &ctx_after_miss(),
-            None,
-            Some(133_000),
+            signals(None, Some(133_000)),
             &CacheConfig::default(),
             IconSet::Plain,
             &p,
@@ -278,8 +280,7 @@ mod tests {
         let p = Palette::for_theme("plain");
         let rendered = render_cache_segment(
             &ctx_after_miss(),
-            Some(Trend::Up),
-            Some(133_000),
+            signals(Some(Trend::Up), Some(133_000)),
             &CacheConfig::default(),
             IconSet::Plain,
             &p,
@@ -293,8 +294,7 @@ mod tests {
         let p = Palette::for_theme("github");
         let rendered = render_cache_segment(
             &ctx_after_miss(),
-            None,
-            Some(133_000),
+            signals(None, Some(133_000)),
             &CacheConfig::default(),
             IconSet::Plain,
             &p,
@@ -312,8 +312,7 @@ mod tests {
         let p = Palette::for_theme("plain");
         let rendered = render_cache_segment(
             &ctx_after_miss(),
-            None,
-            Some(133_000),
+            signals(None, Some(133_000)),
             &cfg,
             IconSet::Plain,
             &p,
@@ -331,8 +330,7 @@ mod tests {
         let p = Palette::for_theme("plain");
         let rendered = render_cache_segment(
             &ctx_after_miss(),
-            None,
-            Some(133_000),
+            signals(None, Some(133_000)),
             &cfg,
             IconSet::Plain,
             &p,
