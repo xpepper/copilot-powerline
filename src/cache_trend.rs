@@ -37,7 +37,8 @@ pub struct Snapshot {
     /// Verdict for the last step, kept while the counters don't move so
     /// timer-driven refreshes don't make the arrow flicker.
     pub trend: Option<Trend>,
-    /// Latest step with at least `miss_min_tokens` uncached input tokens.
+    /// Latest step with at least `miss_min_tokens` (and at least one)
+    /// uncached input tokens.
     /// Defaults so snapshots written before it existed still load.
     #[serde(default)]
     pub last_miss: Option<Miss>,
@@ -45,16 +46,17 @@ pub struct Snapshot {
 
 impl Snapshot {
     /// Size of the last miss while it is at most `visible_seconds` old.
+    /// Skips the zero-token misses older versions saved with a floor of 0.
     pub fn recent_miss(&self, now: u64, visible_seconds: u64) -> Option<u64> {
         self.last_miss
-            .filter(|miss| now.saturating_sub(miss.at) <= visible_seconds)
+            .filter(|miss| miss.tokens > 0 && now.saturating_sub(miss.at) <= visible_seconds)
             .map(|miss| miss.tokens)
     }
 }
 
 /// Decides the trend of the step from `prev` to the current counters, and
-/// whether it was a miss of at least `miss_min_tokens` uncached tokens,
-/// returning the snapshot to persist.
+/// whether it was a miss of at least `miss_min_tokens` (and at least one)
+/// uncached tokens, returning the snapshot to persist.
 pub fn assess(
     prev: Option<Snapshot>,
     input_tokens: u64,
@@ -86,7 +88,7 @@ pub fn assess(
     let step_read = cache_read_tokens - prev.cache_read_tokens;
 
     let uncached = step_input.saturating_sub(step_read);
-    let last_miss = if uncached >= miss_min_tokens {
+    let last_miss = if uncached > 0 && uncached >= miss_min_tokens {
         Some(Miss {
             tokens: uncached,
             at: now,
@@ -222,6 +224,24 @@ mod tests {
     }
 
     #[test]
+    fn test_fully_cached_step_is_not_a_miss_even_with_a_zero_floor() {
+        // 10k step, all 10k read from the cache: 0 missed.
+        let prev = snap(1_000_000, 900_000, None);
+        let next = super::assess(Some(prev), 1_010_000, 910_000, NOW, 0);
+        assert_eq!(next.last_miss, None);
+    }
+
+    #[test]
+    fn test_fully_cached_step_keeps_the_last_miss_with_a_zero_floor() {
+        let prev = Snapshot {
+            last_miss: miss(5_000, NOW - 60),
+            ..snap(1_000_000, 900_000, None)
+        };
+        let next = super::assess(Some(prev), 1_010_000, 910_000, NOW, 0);
+        assert_eq!(next.last_miss, miss(5_000, NOW - 60));
+    }
+
+    #[test]
     fn test_counters_going_down_forget_the_miss() {
         let prev = Snapshot {
             last_miss: miss(133_000, NOW - 60),
@@ -248,6 +268,16 @@ mod tests {
         assert_eq!(s.recent_miss(NOW, 300), Some(133_000));
         assert_eq!(s.recent_miss(NOW + 300, 300), Some(133_000));
         assert_eq!(s.recent_miss(NOW + 301, 300), None);
+    }
+
+    #[test]
+    fn test_zero_token_miss_saved_by_an_older_version_is_not_recent() {
+        // Before a miss needed an uncached token, a floor of 0 saved these.
+        let s = Snapshot {
+            last_miss: miss(0, NOW),
+            ..snap(2_133_000, 1_886_000, None)
+        };
+        assert_eq!(s.recent_miss(NOW, 300), None);
     }
 
     #[test]
