@@ -5,10 +5,13 @@ use crate::input::ContextWindow;
 use crate::segments::tokens::format_tokens;
 use crate::theme::Palette;
 
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "cache_expiry";
+
 /// Whether the segment will render, so callers can skip the idle-time
 /// snapshot (a state file read and write) when nothing would show it.
 pub fn is_visible(segments: &[String], config: &CacheExpiryConfig) -> bool {
-    config.enabled && is_listed(segments, "cache_expiry")
+    config.enabled && is_listed(segments, NAME)
 }
 
 /// Renders the long-break reminder: how long the session has been idle and

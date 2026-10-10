@@ -4,11 +4,14 @@ use crate::config::CycleCostConfig;
 use crate::cycle_usage::CycleUsage;
 use crate::theme::Palette;
 
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "cycle_cost";
+
 /// Whether the segment will render, so callers can skip the cycle usage
 /// lookup (a disk cache read and a possible background `gh` refresh) when
 /// nothing would show it.
 pub fn is_visible(segments: &[String], config: &CycleCostConfig) -> bool {
-    config.enabled && is_listed(segments, "cycle_cost")
+    config.enabled && is_listed(segments, NAME)
 }
 
 pub fn render_cycle_cost_segment(

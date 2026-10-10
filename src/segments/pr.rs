@@ -4,11 +4,14 @@ use crate::github::PullRequestInfo;
 use crate::icons::pr_icon;
 use crate::theme::Palette;
 
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "pr";
+
 /// Whether the segment will render, so callers can skip the PR lookup (a
 /// disk cache read and a possible background `gh` refresh) when nothing
 /// would show it.
 pub fn is_visible(segments: &[String], config: &PrConfig) -> bool {
-    config.enabled && is_listed(segments, "pr")
+    config.enabled && is_listed(segments, NAME)
 }
 
 /// Returns true if `url` is safe to splice into a raw terminal escape

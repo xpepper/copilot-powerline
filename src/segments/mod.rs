@@ -44,4 +44,26 @@ mod tests {
         assert!(!is_listed(&names(&["cache_expiry"]), "cache"));
         assert!(!is_listed(&names(&["cache"]), "cache_expiry"));
     }
+
+    #[test]
+    fn test_default_segments_use_segment_names() {
+        // `config` must not depend on a segment, so its defaults spell the
+        // names out; this catches a renamed segment they still list.
+        let known = [
+            tokens::NAME,
+            session_cost::NAME,
+            month_cost::NAME,
+            cycle_cost::NAME,
+            cache::NAME,
+            reasoning::NAME,
+            total_tokens::NAME,
+            cache_expiry::NAME,
+            model::NAME,
+            pr::NAME,
+        ];
+        let config = crate::config::Config::default();
+        for name in config.segments.iter().chain(&config.compact_segments) {
+            assert!(known.contains(&name.as_str()), "unknown segment {name}");
+        }
+    }
 }

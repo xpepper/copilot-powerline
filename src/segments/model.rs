@@ -3,6 +3,9 @@ use crate::icons::model_icon;
 use crate::input::ModelInfo;
 use crate::theme::Palette;
 
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "model";
+
 pub fn render_model_segment(
     model: Option<&ModelInfo>,
     config: &ModelConfig,

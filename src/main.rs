@@ -27,13 +27,13 @@ use renderer::render_segments;
 use segments::cache::{self, render_cache_segment};
 use segments::cache_expiry::{self, render_cache_expiry_segment};
 use segments::cycle_cost::{self, render_cycle_cost_segment};
-use segments::model::render_model_segment;
+use segments::model::{self, render_model_segment};
 use segments::month_cost::{self, render_month_cost_segment};
 use segments::pr::{self, render_pr_segment};
-use segments::reasoning::render_reasoning_segment;
+use segments::reasoning::{self, render_reasoning_segment};
 use segments::session_cost::{self, render_session_cost_segment};
-use segments::tokens::render_tokens_segment;
-use segments::total_tokens::render_total_tokens_segment;
+use segments::tokens::{self, render_tokens_segment};
+use segments::total_tokens::{self, render_total_tokens_segment};
 use theme::Palette;
 
 fn read_stdin() -> String {
@@ -234,7 +234,7 @@ fn main() {
 
     for seg in &segments {
         match seg.as_str() {
-            "tokens" => {
+            tokens::NAME => {
                 if let Some(s) = render_tokens_segment(
                     &input.context_window,
                     &config.tokens,
@@ -244,7 +244,7 @@ fn main() {
                     rendered_segments.push(s);
                 }
             }
-            "session_cost" => {
+            session_cost::NAME => {
                 if let Some(s) = render_session_cost_segment(
                     session_nano,
                     spend_spike,
@@ -255,7 +255,7 @@ fn main() {
                     rendered_segments.push(s);
                 }
             }
-            "month_cost" => {
+            month_cost::NAME => {
                 if let Some(s) = render_month_cost_segment(
                     total_month_nano,
                     &config.month_cost,
@@ -265,7 +265,7 @@ fn main() {
                     rendered_segments.push(s);
                 }
             }
-            "cycle_cost" => {
+            cycle_cost::NAME => {
                 if let Some(s) = render_cycle_cost_segment(
                     cycle_usage.as_ref(),
                     &config.cycle_cost,
@@ -275,7 +275,7 @@ fn main() {
                     rendered_segments.push(s);
                 }
             }
-            "cache" => {
+            cache::NAME => {
                 if let Some(s) = render_cache_segment(
                     &input.context_window,
                     latest_cache_trend,
@@ -286,7 +286,7 @@ fn main() {
                     rendered_segments.push(s);
                 }
             }
-            "cache_expiry" => {
+            cache_expiry::NAME => {
                 if let Some(s) = render_cache_expiry_segment(
                     &input.context_window,
                     idle_seconds,
@@ -297,7 +297,7 @@ fn main() {
                     rendered_segments.push(s);
                 }
             }
-            "reasoning" => {
+            reasoning::NAME => {
                 if let Some(s) = render_reasoning_segment(
                     &input.context_window,
                     &config.reasoning,
@@ -307,7 +307,7 @@ fn main() {
                     rendered_segments.push(s);
                 }
             }
-            "total_tokens" => {
+            total_tokens::NAME => {
                 if let Some(s) = render_total_tokens_segment(
                     &input.context_window,
                     &config.total_tokens,
@@ -317,7 +317,7 @@ fn main() {
                     rendered_segments.push(s);
                 }
             }
-            "model" => {
+            model::NAME => {
                 if let Some(s) = render_model_segment(
                     input.model.as_ref(),
                     &config.model,
@@ -327,7 +327,7 @@ fn main() {
                     rendered_segments.push(s);
                 }
             }
-            "pr" => {
+            pr::NAME => {
                 if let Some(s) =
                     render_pr_segment(pr_info.as_ref(), &config.pr, config.icon_set, &palette)
                 {

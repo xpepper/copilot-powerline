@@ -3,10 +3,13 @@ use super::spend_format::{self, aic_to_usd, nano_to_aic};
 use crate::config::CostConfig;
 use crate::theme::Palette;
 
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "session_cost";
+
 /// Whether the spend spike check needs to run: the segment is listed and
 /// `spike_alert` is on. Like it always has, this ignores `enabled`.
 pub fn needs_spike_check(segments: &[String], config: &CostConfig) -> bool {
-    config.spike_alert && is_listed(segments, "session_cost")
+    config.spike_alert && is_listed(segments, NAME)
 }
 
 pub fn render_session_cost_segment(

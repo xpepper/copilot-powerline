@@ -4,6 +4,9 @@ use crate::input::ContextWindow;
 use crate::segments::tokens::format_tokens;
 use crate::theme::Palette;
 
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "reasoning";
+
 pub fn render_reasoning_segment(
     ctx: &ContextWindow,
     config: &ReasoningConfig,

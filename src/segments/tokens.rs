@@ -2,6 +2,9 @@ use crate::config::TokensConfig;
 use crate::input::ContextWindow;
 use crate::theme::Palette;
 
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "tokens";
+
 pub fn format_tokens(n: Option<u64>) -> String {
     let count = match n {
         Some(v) if v > 0 => v,

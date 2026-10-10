@@ -6,11 +6,14 @@ use crate::input::ContextWindow;
 use crate::segments::tokens::format_tokens;
 use crate::theme::Palette;
 
+/// The name that lists this segment in `segments` and `compact_segments`.
+pub const NAME: &str = "cache";
+
 /// Whether the trend arrow needs the per-session hit rate snapshot: the
 /// segment is listed and `show_trend` is on. Like it always has, this ignores
 /// `enabled`, so a disabled but listed segment still records snapshots.
 pub fn needs_trend(segments: &[String], config: &CacheConfig) -> bool {
-    config.show_trend && is_listed(segments, "cache")
+    config.show_trend && is_listed(segments, NAME)
 }
 
 fn hit_rate(cache_read: u64, input: u64) -> Option<f64> {
