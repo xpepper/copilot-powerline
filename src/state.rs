@@ -66,6 +66,15 @@ pub fn write_private_atomic(path: &Path, contents: &[u8]) -> std::io::Result<()>
     fs::rename(&tmp_path, path)
 }
 
+/// 16-hex-digit hash of a session id, so it can name a file or appear in a
+/// log without exposing the id. Stable across refreshes of one build, not
+/// guaranteed across Rust versions (state files are short-lived caches).
+pub fn session_hash(session_id: &str) -> String {
+    let mut hasher = DefaultHasher::new();
+    session_id.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
 /// Path of a per-session state file, e.g. `spend_<hash>.json`. The session id
 /// is hashed so arbitrary ids can never escape the state directory.
 pub fn session_file(kind: &str, session_id: &str) -> PathBuf {
@@ -73,9 +82,7 @@ pub fn session_file(kind: &str, session_id: &str) -> PathBuf {
         PRUNABLE_KINDS.contains(&kind),
         "unknown state kind {kind:?}: add it to PRUNABLE_KINDS or it is never pruned"
     );
-    let mut hasher = DefaultHasher::new();
-    session_id.hash(&mut hasher);
-    base_dir().join(format!("{kind}_{:016x}.json", hasher.finish()))
+    base_dir().join(format!("{kind}_{}.json", session_hash(session_id)))
 }
 
 /// Loads the snapshot at `path` (if readable), lets `assess` derive the next

@@ -271,6 +271,9 @@ The overrides also work in the `command` of Copilot CLI's `statusLine` setting, 
 - **Copilot shows a blank statusline?**
   Ensure `copilot-powerline` is in your `PATH` or use the full path in `~/.copilot/settings.json`: `~/.local/bin/copilot-powerline` (shell installer), `~/.cargo/bin/copilot-powerline` (Cargo), or the output of `which copilot-powerline`.
 
+- **Status line shows old totals?**
+  Set `COPILOT_POWERLINE_LOG` to a file path in the environment Copilot CLI starts in (for example `export COPILOT_POWERLINE_LOG=~/copilot-powerline.log`). Each refresh then appends one line: UTC time, a hash of the session id, `total_tokens`, `nano_aiu` and `idle_seconds` (`-` when the idle clock is not tracked: the `cache_expiry` segment is not enabled, or the payload has no session or token totals). Paths and prompt content are never logged. Compare the times with what you did: lines with moving totals mean the payload was fresh and the repaint was missed; lines with unchanged totals mean the payload itself was stale; no line at all means Copilot CLI did not run the command (or the log path is not writable, since write failures are ignored, so check that first). Off by default. The file is never truncated or rotated and grows by about 110 bytes per refresh (roughly 10 MB a day at one refresh per second), so unset the variable and delete the file when done.
+
 ---
 
 ## Experimental: exact GitHub usage refresh

@@ -36,9 +36,9 @@ completed items live in git history.
       still showed the totals from before a 54-minute break ($0.62, 94%,
       2.0M) after a 2-minute turn had finished, so the idle clock kept
       running through active work (#81). Copilot CLI 1.0.95 should refresh
-      on every usage event; cause not found. If it recurs, log each payload
-      with a timestamp (a wrapper around the `statusLine` command) to tell
-      a stale payload from a missed repaint.
+      on every usage event; cause not found. If it recurs, check the log
+      enabled with `COPILOT_POWERLINE_LOG=<file>` (see Troubleshooting) to
+      tell a stale payload from a missed repaint.
 
 - [ ] Validate state-file pruning live (shipped in 0.7.1, PR #51). The
       `last_prune` marker exists (2026-10-09). The cache dir (177 files,

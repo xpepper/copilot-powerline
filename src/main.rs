@@ -14,6 +14,7 @@ mod idle;
 mod input;
 mod mode;
 mod month_spend;
+mod payload_log;
 mod renderer;
 mod segments;
 mod spend;
@@ -234,6 +235,19 @@ fn main() {
     } else {
         None
     };
+
+    if let Some(log_path) = payload_log::path_from_env() {
+        payload_log::append(
+            &log_path,
+            &payload_log::Entry {
+                now: github::current_timestamp(),
+                session_id: input.session_id.as_deref(),
+                total_tokens: input.context_window.session_tokens(),
+                total_nano_aiu: session_nano,
+                idle_seconds,
+            },
+        );
+    }
 
     let mut rendered_segments = Vec::new();
 
