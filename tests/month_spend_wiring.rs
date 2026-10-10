@@ -11,11 +11,8 @@
 
 mod common;
 
-use common::{NOW, Sandbox, insert_usage, payload};
+use common::{NOW, Sandbox, insert_usage};
 
-const SESSION: &str = "current";
-/// $50.00 in nano AIU.
-const SESSION_SPEND: u64 = 5_000_000_000_000;
 /// $250.00 and $100.00 in nano AIU.
 const FIRST_OTHER_SPEND: i64 = 25_000_000_000_000;
 const SECOND_OTHER_SPEND: i64 = 10_000_000_000_000;
@@ -23,13 +20,6 @@ const SNAPSHOT_PREFIX: &str = "month_";
 
 fn config(segments: &str, month_cost: &str) -> String {
     format!("theme = \"plain\"\nsegments = [{segments}]\n\n[month_cost]\n{month_cost}\n")
-}
-
-fn refresh(sandbox: &Sandbox) -> String {
-    sandbox.refresh(
-        &payload(SESSION, SESSION_SPEND),
-        &["--style", "plain", "--icon-set", "plain"],
-    )
 }
 
 /// Refreshes with data in the database and checks the query was never reached.
@@ -43,7 +33,7 @@ fn assert_query_skipped(config: &str) {
         NOW,
     );
 
-    let line = refresh(&sandbox);
+    let line = sandbox.refresh_plain();
 
     assert!(!line.contains("Month"), "unexpected month segment: {line}");
     // `cache_expiry` is another gated lookup that writes its own snapshot
@@ -77,16 +67,16 @@ fn test_cached_total_is_reused_until_the_snapshot_goes() {
     let db = sandbox.create_default_db();
     insert_usage(&db, "other", FIRST_OTHER_SPEND, NOW);
 
-    assert_eq!(refresh(&sandbox), "Month: $300.00");
+    assert_eq!(sandbox.refresh_plain(), "Month: $300.00");
     let snapshots = sandbox.state_files(SNAPSHOT_PREFIX);
     assert_eq!(snapshots.len(), 1);
 
     // Another session spends more, but the total was queried moments ago.
     insert_usage(&db, "other", SECOND_OTHER_SPEND, NOW);
-    assert_eq!(refresh(&sandbox), "Month: $300.00");
+    assert_eq!(sandbox.refresh_plain(), "Month: $300.00");
 
     // Without the cache the same database does show the new spend, so the
     // line above is the cache at work and not a row the query cannot see.
     std::fs::remove_file(&snapshots[0]).unwrap();
-    assert_eq!(refresh(&sandbox), "Month: $400.00");
+    assert_eq!(sandbox.refresh_plain(), "Month: $400.00");
 }

@@ -9,11 +9,8 @@
 
 mod common;
 
-use common::{LONG_AGO, NOW, Sandbox, insert_usage, payload};
+use common::{LONG_AGO, NOW, SESSION, Sandbox, create_db, insert_usage};
 
-const SESSION: &str = "current";
-/// $50.00 in nano AIU.
-const SESSION_SPEND: u64 = 5_000_000_000_000;
 /// $250.00 in nano AIU.
 const OTHER_SPEND: i64 = 25_000_000_000_000;
 
@@ -36,20 +33,13 @@ fn seed(conn: &rusqlite::Connection) {
     insert_usage(conn, "other", 9_000_000_000_000, LONG_AGO);
 }
 
-fn refresh(sandbox: &Sandbox) -> String {
-    sandbox.refresh(
-        &payload(SESSION, SESSION_SPEND),
-        &["--style", "plain", "--icon-set", "plain"],
-    )
-}
-
 #[test]
 fn test_month_cost_adds_the_default_database_to_the_session_spend() {
     let sandbox = Sandbox::new();
     sandbox.write_config(CONFIG);
     seed(&sandbox.create_default_db());
 
-    assert_eq!(refresh(&sandbox), "MTD: $300.00 (30000 AIC)");
+    assert_eq!(sandbox.refresh_plain(), "MTD: $300.00 (30000 AIC)");
 }
 
 #[test]
@@ -57,7 +47,7 @@ fn test_month_cost_reads_the_database_named_by_db_path() {
     let sandbox = Sandbox::new();
     let db_path = sandbox.home().join("elsewhere").join("usage.db");
     sandbox.write_config(&format!("{CONFIG}db_path = \"{}\"\n", db_path.display()));
-    seed(&sandbox.create_db(&db_path));
+    seed(&create_db(&db_path));
 
-    assert_eq!(refresh(&sandbox), "MTD: $300.00 (30000 AIC)");
+    assert_eq!(sandbox.refresh_plain(), "MTD: $300.00 (30000 AIC)");
 }

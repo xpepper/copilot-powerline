@@ -15,6 +15,10 @@ use tempfile::TempDir;
 pub const NOW: &str = "now";
 pub const LONG_AGO: &str = "2000-01-01";
 
+/// The session `refresh_plain` reports, and its spend: $50.00 in nano AIU.
+pub const SESSION: &str = "current";
+pub const SESSION_SPEND: u64 = 5_000_000_000_000;
+
 /// A refresh payload for session `session_id`, with the given session spend.
 /// The token totals are non-zero so lookups that watch them (the idle clock)
 /// take effect.
@@ -57,26 +61,9 @@ impl Sandbox {
         fs::write(self.copilot_dir().join("powerline.toml"), toml).unwrap();
     }
 
-    /// Creates an empty Copilot database at `path` with the one table the
-    /// month-to-date query reads.
-    pub fn create_db(&self, path: &Path) -> Connection {
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        let conn = Connection::open(path).unwrap();
-        conn.execute(
-            "CREATE TABLE assistant_usage_events (
-                session_id TEXT,
-                total_nano_aiu INTEGER,
-                created_at TEXT
-            )",
-            [],
-        )
-        .unwrap();
-        conn
-    }
-
     /// Creates the database at the default location, `~/.copilot/session-store.db`.
     pub fn create_default_db(&self) -> Connection {
-        self.create_db(&self.copilot_dir().join("session-store.db"))
+        create_db(&self.copilot_dir().join("session-store.db"))
     }
 
     /// Runs one refresh and returns its stdout without the trailing newline.
@@ -112,6 +99,15 @@ impl Sandbox {
             .to_string()
     }
 
+    /// Runs one refresh for `SESSION` with the plain style and icons, so the
+    /// line holds only segment text.
+    pub fn refresh_plain(&self) -> String {
+        self.refresh(
+            &payload(SESSION, SESSION_SPEND),
+            &["--style", "plain", "--icon-set", "plain"],
+        )
+    }
+
     /// State files whose name starts with `prefix`, e.g. `month_`.
     pub fn state_files(&self, prefix: &str) -> Vec<PathBuf> {
         let Ok(entries) = fs::read_dir(self.state_dir()) else {
@@ -126,6 +122,23 @@ impl Sandbox {
             })
             .collect()
     }
+}
+
+/// Creates an empty Copilot database at `path` with the one table the
+/// month-to-date query reads.
+pub fn create_db(path: &Path) -> Connection {
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let conn = Connection::open(path).unwrap();
+    conn.execute(
+        "CREATE TABLE assistant_usage_events (
+            session_id TEXT,
+            total_nano_aiu INTEGER,
+            created_at TEXT
+        )",
+        [],
+    )
+    .unwrap();
+    conn
 }
 
 pub fn insert_usage(conn: &Connection, session_id: &str, nano_aiu: i64, created_at: &str) {
