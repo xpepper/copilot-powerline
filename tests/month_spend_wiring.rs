@@ -6,7 +6,9 @@
 //!
 //! The query leaves no trace of its own (the database is opened read-only),
 //! so the tests watch the per-session `month_*.json` snapshot, which `main`
-//! only writes on the path that reaches the query.
+//! only writes on the path that reaches the query. That shows the cached
+//! lookup was skipped, not that the database was never read: a query run
+//! for nothing before the visibility check would still pass.
 #![cfg(unix)]
 
 mod common;
