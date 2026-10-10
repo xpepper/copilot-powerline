@@ -46,6 +46,12 @@ Keep changes small and avoid unrelated refactors. Required CI checks must pass, 
 
 Maintainers should follow [RELEASING.md](RELEASING.md) when publishing a new version.
 
+### Optional: AI-assisted review
+
+Maintainers review pull requests with the [gem-pr-review](https://github.com/xpepper/pr-review-gemini) plugin for Copilot CLI. [`.github/gem-pr-review.md`](.github/gem-pr-review.md) holds this repository's review notes, which the plugin loads automatically: the hot-path rules, and which files are the source of truth for API shapes.
+
+You do not need the plugin to contribute. The file is plain Markdown, so read it as a short checklist before opening a pull request; the CI checks above are the merge bar either way.
+
 ## Reporting issues
 
 Use the bug-report template for reproducible problems and the feature-request template for proposals. Include only information needed to investigate; do not attach session databases, credentials, or other sensitive data.
