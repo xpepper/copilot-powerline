@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn test_compares_at_shown_precision() {
         // 57 AIC computes to $0.5700000000000001.
-        assert!(!exceeds(57.0 * 0.01, 2, Some(0.57)));
+        assert!(!exceeds(aic_to_usd(57.0), 2, Some(0.57)));
         // $5.004 is shown as $5.00.
         assert!(!exceeds(5.004, 2, Some(5.0)));
         // With no decimals, $5.40 is shown as $5.
