@@ -44,6 +44,8 @@ Keep `refreshInterval`: without it Copilot CLI only refreshes the status line on
 
 If the install directory is not on your `PATH`, use the full path as the command: `~/.local/bin/copilot-powerline` for the installer, or `~/.cargo/bin/copilot-powerline` for Cargo. Run `copilot-powerline --init` at any time to create the default configuration at `~/.copilot/powerline.toml`.
 
+Out of the box the status line uses text labels (`Tokens:`, `Session:`, ...). For the glyphs shown below, set `icon_set = "nerd"` in that file (it needs a [Nerd Font](https://www.nerdfonts.com/)), or `"emoji"`.
+
 ## See it in action
 
 ![Animated Copilot CLI status line updating context usage, session and monthly spend, cache rate, reasoning tokens, and total tokens](assets/copilot-powerline-demo.gif)
@@ -55,7 +57,7 @@ If the install directory is not on your `PATH`, use the full path as the command
 </details>
 
 ```text
-🔥 145k/400k (36%)  │  󰄬 $8.64  │  󰠠 $281.66  │  󰘸 95%  │  󰚩 6.2k  │  󰓅 4.5M
+󰮚 🔥 145k/400k (36%)  │  󰄬 $8.64  │  󰠠 $281.66  │  󰘸 95%  │  󰚩 6.2k  │  󰓅 4.5M
 ```
 
 Text preview: a Copilot CLI status line showing a context warning, current-session and month-to-date spend, prompt-cache hit rate, reasoning tokens, and total session tokens.
@@ -63,14 +65,17 @@ Text preview: a Copilot CLI status line showing a context warning, current-sessi
 Choose the presentation that fits your terminal:
 
 ```text
-# Minimal (Nerd icons)
-󰮚 129k/400k (32%)  │  󰄬 $2.20  │  󰠠 $273.88  │  󰘸 80%  │  󰚩 4.2k  │  󰓅 175k
+# style = "minimal", icon_set = "nerd"
+󰮚 89k/400k (22%)  │  󰄬 $2.20  │  󰠠 $273.88  │  󰘸 80%  │  󰚩 4.2k  │  󰓅 175k
 
-# Capsule (Nerd icons)
-󰮚 129k/400k (32%)  󰄬 $2.20  󰠠 $273.88  󰘸 80%  󰚩 4.2k  󰓅 175k 
+# style = "powerline", icon_set = "nerd"
+󰮚 89k/400k (22%)  󰄬 $2.20  󰠠 $273.88  󰘸 80%  󰚩 4.2k  󰓅 175k
 
-# Plain (text labels)
-Tokens: 129k/400k (32%)  │  Session: $2.20  │  Month: $273.88  │  Cache: 80%  │  Think: 4.2k  │  Total: 175k
+# style = "capsule", icon_set = "nerd"
+󰮚 89k/400k (22%)  󰄬 $2.20  󰠠 $273.88  󰘸 80%  󰚩 4.2k  󰓅 175k 
+
+# style = "plain", icon_set = "plain"
+Tokens: 89k/400k (22%)  |  Session: $2.20  |  Month: $273.88  |  Cache: 80%  |  Think: 4.2k  |  Total: 175k
 ```
 
 ## Why copilot-powerline?
@@ -89,14 +94,17 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 - **Context Window Monitoring**: Real-time context tracking with percentage and warning alert threshold (`>100k`).
 - **Prompt Cache Tracking**: Real-time cache hit rate (or token count), automatically hidden when zero.
 - **Idle Cache-Expiry Warning**: After 5 idle minutes the prompt cache is gone and the next turn rewrites the whole context; shows how much (e.g. `~92k uncached · /clear to start fresh`).
-- **Reasoning Tokens**: Tracks thinking tokens for reasoning models (e.g. o3-mini, Claude 3.7 Sonnet thinking).
+- **Reasoning Tokens**: Tracks the thinking tokens spent by reasoning models, or models with extended thinking enabled.
 - **Total Session Tokens**: Displays total accumulated token volume across all turns and compactions.
 - **Spend Tracking**: Real-time session spend and month-to-date aggregation from Copilot's local SQLite database.
+- **Spend Alerts** *(opt-in)*: Flag the session, month, or cycle total once it goes above a limit you set (`alert_above_usd`), and steps that cost much more per token than the session average (`spike_alert`).
 - **GitHub Cycle Usage** *(optional, experimental)*: Shows the AI credits GitHub counts for your current billing cycle across every Copilot surface (IDE, github.com, CLI), fetched with the `gh` CLI in the background. Opt in by adding `cycle_cost` to `segments`. A [helper script](#experimental-exact-github-usage-refresh) can also log it over time.
 - **Pull Request Reference** *(optional)*: Shows the current branch's pull request (e.g. `PR #50`) as a clickable link, via the `gh` CLI. Disabled from the default segment list; opt in by adding `pr` to `segments`.
+- **Active Model** *(optional)*: Shows the model in use and, with `auto`, which model the router picked (e.g. `Auto → Claude Opus 4.5`). Opt in by adding `model` to `segments`.
+- **Compact Mode**: Switch to a shorter segment list and back with `copilot-powerline --toggle`, without restarting Copilot (see [Compact mode](#compact-mode)).
 - **Configurable AIC Display**: Toggle whether AI Credits (`... AIC`) appear alongside dollar amounts.
 - **Multiple Styles & Icon Sets**: Choose from `minimal`, `powerline`, `capsule`, or `plain`, with `nerd`, `emoji`, or `plain` icons.
-- **Themes**: Built-in support for `colorblind`, `github`, `nord`, `tokyo-night`, and `plain`. Automatically syncs with your Copilot CLI theme if set to default.
+- **Themes**: Built-in `colorblind` (default), `github`, `nord`, `tokyo-night`, and `plain` palettes. Can follow the `theme` in your Copilot CLI settings (see [Configuration](#configuration-copilotpowerlinetoml)).
 - **Bundled SQLite**: SQLite and JSON parsing ship with the executable; no status-line service is required.
 
 ---
@@ -107,11 +115,7 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 
 Each [GitHub Release](https://github.com/xpepper/copilot-powerline/releases) ships binaries for macOS (Apple Silicon and Intel) and Linux (x86_64 and arm64, glibc 2.35 or newer), with SHA-256 checksums. The shell installer from the [quick start](#install-and-connect-it-to-copilot-cli) picks the right one and installs it to `~/.local/bin`, adding that directory to your `PATH` if needed.
 
-Homebrew (macOS or Linux) installs the same binaries from the [xpepper/homebrew-tap](https://github.com/xpepper/homebrew-tap) tap:
-
-```bash
-brew install xpepper/tap/copilot-powerline
-```
+Homebrew (macOS or Linux) installs the same binaries from the [xpepper/homebrew-tap](https://github.com/xpepper/homebrew-tap) tap.
 
 If you use [cargo-binstall](https://github.com/cargo-bins/cargo-binstall), it downloads the same binaries instead of compiling:
 
@@ -125,15 +129,11 @@ If you manage tools with [mise](https://mise.jdx.dev/), install the release bina
 mise use -g github:xpepper/copilot-powerline
 ```
 
-For the status-line command, use the real binary path printed by `mise which copilot-powerline` rather than the mise shim: the shim starts `mise` on every refresh, roughly doubling run time. That path includes the version, so update `~/.copilot/settings.json` after upgrading. mise may hide a release for a while after it is published; if it reports no matching versions, pin one explicitly (for example `github:xpepper/copilot-powerline@0.3.2`).
+For the status-line command, use the real binary path printed by `mise which copilot-powerline` rather than the mise shim: the shim starts `mise` on every refresh, roughly doubling run time. That path includes the version, so update `~/.copilot/settings.json` after upgrading. mise may hide a release for a while after it is published; if it reports no matching versions, pin one explicitly (for example `github:xpepper/copilot-powerline@0.8.0`).
 
 ### Install with Cargo
 
-```bash
-cargo install copilot-powerline
-```
-
-It requires a current stable Rust toolchain with Cargo.
+`cargo install copilot-powerline` compiles the crate from crates.io. It requires a current stable Rust toolchain with Cargo.
 
 However you install it, the executable runs locally during Copilot CLI status-line refreshes and never makes network requests itself. The only exceptions are the optional `pr` and `cycle_cost` segments, which run `gh` in a detached background process, never inline in the refresh.
 
@@ -141,7 +141,7 @@ However you install it, the executable runs locally during Copilot CLI status-li
 
 CI tests and builds release binaries on GitHub Actions' current macOS and Ubuntu runner images. Windows is not currently verified in CI and has no prebuilt binary; use `cargo install` there at your own risk.
 
-The default `nerd` icon set requires a [Nerd Font](https://www.nerdfonts.com/). Use `--icon-set emoji` or `--icon-set plain` when your terminal does not support Nerd Font glyphs.
+The default `plain` icon set uses text labels (`Tokens:`, `Session:`, ...) and works in any terminal. The `nerd` icon set used in the screenshots requires a [Nerd Font](https://www.nerdfonts.com/); `emoji` needs only emoji support.
 
 ### Build from source
 
@@ -153,27 +153,19 @@ cd copilot-powerline
 cargo install --path .
 ```
 
-To configure a generated default, run:
-
-```bash
-copilot-powerline --init
-```
-
-This creates `~/.copilot/powerline.toml`.
-
 ---
 
 ## Status Line Legend & Segments
 
 | Segment | Icon (`nerd`) | Icon (`emoji`) | Text (`plain`) | Example Value | Description |
 |---|:---:|:---:|---|---|---|
-| `tokens` | `󰮚` / `🔥` | `🪙` / `🔥` | `Tokens:` | `145k/400k (36%)` | **Context Window**: Active context tokens vs model limit (and percentage used). Automatically switches to `🔥` when crossing the configured alert threshold (default `>100k`). |
+| `tokens` | `󰮚` | `🪙` | `Tokens:` | `89k/400k (22%)` / `🔥 145k/400k (36%)` | **Context Window**: Active context tokens vs model limit (and percentage used). Above the configured alert threshold (default `>100k`), adds `🔥` (`alert_icon`) after the icon and shows the token count in the alert color. |
 | `session_cost` | `󰄬` | `💰` | `Session:` | `$8.64` / `💸 $9.10` / `📈 $9.10` | **Current Session Cost**: Real-time spend accumulated in the active session in USD (optional AIC credit display). With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the session costs more than that limit. With `spike_alert = true` *(opt-in)*, shows `📈` and the alert color when the latest step cost much more per token than the session average, a hint of expensive model routing or a cache miss on a large context. Both icons appear when both apply. |
 | `month_cost` | `󰠠` | `📅` | `Month:` | `$281.66` / `💸 $312.40` | **Month-to-Date Cost**: Total cumulative monthly spend across all sessions, queried directly from Copilot's `~/.copilot/session-store.db`. The current session updates live; other sessions' spend is re-read at most once a minute. With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the month costs more than that limit. |
 | `cycle_cost` | `󰊤` | `🐙` | `Cycle:` | `$159.48` / `💸 $159.48` | **GitHub Cycle Usage** *(optional, not in the default `segments` list)*: The AI credits GitHub counts for your current billing cycle, in USD at list price (1 credit = $0.01), across every Copilot surface, not just this CLI. With a per-user budget, it shows the part of the budget used. Read from GitHub's internal `/copilot_internal/user` API, refreshed every `cache_ttl_seconds` (default 300). Requires an authenticated `gh` CLI; hidden until the first fetch completes, and after the cycle resets until the next fetch. When a fetch fails, it keeps showing the last value. With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the cycle costs more than that limit. |
 | `cache` | `󰘸` | `⚡` | `Cache:` | `95% ↓` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Shows `↑` (green, or blue in `colorblind`) when the tokens added since the previous refresh hit the cache clearly more than the session average, and `↓` (red, or orange in `colorblind`) when they hit it clearly less. The arrow stays until the next step. Automatically hidden when 0. |
 | `cache_expiry` | `󰔟` | `⏳` | `Idle:` | `~92k uncached · /clear to start fresh` | **Idle Cache-Expiry Warning**: Appears once the session has been idle longer than the prompt cache TTL (`ttl_seconds`, default 300), when the next turn will rewrite the whole context uncached. Shows the context size at stake and a hint to start fresh. Hidden below `min_tokens` (default 50k) and whenever the cache is still warm. Needs `refreshInterval` in Copilot CLI's `statusLine` settings. |
-| `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative tokens used by thinking models (e.g. o3-mini, Claude 3.7 Sonnet). Automatically hidden when 0. |
+| `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative thinking tokens used by reasoning models in the session. Automatically hidden when 0. |
 | `total_tokens` | `󰓅` | `📊` | `Total:` | `4.5M` | **Total Session Tokens**: Total cumulative token throughput (input + output + cached) exchanged across all turns and compactions in the session. |
 | `model` | `󰘚` | `🤖` | `Model:` | `Auto → Claude Opus 4.5` | **Active Model** *(optional, not in the default `segments` list)*: The model Copilot is using. With `auto`, shows which model the router picked, so a switch to a pricier model is visible. |
 | `pr` | `` | `🔀` | `PR` | `PR #50` | **Pull Request Reference** *(optional, not in the default `segments` list)*: The current branch's open pull request, as a clickable hyperlink. Requires an authenticated `gh` CLI; hidden when the branch has no open PR or `gh` is unavailable. |
@@ -182,11 +174,11 @@ This creates `~/.copilot/powerline.toml`.
 
 ## Configuration (`~/.copilot/powerline.toml`)
 
-`copilot-powerline` is configured via a simple TOML file:
+`copilot-powerline` is configured via a simple TOML file. Every key is optional; these are the top-level defaults:
 
 ```toml
 style = "minimal"      # Options: "minimal", "powerline", "capsule", "plain"
-icon_set = "nerd"      # Options: "nerd", "emoji", "plain"
+icon_set = "plain"     # Options: "plain" (text labels), "nerd" (needs a Nerd Font), "emoji"
 theme = "colorblind"   # Options: "colorblind", "github", "nord", "tokyo-night", "plain"
 mode = "full"          # "full" shows `segments`, "compact" shows `compact_segments`
 compact_segments = ["tokens", "session_cost", "month_cost", "cache_expiry"]
@@ -198,77 +190,17 @@ segments = [
     "reasoning",
     "total_tokens",
     "cache_expiry",
-    # "model", # Uncomment to show the active model (and where `auto` routed)
-    # "pr",   # Uncomment to show the current branch's PR (requires the `gh` CLI)
-    # "cycle_cost", # Uncomment to show GitHub's billing-cycle usage (requires the `gh` CLI)
+    # "model",      # Opt-in: the active model (and where `auto` routed)
+    # "pr",         # Opt-in: the current branch's PR (requires the `gh` CLI)
+    # "cycle_cost", # Opt-in: GitHub's billing-cycle usage (requires the `gh` CLI)
 ]
-
-[tokens]
-enabled = true
-show_percentage = true
-alert_threshold = 100000
-alert_icon = "🔥 "
-# prefix = "Tokens:"   # Optional custom override
-
-[session_cost]
-enabled = true
-currency_symbol = "$"
-show_aic = false       # Set to true to show "(X.X AIC)"
-decimal_places = 2
-spike_alert = false    # Opt-in: flag steps that cost much more per token than the session average
-spike_ratio = 2.0      # ...this many times the average
-spike_min_usd = 0.05   # ...and at least this much in a single step
-spike_icon = "📈 "
-# alert_above_usd = 5.0  # Opt-in: flag the session once it costs more than this
-alert_icon = "💸 "
-
-[month_cost]
-enabled = true
-currency_symbol = "$"
-show_aic = false       # Set to true to show "(X AIC)"
-decimal_places = 2
-# alert_above_usd = 300.0  # Opt-in: flag the month once it costs more than this
-alert_icon = "💸 "
-
-[cycle_cost]
-enabled = true
-currency_symbol = "$"
-show_aic = false       # Set to true to show "(X AIC)"
-decimal_places = 2
-# alert_above_usd = 300.0  # Opt-in: flag the cycle once it costs more than this
-alert_icon = "💸 "
-cache_ttl_seconds = 300  # How long a fetched value is considered fresh
-# prefix = "GitHub:"    # Optional custom override
-
-[cache]
-enabled = true
-show_as_percentage = true  # Set to false to show token count (e.g. 85k)
-auto_hide_zero = true      # Automatically hide if 0 cache reads
-show_trend = true          # ↑/↓ when the latest step beats or misses the session average
-
-[reasoning]
-enabled = true
-auto_hide_zero = true      # Automatically hide if model has no reasoning tokens
-
-[total_tokens]
-enabled = true
-
-[cache_expiry]
-enabled = true
-ttl_seconds = 300      # Prompt cache lifetime: warn after this many idle seconds
-min_tokens = 50000     # Stay quiet for contexts smaller than this
-hint = "/clear to start fresh"  # Set to "" to show only the uncached size
-
-[model]
-enabled = true
-# prefix = "Model:"    # Optional custom override
-
-[pr]
-enabled = true
-hyperlinks = true      # Set to false to print "PR #50" as plain text
-cache_ttl_seconds = 60 # How long a cached PR lookup is considered fresh
-# prefix = "Pull:"      # Optional custom override
 ```
+
+Each segment also has its own section (`[tokens]`, `[session_cost]`, `[cache_expiry]`, ...) for options such as alert thresholds, spend limits, decimal places, and cache lifetimes. [`examples/powerline.toml`](examples/powerline.toml) is a complete, annotated real-world setup that lists every option with its default; a test keeps it in sync with the options the binary reads.
+
+Every segment section also accepts `prefix`, which replaces the segment's icon or text label in any icon set (for example `prefix = "Ctx:"` under `[tokens]`).
+
+While `theme` is `colorblind` (the default), the status line reads `theme` from Copilot CLI's `~/.copilot/settings.json` and uses it when it names one of the palettes above; Copilot's `default` theme maps to `github`, and any other value (such as `auto`) keeps `colorblind`. Because of this, `theme = "colorblind"` cannot force the colorblind palette while Copilot's theme is `default`; pass `--theme colorblind` in the status-line command instead.
 
 If your `powerline.toml` sets `segments` or `compact_segments`, segments added in later releases (such as `cache_expiry`) only show once you add them to those lists.
 
@@ -282,6 +214,8 @@ copilot-powerline --toggle   # prints "copilot-powerline: compact mode" or "... 
 
 From inside Copilot CLI, run it as a shell command: `!copilot-powerline --toggle`. The change shows up on the next status line refresh, with no restart. The toggle is stored in your user cache directory and is cleared when you toggle back to the `mode` set in `powerline.toml`.
 
+### GitHub lookups (`pr` and `cycle_cost`)
+
 The `pr` segment shells out to `gh pr view --json number,url` for the current branch. To avoid blocking the status line on a network call, lookups are cached to disk and refreshed by a throttled, detached background process; the segment is hidden until the first refresh completes, and again whenever the branch has no open PR or `gh` is not installed/authenticated.
 
 The `cycle_cost` segment works the same way with `gh api /copilot_internal/user`, which takes about a second per call; the background `gh` call is killed after 10 seconds, as is the `pr` one. If `COPILOT_GITHUB_TOKEN` is set, it is passed to `gh` as `GH_TOKEN`, so the token is picked in the same order Copilot CLI uses. The endpoint is internal and undocumented, so GitHub may change it without notice; when the response lacks the fields the segment needs, it keeps the last known value, or stays hidden if there is none, rather than showing a wrong number. `month_cost` and `cycle_cost` measure different things: `month_cost` estimates this CLI's spend from local data, while `cycle_cost` is GitHub's own counter for all your Copilot usage.
@@ -294,26 +228,36 @@ The `cycle_cost` segment works the same way with `gh api /copilot_internal/user`
 # Test with sample JSON from stdin
 echo '{"context_window":{"current_context_tokens":0,"displayed_context_limit":200000,"current_context_used_percentage":0},"ai_used":{"total_nano_aiu":0}}' | copilot-powerline
 
-# Override icon set on the fly
+# Override icon set on the fly (-i)
 copilot-powerline --icon-set nerd
 copilot-powerline --icon-set emoji
 copilot-powerline --icon-set plain
 
-# Override style on the fly
+# Override style on the fly (-s)
 copilot-powerline --style capsule
 copilot-powerline --style powerline
 copilot-powerline --style minimal
+copilot-powerline --style plain
 
-# Override theme on the fly
+# Override theme on the fly (-t)
 copilot-powerline --theme nord
 copilot-powerline --theme tokyo-night
+
+# Use a custom configuration file (-c)
+copilot-powerline --config /path/to/custom-powerline.toml
+
+# Write the default configuration to ~/.copilot/powerline.toml (never overwrites an existing file)
+copilot-powerline --init
 
 # Switch between full and compact mode
 copilot-powerline --toggle
 
-# Use a custom configuration file
-copilot-powerline --config /path/to/custom-powerline.toml
+# Show all options, or the installed version
+copilot-powerline --help
+copilot-powerline --version
 ```
+
+The overrides also work in the `command` of Copilot CLI's `statusLine` setting, for example `"command": "copilot-powerline --style capsule"`.
 
 ---
 

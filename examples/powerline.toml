@@ -1,0 +1,94 @@
+# A complete, annotated copilot-powerline configuration, based on a real
+# everyday setup. Copy it to ~/.copilot/powerline.toml and adjust.
+# Every key is optional: anything left out takes the default shown in its
+# comment. `copilot-powerline --init` writes the plain defaults instead.
+
+style = "minimal"        # Layout style: "minimal", "powerline", "capsule", "plain" (default: "minimal")
+icon_set = "nerd"        # Glyph style: "nerd" (Nerd Font), "emoji", "plain" (text labels) (default: "plain")
+theme = "colorblind"     # Color palette: "colorblind", "github", "nord", "tokyo-night", "plain" (default: "colorblind")
+mode = "full"            # "full" shows `segments`, "compact" shows `compact_segments`; `--toggle` switches (default: "full")
+segments = [             # Full mode segments in display order (default list excludes "pr", "model", "cycle_cost")
+    "tokens",            # Active context tokens used vs model limit and percentage
+    "session_cost",      # Current session spend in USD
+    "cache",             # Prompt cache hit rate or token count
+    "month_cost",        # Month-to-date CLI spend queried from local SQLite database
+    "cycle_cost",        # Billing cycle spend across all surfaces via GitHub API (requires `gh`)
+    "pr",                # Current branch's open GitHub PR reference (requires `gh`)
+    "reasoning",         # Thinking tokens used by reasoning models
+    "total_tokens",      # Cumulative token volume across turns and compactions
+    "cache_expiry",      # Warning shown when idle long enough for prompt cache to expire
+    # "model",           # Active model, and where `auto` routing sent the request
+]
+compact_segments = [     # Compact mode segments (default: tokens, session_cost, month_cost, cache_expiry)
+    "tokens",
+    "session_cost",
+    "month_cost",
+    "cache_expiry",
+]
+
+# Every segment section also accepts `prefix`, which replaces the
+# segment's icon or text label in any icon set, e.g. prefix = "Ctx:".
+
+[tokens]
+enabled = true           # Enable context tokens segment (default: true)
+show_percentage = true   # Display percentage of context limit used, e.g. (36%) (default: true)
+alert_threshold = 100000 # Token count above which the alert icon/color activates (default: 100000)
+alert_icon = "🔥 "       # Icon added after the segment icon above the threshold (default: "🔥 ")
+
+[session_cost]
+enabled = true           # Enable current session cost segment (default: true)
+currency_symbol = "$"    # Currency prefix symbol (default: "$")
+show_aic = false         # Append AI Credits count, e.g. "(X.X AIC)" alongside USD (default: false)
+decimal_places = 2       # Decimal precision for formatted cost (default: 2)
+spike_alert = true       # Flag single steps that cost much more per token than session average (default: false)
+spike_ratio = 2.0        # ...at least this many times the session average (default: 2.0)
+spike_min_usd = 0.05     # ...and at least this much in USD for that step (default: 0.05)
+spike_icon = "📈 "       # Icon prepended when a spike is flagged (default: "📈 ")
+alert_above_usd = 10.0   # Highlight session once cost strictly exceeds this amount in USD (default: unset / disabled)
+alert_icon = "💸 "       # Icon prepended when alert_above_usd is exceeded (default: "💸 ")
+
+[month_cost]
+enabled = true           # Enable month-to-date cost segment (default: true)
+currency_symbol = "$"    # Currency prefix symbol (default: "$")
+show_aic = false         # Append AI Credits count, e.g. "(X AIC)" alongside USD (default: false)
+decimal_places = 2       # Decimal precision for formatted cost (default: 2)
+alert_above_usd = 500.0  # Highlight month once cost strictly exceeds this amount in USD (default: unset / disabled)
+alert_icon = "💸 "       # Icon prepended when alert_above_usd is exceeded (default: "💸 ")
+# db_path = "/path/to/session-store.db"  # Absolute path to Copilot's database (default: ~/.copilot/session-store.db)
+
+[cycle_cost]
+enabled = true           # Enable GitHub billing cycle cost segment (default: true)
+currency_symbol = "$"    # Currency prefix symbol (default: "$")
+show_aic = false         # Append AI Credits count, e.g. "(X AIC)" alongside USD (default: false)
+decimal_places = 2       # Decimal precision for formatted cost (default: 2)
+cache_ttl_seconds = 300  # Freshness TTL in seconds before running background `gh` refresh (default: 300)
+alert_above_usd = 600.0  # Highlight cycle once cost strictly exceeds this amount in USD (default: unset / disabled)
+alert_icon = "💸 "       # Icon prepended when alert_above_usd is exceeded (default: "💸 ")
+# prefix = "Cycle:"      # Replaces the segment icon or label in any icon set (default: unset)
+
+[cache]
+enabled = true            # Enable prompt cache segment (default: true)
+show_as_percentage = true # Show cache rate as percentage (95%) instead of raw token count (85k) (default: true)
+auto_hide_zero = true     # Hide segment when 0 tokens were read from cache (default: true)
+show_trend = true         # ↑/↓ when the latest step hits the cache clearly more or less than the session average (default: true)
+
+[reasoning]
+enabled = true           # Enable reasoning tokens segment (default: true)
+auto_hide_zero = true    # Hide segment when the active model has 0 reasoning tokens (default: true)
+
+[total_tokens]
+enabled = true           # Enable cumulative session tokens segment (default: true)
+
+[cache_expiry]
+enabled = true           # Enable idle cache-expiry warning (default: true); needs `refreshInterval` in Copilot's statusLine settings
+ttl_seconds = 300        # Prompt cache lifetime: warn after this many idle seconds (default: 300)
+min_tokens = 50000       # Stay quiet for contexts smaller than this (default: 50000)
+hint = "/clear to start fresh"  # Shown after the uncached size; "" hides it (default: "/clear to start fresh")
+
+[pr]
+enabled = true           # Enable pull request segment (default: true; still needs "pr" in `segments`)
+hyperlinks = true        # Make "PR #50" a clickable link to the PR (default: true)
+cache_ttl_seconds = 60   # Freshness TTL in seconds before running background `gh pr view` (default: 60)
+
+[model]
+enabled = true           # Enable active model segment (default: true; still needs "model" in `segments`)

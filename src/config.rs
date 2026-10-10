@@ -721,4 +721,50 @@ mod tests {
         );
         assert!("sideways".parse::<DisplayMode>().is_err());
     }
+
+    /// Paths of keys in `example` that do not exist in `known`.
+    fn unknown_keys(example: &toml::Table, known: &toml::Table, path: &str) -> Vec<String> {
+        let mut unknown = Vec::new();
+        for (key, value) in example {
+            let key_path = format!("{path}{key}");
+            match (value, known.get(key)) {
+                (_, None) => unknown.push(key_path),
+                (toml::Value::Table(sub), Some(toml::Value::Table(known_sub))) => {
+                    unknown.extend(unknown_keys(sub, known_sub, &format!("{key_path}.")));
+                }
+                _ => {}
+            }
+        }
+        unknown
+    }
+
+    /// Unknown keys are silently ignored when parsing, so a typo or a
+    /// renamed option in the shipped example would go unnoticed.
+    #[test]
+    fn test_example_config_uses_only_known_keys() {
+        let example = include_str!("../examples/powerline.toml");
+        Config::from_toml(example).expect("example config should parse");
+
+        // Optional keys are left out of the serialized form while unset.
+        let mut all = Config::default();
+        let prefix = Some("x".to_string());
+        all.tokens.prefix = prefix.clone();
+        all.session_cost.prefix = prefix.clone();
+        all.session_cost.alert_above_usd = Some(1.0);
+        all.month_cost.prefix = prefix.clone();
+        all.month_cost.alert_above_usd = Some(1.0);
+        all.month_cost.db_path = Some(PathBuf::from("x.db"));
+        all.cycle_cost.prefix = prefix.clone();
+        all.cycle_cost.alert_above_usd = Some(1.0);
+        all.cache.prefix = prefix.clone();
+        all.reasoning.prefix = prefix.clone();
+        all.total_tokens.prefix = prefix.clone();
+        all.cache_expiry.prefix = prefix.clone();
+        all.model.prefix = prefix.clone();
+        all.pr.prefix = prefix;
+        let known: toml::Table = toml::from_str(&all.to_toml_string().unwrap()).unwrap();
+
+        let example: toml::Table = toml::from_str(example).unwrap();
+        assert_eq!(unknown_keys(&example, &known, ""), Vec::<String>::new());
+    }
 }
