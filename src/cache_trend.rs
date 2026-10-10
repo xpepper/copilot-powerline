@@ -86,7 +86,7 @@ pub fn assess(
     let step_read = cache_read_tokens - prev.cache_read_tokens;
 
     let uncached = step_input.saturating_sub(step_read);
-    let last_miss = if uncached >= miss_min_tokens {
+    let last_miss = if uncached > 0 && uncached >= miss_min_tokens {
         Some(Miss {
             tokens: uncached,
             at: now,
@@ -215,6 +215,13 @@ mod tests {
         // Nothing can be cached before the first call.
         let prev = snap(0, 0, None);
         assert_eq!(assess(Some(prev), 80_000, 0).last_miss, None);
+    }
+
+    #[test]
+    fn test_fully_cached_step_is_not_a_miss_even_with_a_zero_floor() {
+        let prev = snap(1_000_000, 900_000, None);
+        let next = super::assess(Some(prev), 1_010_000, 910_000, NOW, 0);
+        assert_eq!(next.last_miss, None);
     }
 
     #[test]
