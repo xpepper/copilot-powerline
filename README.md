@@ -44,6 +44,8 @@ Keep `refreshInterval`: without it Copilot CLI only refreshes the status line on
 
 If the install directory is not on your `PATH`, use the full path as the command: `~/.local/bin/copilot-powerline` for the installer, or `~/.cargo/bin/copilot-powerline` for Cargo. Run `copilot-powerline --init` at any time to create the default configuration at `~/.copilot/powerline.toml`.
 
+Out of the box the status line uses text labels (`Tokens:`, `Session:`, ...). For the glyphs shown below, set `icon_set = "nerd"` in that file (it needs a [Nerd Font](https://www.nerdfonts.com/)), or `"emoji"`.
+
 ## See it in action
 
 ![Animated Copilot CLI status line updating context usage, session and monthly spend, cache rate, reasoning tokens, and total tokens](assets/copilot-powerline-demo.gif)
@@ -141,7 +143,7 @@ However you install it, the executable runs locally during Copilot CLI status-li
 
 CI tests and builds release binaries on GitHub Actions' current macOS and Ubuntu runner images. Windows is not currently verified in CI and has no prebuilt binary; use `cargo install` there at your own risk.
 
-The default `nerd` icon set requires a [Nerd Font](https://www.nerdfonts.com/). Use `--icon-set emoji` or `--icon-set plain` when your terminal does not support Nerd Font glyphs.
+The default `plain` icon set uses text labels (`Tokens:`, `Session:`, ...) and works in any terminal. The `nerd` icon set used in the screenshots requires a [Nerd Font](https://www.nerdfonts.com/); `emoji` needs only emoji support.
 
 ### Build from source
 
@@ -186,7 +188,7 @@ This creates `~/.copilot/powerline.toml`.
 
 ```toml
 style = "minimal"      # Options: "minimal", "powerline", "capsule", "plain"
-icon_set = "nerd"      # Options: "nerd", "emoji", "plain"
+icon_set = "plain"     # Options: "plain" (text labels), "nerd" (needs a Nerd Font), "emoji"
 theme = "colorblind"   # Options: "colorblind", "github", "nord", "tokyo-night", "plain"
 mode = "full"          # "full" shows `segments`, "compact" shows `compact_segments`
 compact_segments = ["tokens", "session_cost", "month_cost", "cache_expiry"]
