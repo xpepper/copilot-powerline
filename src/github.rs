@@ -120,13 +120,7 @@ pub fn lock_file_path(cache_path: &Path) -> PathBuf {
 /// mtime. The lock file is a separate marker from the cache entry itself, so
 /// throttling never touches (or misrepresents the freshness of) cached data.
 pub fn should_throttle_spawn(cache_path: &Path, now: u64, throttle_seconds: u64) -> bool {
-    if let Ok(metadata) = fs::metadata(lock_file_path(cache_path))
-        && let Ok(modified) = metadata.modified()
-        && let Ok(dur) = modified.duration_since(UNIX_EPOCH)
-    {
-        return now.saturating_sub(dur.as_secs()) < throttle_seconds;
-    }
-    false
+    is_lock_fresh(&lock_file_path(cache_path), now, throttle_seconds)
 }
 
 /// Atomically claims the right to spawn a background refresh for
@@ -144,22 +138,48 @@ pub fn try_claim_spawn(cache_path: &Path, now: u64, throttle_seconds: u64) -> bo
         let _ = crate::state::ensure_private_dir(parent);
     }
 
-    // A stale lock (older than throttle_seconds, e.g. left behind by a
-    // crashed worker) is removed before claiming; the final `create_new`
-    // below is what actually arbitrates a concurrent race atomically, since
-    // it fails if another process's `create_new` won in the meantime.
-    let _ = fs::remove_file(&lock_path);
+    if create_lock(&lock_path) {
+        return true;
+    }
 
-    match File::options()
-        .write(true)
-        .create_new(true)
-        .open(&lock_path)
-    {
+    // A lock exists and looked stale (e.g. left behind by a crashed worker).
+    // Only the holder of a short-lived reclaim guard may delete it, and it
+    // re-checks staleness under the guard, so a lock freshly created by a
+    // concurrent claimer is never removed.
+    let guard_path = lock_path.with_extension("lock.reclaim");
+    if !create_lock(&guard_path) {
+        if !is_lock_fresh(&guard_path, now, throttle_seconds) {
+            // A crashed reclaimer left its guard behind; clear it so a
+            // later refresh can reclaim.
+            let _ = fs::remove_file(&guard_path);
+        }
+        return false;
+    }
+    let won = !is_lock_fresh(&lock_path, now, throttle_seconds) && {
+        let _ = fs::remove_file(&lock_path);
+        create_lock(&lock_path)
+    };
+    let _ = fs::remove_file(&guard_path);
+    won
+}
+
+fn is_lock_fresh(lock_path: &Path, now: u64, throttle_seconds: u64) -> bool {
+    fs::metadata(lock_path)
+        .and_then(|metadata| metadata.modified())
+        .ok()
+        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+        .is_some_and(|dur| now.saturating_sub(dur.as_secs()) < throttle_seconds)
+}
+
+/// `create_new` fails if another process's creation won, which is what
+/// arbitrates the race.
+fn create_lock(lock_path: &Path) -> bool {
+    match File::options().write(true).create_new(true).open(lock_path) {
         Ok(_file) => {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                let _ = fs::set_permissions(&lock_path, fs::Permissions::from_mode(0o600));
+                let _ = fs::set_permissions(lock_path, fs::Permissions::from_mode(0o600));
             }
             true
         }
@@ -411,6 +431,42 @@ mod tests {
         assert!(try_claim_spawn(&cache_path, now + 20, 15));
 
         let _ = fs::remove_file(lock_file_path(&cache_path));
+    }
+
+    #[test]
+    fn test_try_claim_spawn_single_winner_when_reclaiming_stale_lock_concurrently() {
+        use std::sync::{Arc, Barrier};
+        use std::time::Duration;
+
+        let now = current_timestamp();
+        for round in 0..50 {
+            let cache_path = unique_cache_path(&format!("claim_stale_race_{round}"));
+            let lock_path = lock_file_path(&cache_path);
+            let stale = File::create(&lock_path).unwrap();
+            stale
+                .set_modified(UNIX_EPOCH + Duration::from_secs(now - 100))
+                .unwrap();
+            drop(stale);
+
+            let barrier = Arc::new(Barrier::new(8));
+            let handles: Vec<_> = (0..8)
+                .map(|_| {
+                    let (barrier, cache_path) = (barrier.clone(), cache_path.clone());
+                    std::thread::spawn(move || {
+                        barrier.wait();
+                        try_claim_spawn(&cache_path, now, 15)
+                    })
+                })
+                .collect();
+            let winners = handles
+                .into_iter()
+                .map(|h| h.join().unwrap())
+                .filter(|won| *won)
+                .count();
+
+            let _ = fs::remove_file(&lock_path);
+            assert_eq!(winners, 1, "round {round}: exactly one claim must win");
+        }
     }
 
     #[test]
