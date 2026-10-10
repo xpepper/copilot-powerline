@@ -41,8 +41,7 @@ List the tree for the layout; one file per segment lives in `src/segments/`. Not
    - This tool runs inside an interactive terminal status line loop.
    - Do not introduce heavy dependencies, async runtimes (e.g. Tokio), or network requests during status line execution.
    - The `pr` segment is the one feature that needs network access (`gh pr view`). It never runs that call inline: it only reads a disk-backed cache and, when the cache is stale, spawns a detached, throttled background process (this same binary re-invoked with `--fetch-pr-cache`) to refresh it. Follow the same pattern for any future segment that needs an external command or network call.
-2. **Bundled SQLite**:
-   - `rusqlite` must always be configured with `features = ["bundled"]` in `Cargo.toml`. This ensures the binary remains self-contained with zero external C library dependencies on user machines.
+2. **Bundled SQLite**: [tests/repo_rules.rs](tests/repo_rules.rs) enforces the self-contained SQLite dependency.
 3. **Defensive Stdin Parsing**:
    - Copilot CLI payloads may change over time or be empty. Never assume a field is always present.
    - All input deserialization in `src/input.rs` must use `Option<T>` or `#[serde(default)]` and fall back gracefully without panicking.
@@ -52,9 +51,7 @@ List the tree for the layout; one file per segment lives in `src/segments/`. Not
    - Always set a short timeout (`busy_timeout(500ms)`) to prevent blocking the status line if Copilot is writing to SQLite.
 5. **Zero Compiler Warnings**:
    - All code must compile cleanly with `cargo check` and `cargo test` without warnings.
-6. **No Machine-Specific Paths**:
-   - Never hardcode or leak absolute paths from the developer's local machine (e.g. `/Users/...` or `/home/...`) in documentation, code comments, or tests.
-   - Use `dirs::home_dir()` or relative paths.
+6. **No Machine-Specific Paths**: [scripts/check-machine-paths](scripts/check-machine-paths) enforces portable paths in tracked files.
 
 ---
 

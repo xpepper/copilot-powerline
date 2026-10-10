@@ -52,6 +52,12 @@ jobs:
       - name: Lint shell scripts
         run: shellcheck scripts/* tests/*.sh
 
+      - name: Check for machine-specific paths
+        run: bash scripts/check-machine-paths
+
+      - name: Test machine-path check
+        run: bash tests/test-check-machine-paths.sh
+
       - name: Test fetch-github-copilot-usage
         run: bash tests/test-fetch-github-copilot-usage.sh
 
