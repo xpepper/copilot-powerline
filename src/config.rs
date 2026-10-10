@@ -104,6 +104,8 @@ pub struct Config {
     #[serde(default)]
     pub month_cost: MonthCostConfig,
     #[serde(default)]
+    pub cycle_cost: CycleCostConfig,
+    #[serde(default)]
     pub cache: CacheConfig,
     #[serde(default)]
     pub reasoning: ReasoningConfig,
@@ -288,6 +290,56 @@ impl Default for MonthCostConfig {
     }
 }
 
+/// Optional count of AI credits GitHub says you used this billing cycle,
+/// across every Copilot surface (IDE, github.com, CLI), unlike `month_cost`,
+/// which estimates Copilot CLI spend from the local database.
+///
+/// Not in the default `segments` list: add `"cycle_cost"` to opt in.
+/// Requires the `gh` CLI to be authenticated. The value comes from GitHub's
+/// internal, undocumented `/copilot_internal/user` API, fetched in a
+/// throttled background process and cached to disk, like the `pr` segment.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CycleCostConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub prefix: Option<String>,
+    #[serde(default = "default_currency")]
+    pub currency_symbol: String,
+    #[serde(default)]
+    pub show_aic: bool,
+    #[serde(default = "default_decimals")]
+    pub decimal_places: usize,
+    /// Flag the cycle cost once it goes strictly above this many USD.
+    /// Unset by default: there is no sensible budget to guess.
+    #[serde(default)]
+    pub alert_above_usd: Option<f64>,
+    #[serde(default = "default_spend_alert_icon")]
+    pub alert_icon: String,
+    /// How long a fetched value is considered fresh. GitHub caches the
+    /// response for 60 s, and each fetch costs about a second of `gh` time.
+    #[serde(default = "default_cycle_cache_ttl")]
+    pub cache_ttl_seconds: u64,
+}
+
+fn default_cycle_cache_ttl() -> u64 {
+    300
+}
+
+impl Default for CycleCostConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            prefix: None,
+            currency_symbol: default_currency(),
+            show_aic: false,
+            decimal_places: 2,
+            alert_above_usd: None,
+            alert_icon: default_spend_alert_icon(),
+            cache_ttl_seconds: default_cycle_cache_ttl(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheConfig {
     #[serde(default = "default_true")]
@@ -408,6 +460,7 @@ impl Default for Config {
             tokens: TokensConfig::default(),
             session_cost: CostConfig::default(),
             month_cost: MonthCostConfig::default(),
+            cycle_cost: CycleCostConfig::default(),
             cache: CacheConfig::default(),
             reasoning: ReasoningConfig::default(),
             total_tokens: TotalTokensConfig::default(),
@@ -543,6 +596,12 @@ mod tests {
         // "pr" is opt-in: it must not appear in the default segment list.
         assert!(!cfg.segments.iter().any(|s| s == "pr"));
         assert!(!cfg.segments.iter().any(|s| s == "model"));
+        // "cycle_cost" calls an internal GitHub API in the background: opt-in.
+        assert!(!cfg.segments.iter().any(|s| s == "cycle_cost"));
+        assert!(!cfg.compact_segments.iter().any(|s| s == "cycle_cost"));
+        assert!(cfg.cycle_cost.enabled);
+        assert_eq!(cfg.cycle_cost.cache_ttl_seconds, 300);
+        assert_eq!(cfg.cycle_cost.alert_above_usd, None);
         assert!(cfg.cache_expiry.enabled);
         assert_eq!(cfg.cache_expiry.ttl_seconds, 300);
         assert_eq!(cfg.cache_expiry.min_tokens, 50_000);

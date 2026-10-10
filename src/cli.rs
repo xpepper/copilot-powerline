@@ -33,6 +33,10 @@ pub struct Cli {
     #[arg(long, hide = true)]
     pub fetch_pr_cache: Option<PathBuf>,
 
+    /// Internal worker flag to update the cycle usage cache in the background
+    #[arg(long, hide = true)]
+    pub fetch_cycle_usage: Option<PathBuf>,
+
     /// Internal worker flag indicating the target repo directory for PR fetching
     #[arg(long, hide = true)]
     pub repo_dir: Option<PathBuf>,

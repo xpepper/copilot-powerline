@@ -92,7 +92,7 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 - **Reasoning Tokens**: Tracks thinking tokens for reasoning models (e.g. o3-mini, Claude 3.7 Sonnet thinking).
 - **Total Session Tokens**: Displays total accumulated token volume across all turns and compactions.
 - **Spend Tracking**: Real-time session spend and month-to-date aggregation from Copilot's local SQLite database.
-- **GitHub Usage Refresh**: An experimental helper scrapes the authenticated GitHub Copilot features page to cache the more complete personal AI-credit counter outside the status-line refresh loop.
+- **GitHub Cycle Usage** *(optional, experimental)*: Shows the AI credits GitHub counts for your current billing cycle across every Copilot surface (IDE, github.com, CLI), fetched with the `gh` CLI in the background. Opt in by adding `cycle_cost` to `segments`. A [helper script](#experimental-exact-github-usage-refresh) can also log it over time.
 - **Pull Request Reference** *(optional)*: Shows the current branch's pull request (e.g. `PR #50`) as a clickable link, via the `gh` CLI. Disabled from the default segment list; opt in by adding `pr` to `segments`.
 - **Configurable AIC Display**: Toggle whether AI Credits (`... AIC`) appear alongside dollar amounts.
 - **Multiple Styles & Icon Sets**: Choose from `minimal`, `powerline`, `capsule`, or `plain`, with `nerd`, `emoji`, or `plain` icons.
@@ -135,7 +135,7 @@ cargo install copilot-powerline
 
 It requires a current stable Rust toolchain with Cargo.
 
-However you install it, the executable runs locally during Copilot CLI status-line refreshes and never makes network requests itself. The only exception is the optional `pr` segment, which runs `gh pr view` in a detached background process, never inline in the refresh.
+However you install it, the executable runs locally during Copilot CLI status-line refreshes and never makes network requests itself. The only exceptions are the optional `pr` and `cycle_cost` segments, which run `gh` in a detached background process, never inline in the refresh.
 
 ### Verified environments and terminal support
 
@@ -170,6 +170,7 @@ This creates `~/.copilot/powerline.toml`.
 | `tokens` | `󰮚` / `🔥` | `🪙` / `🔥` | `Tokens:` | `145k/400k (36%)` | **Context Window**: Active context tokens vs model limit (and percentage used). Automatically switches to `🔥` when crossing the configured alert threshold (default `>100k`). |
 | `session_cost` | `󰄬` | `💰` | `Session:` | `$8.64` / `💸 $9.10` / `📈 $9.10` | **Current Session Cost**: Real-time spend accumulated in the active session in USD (optional AIC credit display). With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the session costs more than that limit. With `spike_alert = true` *(opt-in)*, shows `📈` and the alert color when the latest step cost much more per token than the session average, a hint of expensive model routing or a cache miss on a large context. Both icons appear when both apply. |
 | `month_cost` | `󰠠` | `📅` | `Month:` | `$281.66` / `💸 $312.40` | **Month-to-Date Cost**: Total cumulative monthly spend across all sessions, queried directly from Copilot's `~/.copilot/session-store.db`. The current session updates live; other sessions' spend is re-read at most once a minute. With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the month costs more than that limit. |
+| `cycle_cost` | `󰊤` | `🐙` | `Cycle:` | `$159.48` / `💸 $159.48` | **GitHub Cycle Usage** *(optional, not in the default `segments` list)*: The AI credits GitHub counts for your current billing cycle, in USD at list price (1 credit = $0.01), across every Copilot surface, not just this CLI. With a per-user budget, it shows the part of the budget used. Read from GitHub's internal `/copilot_internal/user` API, refreshed every `cache_ttl_seconds` (default 300). Requires an authenticated `gh` CLI; hidden until the first fetch completes, and after the cycle resets until the next fetch. When a fetch fails, it keeps showing the last value. With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the cycle costs more than that limit. |
 | `cache` | `󰘸` | `⚡` | `Cache:` | `95% ↓` | **Prompt Cache Hit Rate**: Percentage of prompt tokens served from cache (or raw token count). Shows `↑` (green, or blue in `colorblind`) when the tokens added since the previous refresh hit the cache clearly more than the session average, and `↓` (red, or orange in `colorblind`) when they hit it clearly less. The arrow stays until the next step. Automatically hidden when 0. |
 | `cache_expiry` | `󰔟` | `⏳` | `Idle:` | `~92k uncached · /clear to start fresh` | **Idle Cache-Expiry Warning**: Appears once the session has been idle longer than the prompt cache TTL (`ttl_seconds`, default 300), when the next turn will rewrite the whole context uncached. Shows the context size at stake and a hint to start fresh. Hidden below `min_tokens` (default 50k) and whenever the cache is still warm. Needs `refreshInterval` in Copilot CLI's `statusLine` settings. |
 | `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative tokens used by thinking models (e.g. o3-mini, Claude 3.7 Sonnet). Automatically hidden when 0. |
@@ -199,6 +200,7 @@ segments = [
     "cache_expiry",
     # "model", # Uncomment to show the active model (and where `auto` routed)
     # "pr",   # Uncomment to show the current branch's PR (requires the `gh` CLI)
+    # "cycle_cost", # Uncomment to show GitHub's billing-cycle usage (requires the `gh` CLI)
 ]
 
 [tokens]
@@ -227,6 +229,16 @@ show_aic = false       # Set to true to show "(X AIC)"
 decimal_places = 2
 # alert_above_usd = 300.0  # Opt-in: flag the month once it costs more than this
 alert_icon = "💸 "
+
+[cycle_cost]
+enabled = true
+currency_symbol = "$"
+show_aic = false       # Set to true to show "(X AIC)"
+decimal_places = 2
+# alert_above_usd = 300.0  # Opt-in: flag the cycle once it costs more than this
+alert_icon = "💸 "
+cache_ttl_seconds = 300  # How long a fetched value is considered fresh
+# prefix = "GitHub:"    # Optional custom override
 
 [cache]
 enabled = true
@@ -271,6 +283,8 @@ copilot-powerline --toggle   # prints "copilot-powerline: compact mode" or "... 
 From inside Copilot CLI, run it as a shell command: `!copilot-powerline --toggle`. The change shows up on the next status line refresh, with no restart. The toggle is stored in your user cache directory and is cleared when you toggle back to the `mode` set in `powerline.toml`.
 
 The `pr` segment shells out to `gh pr view --json number,url` for the current branch. To avoid blocking the status line on a network call, lookups are cached to disk and refreshed by a throttled, detached background process; the segment is hidden until the first refresh completes, and again whenever the branch has no open PR or `gh` is not installed/authenticated.
+
+The `cycle_cost` segment works the same way with `gh api /copilot_internal/user`, which takes about a second per call; the background `gh` call is killed after 10 seconds, as is the `pr` one. If `COPILOT_GITHUB_TOKEN` is set, it is passed to `gh` as `GH_TOKEN`, so the token is picked in the same order Copilot CLI uses. The endpoint is internal and undocumented, so GitHub may change it without notice; when the response lacks the fields the segment needs, it keeps the last known value, or stays hidden if there is none, rather than showing a wrong number. `month_cost` and `cycle_cost` measure different things: `month_cost` estimates this CLI's spend from local data, while `cycle_cost` is GitHub's own counter for all your Copilot usage.
 
 ---
 
@@ -318,7 +332,8 @@ copilot-powerline --config /path/to/custom-powerline.toml
 The `month_cost` segment calculates an estimate from the local Copilot CLI
 database. GitHub's **Settings > Copilot > Features** page can show a more
 complete personal usage counter, including usage that is absent from the local
-database.
+database. The optional `cycle_cost` segment shows that counter in the status
+line; this helper fetches it on demand and keeps a history of readings.
 
 The experimental helper is a separate script, not part of the status-line
 binary, so it is only available from a clone of this repository. It reads

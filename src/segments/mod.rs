@@ -1,10 +1,12 @@
 pub mod cache;
 pub mod cache_expiry;
+pub mod cycle_cost;
 pub mod model;
 pub mod month_cost;
 pub mod pr;
 pub mod reasoning;
 pub mod session_cost;
 pub mod spend_limit;
+pub mod spend_total;
 pub mod tokens;
 pub mod total_tokens;
