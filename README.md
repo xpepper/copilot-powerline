@@ -174,7 +174,7 @@ cargo install --path .
 
 ## Configuration (`~/.copilot/powerline.toml`)
 
-`copilot-powerline` is configured via a simple TOML file. These are the defaults; for a complete, annotated real-world setup, see [`examples/powerline.toml`](examples/powerline.toml).
+`copilot-powerline` is configured via a simple TOML file. Every key is optional; these are the top-level defaults:
 
 ```toml
 style = "minimal"      # Options: "minimal", "powerline", "capsule", "plain"
@@ -190,78 +190,13 @@ segments = [
     "reasoning",
     "total_tokens",
     "cache_expiry",
-    # "model", # Uncomment to show the active model (and where `auto` routed)
-    # "pr",   # Uncomment to show the current branch's PR (requires the `gh` CLI)
-    # "cycle_cost", # Uncomment to show GitHub's billing-cycle usage (requires the `gh` CLI)
+    # "model",      # Opt-in: the active model (and where `auto` routed)
+    # "pr",         # Opt-in: the current branch's PR (requires the `gh` CLI)
+    # "cycle_cost", # Opt-in: GitHub's billing-cycle usage (requires the `gh` CLI)
 ]
-
-[tokens]
-enabled = true
-show_percentage = true
-alert_threshold = 100000
-alert_icon = "🔥 "
-# prefix = "Tokens:"   # Optional custom override
-
-[session_cost]
-enabled = true
-currency_symbol = "$"
-show_aic = false       # Set to true to show "(X.X AIC)"
-decimal_places = 2
-spike_alert = false    # Opt-in: flag steps that cost much more per token than the session average
-spike_ratio = 2.0      # ...this many times the average
-spike_min_usd = 0.05   # ...and at least this much in a single step
-spike_icon = "📈 "
-# alert_above_usd = 5.0  # Opt-in: flag the session once it costs more than this
-alert_icon = "💸 "
-
-[month_cost]
-enabled = true
-currency_symbol = "$"
-show_aic = false       # Set to true to show "(X AIC)"
-decimal_places = 2
-# alert_above_usd = 300.0  # Opt-in: flag the month once it costs more than this
-alert_icon = "💸 "
-# db_path = "/path/to/session-store.db"  # Absolute path; defaults to ~/.copilot/session-store.db
-
-[cycle_cost]
-enabled = true
-currency_symbol = "$"
-show_aic = false       # Set to true to show "(X AIC)"
-decimal_places = 2
-# alert_above_usd = 300.0  # Opt-in: flag the cycle once it costs more than this
-alert_icon = "💸 "
-cache_ttl_seconds = 300  # How long a fetched value is considered fresh
-# prefix = "GitHub:"    # Optional custom override
-
-[cache]
-enabled = true
-show_as_percentage = true  # Set to false to show token count (e.g. 85k)
-auto_hide_zero = true      # Automatically hide if 0 cache reads
-show_trend = true          # ↑/↓ when the latest step beats or misses the session average
-
-[reasoning]
-enabled = true
-auto_hide_zero = true      # Automatically hide if model has no reasoning tokens
-
-[total_tokens]
-enabled = true
-
-[cache_expiry]
-enabled = true
-ttl_seconds = 300      # Prompt cache lifetime: warn after this many idle seconds
-min_tokens = 50000     # Stay quiet for contexts smaller than this
-hint = "/clear to start fresh"  # Set to "" to show only the uncached size
-
-[model]
-enabled = true
-# prefix = "Model:"    # Optional custom override
-
-[pr]
-enabled = true
-hyperlinks = true      # Set to false to print "PR #50" as plain text
-cache_ttl_seconds = 60 # How long a cached PR lookup is considered fresh
-# prefix = "Pull:"      # Optional custom override
 ```
+
+Each segment also has its own section (`[tokens]`, `[session_cost]`, `[cache_expiry]`, ...) for options such as alert thresholds, spend limits, decimal places, and cache lifetimes. [`examples/powerline.toml`](examples/powerline.toml) is a complete, annotated real-world setup that lists every option with its default; a test keeps it in sync with the options the binary reads.
 
 Every segment section also accepts `prefix`, which replaces the segment's icon or text label in any icon set (for example `prefix = "Ctx:"` under `[tokens]`).
 
