@@ -19,13 +19,19 @@ completed items live in git history.
       the 2026-10-09 cold restart (one call at 19x the usual cost) shows
       `📈`, and the next call 9 s later clears it.
 
-- [ ] Validate the idle cache-expiry warning (`cache_expiry`, on by
-      default). Confirmed live with Claude (2026-10-09). Still open: the
-      300 s lifetime is wrong for GPT models and the size shown is too
-      low (#67); is the 50k `min_tokens` floor right; a long tool run
-      (e.g. a 10-minute build) also triggers it, which is accurate but may
-      read oddly mid-turn; it could silence the spike warning's expected
-      alarm on the first turn after idle.
+- [ ] Validate the long-break reminder (`cache_expiry`, on by default,
+      30 idle minutes since #67). Check it stays quiet through ordinary
+      pauses, shows when you come back after 30+ minutes, and clears with
+      the first new model call. Still open: is the 50k `min_tokens` floor
+      right.
+
+- [ ] Watch for stale status line payloads. On 2026-10-10 the status line
+      still showed the totals from before a 54-minute break ($0.62, 94%,
+      2.0M) after a 2-minute turn had finished, so the idle clock kept
+      running through active work (#67). Copilot CLI 1.0.95 should refresh
+      on every usage event; cause not found. If it recurs, log each payload
+      with a timestamp (a wrapper around the `statusLine` command) to tell
+      a stale payload from a missed repaint.
 
 - [ ] Validate state-file pruning live (shipped in 0.7.1, PR #51). The
       `last_prune` marker exists (2026-10-09). The cache dir (177 files,
@@ -33,8 +39,8 @@ completed items live in git history.
       files of live sessions survive, and the `mode` override if one is
       set (it only exists while toggled away from the configured mode).
       Open question: the 30-day cutoff deletes the `idle_*` snapshot of a
-      session idle that long, so resuming it hides the cache-expiry
-      warning for one step; raise `MAX_AGE` in `src/state.rs` (e.g. 90
+      session idle that long, so resuming it hides the long-break
+      reminder for one step; raise `MAX_AGE` in `src/state.rs` (e.g. 90
       days) if that ever matters.
 
 - [ ] Validate the opt-in `cycle_cost` segment (PR #73, #74, unreleased)
