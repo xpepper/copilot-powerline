@@ -205,17 +205,22 @@ fn main() {
             )
         });
 
-    let latest_cache_trend = if cache::needs_trend(&segments, &config.cache)
+    let cache_signals = if cache::needs_snapshot(&segments, &config.cache)
         && let Some(id) = input.session_id.as_deref()
         && let Some(input_tokens) = input.context_window.total_input_tokens
     {
-        cache_trend::check_trend(
+        cache_trend::check(
             &cache_trend::snapshot_path(id),
             input_tokens,
             input.context_window.total_cache_read_tokens.unwrap_or(0),
+            github::current_timestamp(),
+            cache_trend::MissRule {
+                min_tokens: config.cache.miss_min_tokens,
+                visible_seconds: config.cache.miss_visible_seconds,
+            },
         )
     } else {
-        None
+        cache_trend::Signals::default()
     };
 
     let idle_seconds = if cache_expiry::is_visible(&segments, &config.cache_expiry)
@@ -278,7 +283,8 @@ fn main() {
             cache::NAME => {
                 if let Some(s) = render_cache_segment(
                     &input.context_window,
-                    latest_cache_trend,
+                    cache_signals.trend,
+                    cache_signals.recent_miss,
                     &config.cache,
                     config.icon_set,
                     &palette,
