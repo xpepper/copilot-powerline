@@ -426,9 +426,9 @@ pub struct CacheExpiryConfig {
     pub show_tokens: bool,
 }
 
-/// Thirty minutes: past every lifetime Copilot CLI assumes (300 s for
-/// Claude, 1,800 s for GPT-5.6 and later), so ordinary pauses stay quiet and
-/// the cache is very likely cold when the reminder shows (see #67).
+/// Thirty minutes: past the lifetimes Copilot CLI assumes for Claude (300 s)
+/// and GPT-5.6 and later (1,800 s), so ordinary pauses stay quiet and the
+/// cache is very likely cold when the reminder shows (see #67).
 fn default_cache_expiry_idle_seconds() -> u64 {
     1_800
 }
