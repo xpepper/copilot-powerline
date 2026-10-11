@@ -1,2 +1,3 @@
 /target
 /.gem-pr-cache/
+/mutants.out*/

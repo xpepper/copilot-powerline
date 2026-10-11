@@ -88,6 +88,16 @@ echo '{"context_window":{"current_context_tokens":0,"displayed_context_limit":20
 echo '{"context_window":{"current_context_tokens":120000,"displayed_context_limit":200000,"current_context_used_percentage":60},"ai_used":{"total_nano_aiu":500000000000}}' | cargo run -- --style capsule --theme nord
 ```
 
+To check that new tests would catch a regression, run [cargo-mutants](https://mutants.rs) on the files you changed. Give it a throwaway `HOME` so a mutant cannot touch your real `~/.copilot` or cache dir. That `HOME` must be outside the system temp dir (`$TMPDIR`, or `/tmp` on Linux), or a test that keeps caches out of the temp dir fails the baseline, and rustup must still find its toolchains:
+
+```bash
+mkdir -p target/mutants-home
+RUSTUP_HOME="$HOME/.rustup" CARGO_HOME="$HOME/.cargo" HOME="$PWD/target/mutants-home" \
+  cargo mutants --test-tool nextest -j 4 -f src/<file>.rs
+```
+
+Kill a surviving mutant with a test, or exclude it in [.cargo/mutants.toml](.cargo/mutants.toml) with the reason.
+
 ---
 
 ## 6. Commits and Releases

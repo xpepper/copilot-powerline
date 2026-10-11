@@ -261,6 +261,12 @@ mod tests {
     }
 
     #[test]
+    fn test_per_user_budget_without_entitlement_gives_no_usage() {
+        let json = edited(BUDGET, |v| premium(v)["entitlement"] = 0.into());
+        assert_eq!(parse_user_response(&json), None);
+    }
+
+    #[test]
     fn test_missing_fields_give_no_usage() {
         type Edit = fn(&mut serde_json::Value);
         let cases: [(&str, Edit); 6] = [
@@ -440,6 +446,19 @@ mod tests {
         assert_eq!(utc_midnight("2026-01-00"), None);
         assert!(utc_midnight("2028-02-29").is_some());
         assert!(utc_midnight("2026-12-31").is_some());
+    }
+
+    #[test]
+    fn test_utc_midnight_knows_century_leap_years() {
+        assert!(utc_midnight("2000-02-29").is_some());
+        assert_eq!(utc_midnight("2100-02-29"), None);
+    }
+
+    #[test]
+    fn test_utc_midnight_rejects_malformed_dates() {
+        assert_eq!(utc_midnight("2026-11-01-05"), None);
+        assert_eq!(utc_midnight("02026-11-01"), None);
+        assert_eq!(utc_midnight("2026-1-01"), None);
     }
 
     #[test]

@@ -644,6 +644,23 @@ mod tests {
     }
 
     #[test]
+    fn test_tokens_section_without_alert_threshold_gets_default() {
+        let cfg = Config::from_toml("[tokens]\nshow_percentage = false\n").unwrap();
+        assert!(!cfg.tokens.show_percentage);
+        assert_eq!(cfg.tokens.alert_threshold, 100_000);
+    }
+
+    #[test]
+    fn test_style_and_icon_set_parse_cli_names_case_insensitively() {
+        assert_eq!("Capsule".parse::<Style>(), Ok(Style::Capsule));
+        assert_eq!("powerline".parse::<Style>(), Ok(Style::Powerline));
+        assert!("fancy".parse::<Style>().is_err());
+        assert_eq!("NERD".parse::<IconSet>(), Ok(IconSet::Nerd));
+        assert_eq!("emoji".parse::<IconSet>(), Ok(IconSet::Emoji));
+        assert!("fancy".parse::<IconSet>().is_err());
+    }
+
+    #[test]
     fn test_serialize_and_deserialize_roundtrip() {
         let original = Config {
             style: Style::Powerline,
