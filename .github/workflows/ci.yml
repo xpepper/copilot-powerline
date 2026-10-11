@@ -97,3 +97,53 @@ jobs:
 
       - name: Build release binary
         run: cargo build --release --verbose
+
+  # Flags changed code that tests run but don't check. Advisory: it is not a
+  # required check, so surviving mutants show up in review without blocking.
+  mutants:
+    name: Mutants
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install cargo-mutants and cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0,cargo-nextest
+
+      - name: Diff against the base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git diff "origin/$BASE_REF...HEAD" > pr.diff
+
+      - name: Run cargo-mutants on the diff
+        run: cargo mutants --in-diff pr.diff --test-tool nextest --no-shuffle -j 2
+
+      # A diff with no mutable Rust code writes no mutants.out.
+      - name: Summarize surviving mutants
+        if: always()
+        run: |
+          if [ -s mutants.out/missed.txt ]; then
+            {
+              echo '### Surviving mutants'
+              echo '```'
+              cat mutants.out/missed.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload mutants.out
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants.out
+          path: mutants.out
+          if-no-files-found: ignore
