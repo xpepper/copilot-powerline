@@ -340,6 +340,34 @@ mod tests {
     }
 
     #[test]
+    fn test_input_going_down_alone_rebaselines() {
+        let prev = snap(110_000, 61_000, Some(Trend::Down));
+        assert_eq!(
+            assess_at_now(Some(prev), 100_000, 61_000),
+            snap(100_000, 61_000, None)
+        );
+    }
+
+    #[test]
+    fn test_cache_reads_going_down_alone_rebaseline() {
+        let prev = snap(110_000, 61_000, Some(Trend::Down));
+        assert_eq!(
+            assess_at_now(Some(prev), 120_000, 50_000),
+            snap(120_000, 50_000, None)
+        );
+    }
+
+    #[test]
+    fn test_step_exactly_at_the_tolerance_has_no_trend() {
+        // Session at 0%; the step hits exactly 5%.
+        let prev = snap(100_000, 0, None);
+        assert_eq!(assess_at_now(Some(prev), 200_000, 5_000).trend, None);
+        // Session at 5%; the step hits exactly 0%.
+        let prev = snap(100_000, 5_000, None);
+        assert_eq!(assess_at_now(Some(prev), 200_000, 5_000).trend, None);
+    }
+
+    #[test]
     fn test_no_baseline_without_prior_input() {
         let prev = snap(0, 0, None);
         assert_eq!(assess_at_now(Some(prev), 10_000, 0).trend, None);
