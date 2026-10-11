@@ -98,6 +98,8 @@ RUSTUP_HOME="$HOME/.rustup" CARGO_HOME="$HOME/.cargo" HOME="$PWD/target/mutants-
 
 Kill a surviving mutant with a test, or exclude it in [.cargo/mutants.toml](.cargo/mutants.toml) with the reason.
 
+On pull requests, CI runs the same tool on the lines the PR changes (`--in-diff`). That `Mutants` job is advisory, not a required check: survivors are listed in the job summary and the `mutants.out` artifact.
+
 ---
 
 ## 6. Commits and Releases
