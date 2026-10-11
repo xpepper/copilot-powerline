@@ -33,7 +33,7 @@ fn format_utc(secs: u64) -> String {
     let z = days + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365; // throwaway: exercise the Mutants job, do not merge
     let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
     let mp = (5 * doy + 2) / 153;
     let day = doy - (153 * mp + 2) / 5 + 1;
