@@ -62,10 +62,7 @@ fn init_config(target: Option<&Path>) -> Result<(), String> {
         .to_toml_string()
         .map_err(|e| format!("Failed to serialize the default config: {e}"))?;
 
-    let Some(path) = target
-        .map(Path::to_path_buf)
-        .or_else(Config::default_config_path)
-    else {
+    let Some(path) = Config::resolve_path(target) else {
         println!("{toml_str}");
         return Ok(());
     };

@@ -66,6 +66,18 @@ impl Sandbox {
         create_db(&self.copilot_dir().join("session-store.db"))
     }
 
+    fn command(&self, args: &[&str], envs: &[(&str, &Path)]) -> Command {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_copilot-powerline"));
+        command
+            .args(args)
+            .env_remove("COPILOT_POWERLINE_LOG")
+            .envs(envs.iter().copied())
+            .env("HOME", self.home())
+            .env_remove("XDG_CACHE_HOME")
+            .current_dir(self.home());
+        command
+    }
+
     /// Runs one refresh and returns its stdout without the trailing newline.
     ///
     /// `HOME` and the working directory are set on the child only, so tests
@@ -76,13 +88,8 @@ impl Sandbox {
 
     /// Like `refresh`, with extra environment variables set on the child.
     pub fn refresh_with_env(&self, payload: &str, args: &[&str], envs: &[(&str, &Path)]) -> String {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_copilot-powerline"))
-            .args(args)
-            .env_remove("COPILOT_POWERLINE_LOG")
-            .envs(envs.iter().copied())
-            .env("HOME", self.home())
-            .env_remove("XDG_CACHE_HOME")
-            .current_dir(self.home())
+        let mut child = self
+            .command(args, envs)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -109,12 +116,7 @@ impl Sandbox {
     /// Runs the binary with `args` and no stdin, returning the whole output so
     /// a test can check the exit status and stderr as well as stdout.
     pub fn run(&self, args: &[&str]) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_copilot-powerline"))
-            .args(args)
-            .env_remove("COPILOT_POWERLINE_LOG")
-            .env("HOME", self.home())
-            .env_remove("XDG_CACHE_HOME")
-            .current_dir(self.home())
+        self.command(args, &[])
             .stdin(Stdio::null())
             .output()
             .unwrap()
