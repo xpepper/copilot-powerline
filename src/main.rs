@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 mod cache_trend;
@@ -70,15 +70,25 @@ fn init_config(target: Option<&Path>) -> Result<(), String> {
         return Ok(());
     };
 
-    if path.exists() {
-        eprintln!("Config file already exists at {}", path.display());
-        return Ok(());
-    }
     if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create {}: {e}", parent.display()))?;
     }
-    std::fs::write(&path, toml_str)
+    // `create_new` makes "never overwrite" atomic and refuses to follow a
+    // symlink, which a separate `exists()` check could not.
+    let mut file = match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+    {
+        Ok(file) => file,
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+            eprintln!("Config file already exists at {}", path.display());
+            return Ok(());
+        }
+        Err(e) => return Err(format!("Failed to write {}: {e}", path.display())),
+    };
+    file.write_all(toml_str.as_bytes())
         .map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
     println!("Initialized config at {}", path.display());
     Ok(())

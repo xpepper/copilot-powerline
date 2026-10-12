@@ -79,3 +79,17 @@ fn test_init_fails_when_the_config_cannot_be_written() {
     assert!(!output.status.success());
     assert!(stderr(&output).contains(".copilot"), "{}", stderr(&output));
 }
+
+#[test]
+fn test_init_does_not_write_through_a_dangling_symlink() {
+    let sandbox = Sandbox::new();
+    let link = sandbox.home().join("link.toml");
+    let destination = sandbox.home().join("destination.toml");
+    std::os::unix::fs::symlink(&destination, &link).unwrap();
+
+    let output = sandbox.run(&["--init", "--config", link.to_str().unwrap()]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stderr(&output).contains("already exists"));
+    assert!(!destination.exists(), "wrote through the symlink");
+}

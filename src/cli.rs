@@ -21,7 +21,7 @@ pub struct Cli {
     #[arg(short = 'i', long = "icon-set")]
     pub icon_set: Option<String>,
 
-    /// Generate a default powerline.toml configuration file
+    /// Write a default config to --config or ~/.copilot/powerline.toml (never overwrites)
     #[arg(long)]
     pub init: bool,
 
