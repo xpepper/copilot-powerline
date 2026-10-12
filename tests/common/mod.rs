@@ -7,7 +7,7 @@ use rusqlite::Connection;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Command, Output, Stdio};
 use tempfile::TempDir;
 
 /// SQLite date arguments for `insert_usage`. A fixed past date is always in
@@ -104,6 +104,20 @@ impl Sandbox {
             .unwrap()
             .trim_end()
             .to_string()
+    }
+
+    /// Runs the binary with `args` and no stdin, returning the whole output so
+    /// a test can check the exit status and stderr as well as stdout.
+    pub fn run(&self, args: &[&str]) -> Output {
+        Command::new(env!("CARGO_BIN_EXE_copilot-powerline"))
+            .args(args)
+            .env_remove("COPILOT_POWERLINE_LOG")
+            .env("HOME", self.home())
+            .env_remove("XDG_CACHE_HOME")
+            .current_dir(self.home())
+            .stdin(Stdio::null())
+            .output()
+            .unwrap()
     }
 
     /// Runs one refresh for `SESSION` with the plain style and icons, so the

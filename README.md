@@ -253,6 +253,9 @@ copilot-powerline --config /path/to/custom-powerline.toml
 # Write the default configuration to ~/.copilot/powerline.toml (never overwrites an existing file)
 copilot-powerline --init
 
+# ...or to another path, combined with --config
+copilot-powerline --init --config /path/to/custom-powerline.toml
+
 # Switch between full and compact mode
 copilot-powerline --toggle
 
