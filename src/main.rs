@@ -1,6 +1,6 @@
 use clap::Parser;
-use std::io::{self, Read};
-use std::path::PathBuf;
+use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
 
 mod cache_trend;
 mod cli;
@@ -54,6 +54,43 @@ fn detect_copilot_theme() -> Option<String> {
         .map(ToString::to_string)
 }
 
+/// Writes the default configuration to `target`, or to
+/// `~/.copilot/powerline.toml` without one. Never overwrites an existing
+/// file. With no target and no home directory, prints it instead.
+fn init_config(target: Option<&Path>) -> Result<(), String> {
+    let toml_str = Config::default()
+        .to_toml_string()
+        .map_err(|e| format!("Failed to serialize the default config: {e}"))?;
+
+    let Some(path) = Config::resolve_path(target) else {
+        println!("{toml_str}");
+        return Ok(());
+    };
+
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create {}: {e}", parent.display()))?;
+    }
+    // `create_new` makes "never overwrite" atomic and refuses to follow a
+    // symlink, which a separate `exists()` check could not.
+    let mut file = match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+    {
+        Ok(file) => file,
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+            eprintln!("Config file already exists at {}", path.display());
+            return Ok(());
+        }
+        Err(e) => return Err(format!("Failed to write {}: {e}", path.display())),
+    };
+    file.write_all(toml_str.as_bytes())
+        .map_err(|e| format!("Failed to write {}: {e}", path.display()))?;
+    println!("Initialized config at {}", path.display());
+    Ok(())
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -69,25 +106,9 @@ fn main() {
     }
 
     if cli.init {
-        let default_cfg = Config::default();
-        let toml_str = default_cfg
-            .to_toml_string()
-            .unwrap_or_else(|_| String::new());
-
-        if let Some(cfg_path) = Config::default_config_path() {
-            if cfg_path.exists() {
-                eprintln!("Config file already exists at {}", cfg_path.display());
-            } else {
-                if let Some(parent) = cfg_path.parent() {
-                    let _ = std::fs::create_dir_all(parent);
-                }
-                match std::fs::write(&cfg_path, &toml_str) {
-                    Ok(_) => println!("Initialized config at {}", cfg_path.display()),
-                    Err(e) => eprintln!("Failed to write config: {e}"),
-                }
-            }
-        } else {
-            println!("{toml_str}");
+        if let Err(message) = init_config(cli.config.as_deref()) {
+            eprintln!("{message}");
+            std::process::exit(1);
         }
         return;
     }

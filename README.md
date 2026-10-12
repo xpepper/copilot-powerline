@@ -113,7 +113,7 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 
 ### Prebuilt binaries
 
-Each [GitHub Release](https://github.com/xpepper/copilot-powerline/releases) ships binaries for macOS (Apple Silicon and Intel) and Linux (x86_64 and arm64, glibc 2.35 or newer), with SHA-256 checksums. The shell installer from the [quick start](#install-and-connect-it-to-copilot-cli) picks the right one and installs it to `~/.local/bin`, adding that directory to your `PATH` if needed.
+Each [GitHub Release](https://github.com/xpepper/copilot-powerline/releases) ships binaries for macOS (Apple Silicon and Intel) and Linux (x86_64 and arm64, glibc 2.39 or newer), with SHA-256 checksums. The shell installer from the [quick start](#install-and-connect-it-to-copilot-cli) picks the right one and installs it to `~/.local/bin`, adding that directory to your `PATH` if needed.
 
 Homebrew (macOS or Linux) installs the same binaries from the [xpepper/homebrew-tap](https://github.com/xpepper/homebrew-tap) tap.
 
@@ -168,7 +168,7 @@ cargo install --path .
 | `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative thinking tokens used by reasoning models in the session. Automatically hidden when 0. |
 | `total_tokens` | `󰓅` | `📊` | `Total:` | `4.5M` | **Total Session Tokens**: Total cumulative token throughput (input + output + cached) exchanged across all turns and compactions in the session. |
 | `model` | `󰘚` | `🤖` | `Model:` | `Auto → Claude Opus 4.5` | **Active Model** *(optional, not in the default `segments` list)*: The model Copilot is using. With `auto`, shows which model the router picked, so a switch to a pricier model is visible. |
-| `pr` | `` | `🔀` | `PR` | `PR #50` | **Pull Request Reference** *(optional, not in the default `segments` list)*: The current branch's open pull request, as a clickable hyperlink. Requires an authenticated `gh` CLI; hidden when the branch has no open PR or `gh` is unavailable. |
+| `pr` | `` | `🔀` | `PR` | `PR #50` | **Pull Request Reference** *(optional, not in the default `segments` list)*: The current branch's open pull request, as a clickable hyperlink. Requires an authenticated `gh` CLI; hidden when the branch has no open PR or `gh` is unavailable. |
 
 ---
 
@@ -197,6 +197,8 @@ segments = [
 ```
 
 Each segment also has its own section (`[tokens]`, `[session_cost]`, `[cache_expiry]`, ...) for options such as alert thresholds, spend limits, decimal places, and cache lifetimes. [`examples/powerline.toml`](examples/powerline.toml) is a complete, annotated real-world setup that lists every option with its default; a test keeps it in sync with the options the binary reads.
+
+If `powerline.toml` cannot be read or parsed (for example a value of the wrong type), the whole file is ignored and the built-in defaults are used, with no warning. If the status line looks like defaults, check the file against [`examples/powerline.toml`](examples/powerline.toml).
 
 Every segment section also accepts `prefix`, which replaces the segment's icon or text label in any icon set (for example `prefix = "Ctx:"` under `[tokens]`).
 
@@ -250,6 +252,9 @@ copilot-powerline --config /path/to/custom-powerline.toml
 
 # Write the default configuration to ~/.copilot/powerline.toml (never overwrites an existing file)
 copilot-powerline --init
+
+# ...or to another path, combined with --config
+copilot-powerline --init --config /path/to/custom-powerline.toml
 
 # Switch between full and compact mode
 copilot-powerline --toggle

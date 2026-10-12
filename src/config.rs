@@ -567,10 +567,13 @@ impl Config {
         dirs::home_dir().map(|home| home.join(".copilot").join("powerline.toml"))
     }
 
-    pub fn load_from_file_or_default(path: Option<&Path>) -> Self {
-        let config_path = path.map(PathBuf::from).or_else(Self::default_config_path);
+    pub fn resolve_path(path: Option<&Path>) -> Option<PathBuf> {
+        path.map(Path::to_path_buf)
+            .or_else(Self::default_config_path)
+    }
 
-        config_path
+    pub fn load_from_file_or_default(path: Option<&Path>) -> Self {
+        Self::resolve_path(path)
             .and_then(|p| std::fs::read_to_string(p).ok())
             .and_then(|content| Self::from_toml(&content).ok())
             .unwrap_or_default()
