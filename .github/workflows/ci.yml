@@ -11,8 +11,36 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  # A pull request that only touches Markdown skips the Rust jobs. Pushes to
+  # main always run everything.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for non-docs changes
+        id: filter
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$EVENT" = pull_request ] &&
+            git diff --name-only "origin/$BASE_REF...HEAD" | bash scripts/docs-only-change; then
+            echo "rust=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+          fi
+
   fmt:
     name: Rustfmt
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -28,6 +56,8 @@ jobs:
 
   clippy:
     name: Clippy
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -64,6 +94,9 @@ jobs:
       - name: Test release script
         run: bash tests/test-release.sh
 
+      - name: Test docs-only change detection
+        run: bash tests/test-docs-only-change.sh
+
   # The release workflow publishes to crates.io, and a crates.io version
   # cannot be re-uploaded, so catch packaging problems before tagging.
   package:
@@ -81,6 +114,8 @@ jobs:
 
   test:
     name: Test (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -103,7 +138,8 @@ jobs:
   mutants:
     name: Mutants
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.rust == 'true'
     timeout-minutes: 30
     steps:
       - name: Checkout repository
@@ -147,3 +183,23 @@ jobs:
           name: mutants.out
           path: mutants.out
           if-no-files-found: ignore
+
+  # The single required check for main. It passes when every job it needs
+  # passed or was skipped, so a docs-only PR can merge. Add new required jobs
+  # to `needs`; Mutants stays out because it is advisory.
+  ci-ok:
+    name: CI ok
+    if: always()
+    needs: [changes, fmt, clippy, shellcheck, package, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            case "$result" in
+              success|skipped) ;;
+              *) echo "A required job ended with: $result"; exit 1 ;;
+            esac
+          done
