@@ -78,11 +78,11 @@ A local estimate of this CLI's AI Credit spend in the current UTC calendar month
 _Avoid_: Monthly cost, month-to-date usage
 
 **Cycle**:
-GitHub's billing period for a user's Copilot plan, which need not align with a calendar month.
+GitHub's billing period for AI Credits: the UTC calendar month, resetting at midnight UTC on the 1st.
 _Avoid_: Billing month, period
 
 **Cycle Spend**:
-GitHub's own count of the AI Credits used in the current Cycle, across every Copilot surface (IDE, github.com, CLI), not just this CLI.
+GitHub's own count of the AI Credits used in the current Cycle, across every Copilot surface (IDE, github.com, CLI), not just this CLI. It covers the same period as Month Spend but is recorded by GitHub, so it can briefly trail Month Spend after a Step; otherwise the two differ by the usage on other surfaces.
 _Avoid_: Cycle cost, cycle usage, GitHub usage
 
 **Spend Alert**:
