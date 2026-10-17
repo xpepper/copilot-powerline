@@ -426,7 +426,7 @@ impl Default for TotalTokensConfig {
 
 /// Reminder shown once the session has been idle past `idle_seconds`: the
 /// idle time and that the prompt cache is likely cold (e.g.
-/// `54m · cache likely cold`), so the next turn most likely re-reads the
+/// `54m · cache likely cold`), so the next step most likely re-reads the
 /// whole context at full price. Renders nothing otherwise.
 ///
 /// Needs `statusLine.refreshInterval` in Copilot CLI's settings: without it
