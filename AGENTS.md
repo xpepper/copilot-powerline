@@ -106,3 +106,19 @@ On pull requests, CI runs the same tool on the lines the PR changes (`--in-diff`
 
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/). Besides `feat`, `fix`, `docs`, `test` and `refactor`, this repo uses `perf`, `style`, `build`, `ci` and `chore`.
 - Releases: run `scripts/release.sh` (see `RELEASING.md`). Never run `cargo publish` by hand: CI publishes to crates.io after the GitHub Release exists, and a crates.io version cannot be deleted or re-uploaded.
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `xpepper/copilot-powerline`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default triage roles, each label named after its role (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root, created lazily. See `docs/agents/domain.md`.
