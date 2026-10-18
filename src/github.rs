@@ -19,10 +19,10 @@ pub enum ReviewState {
 pub struct PullRequestInfo {
     pub number: u64,
     pub url: String,
-    // Optional so cache files written before review support still parse.
+    /// Optional so cache files written before review support still parse.
     #[serde(default)]
     pub review_state: Option<ReviewState>,
-    // None when unknown: not fetched, the query failed, or the PR is not open.
+    /// None when unknown: not fetched, the query failed, or the PR is not open.
     #[serde(default)]
     pub unresolved_threads: Option<UnresolvedThreads>,
 }
@@ -210,8 +210,8 @@ struct GhPrViewPayload {
     state: Option<String>,
     #[serde(default)]
     is_draft: bool,
-    // Empty when the repo requires no approving review, as on every recent
-    // PR in this repo, hence the fallback to `latest_reviews`.
+    // Empty when the repo requires no approving review, hence the fallback
+    // to `latest_reviews`.
     #[serde(default)]
     review_decision: Option<String>,
     #[serde(default)]
@@ -241,6 +241,8 @@ pub fn parse_pr_view(stdout: &[u8]) -> Option<PrView> {
             .iter()
             .any(|r| r.state.as_deref() == Some(wanted))
     };
+    // Without a `state` (an older `gh`), the PR counts as not open: review
+    // info is hidden rather than shown for a PR that may be merged.
     let open = payload.state.as_deref() == Some("OPEN");
     let review_state = match payload.review_decision.as_deref() {
         _ if !open => None,
