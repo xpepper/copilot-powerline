@@ -898,17 +898,23 @@ mod tests {
         assert_eq!(unknown_keys(&example, &known, ""), Vec::<String>::new());
     }
 
-    /// The example annotates each option with `(default: X)`. Nothing else
-    /// ties that text to `Config::default()`, so a changed default would
-    /// leave a stale comment behind.
-    #[test]
-    fn test_example_config_default_comments_match_the_defaults() {
-        let defaults: toml::Table =
-            toml::from_str(&Config::default().to_toml_string().unwrap()).unwrap();
-        let mut section: Option<String> = None;
-        let mut wrong = Vec::new();
+    /// One `key = value  # ... (default: X)` line of the example config.
+    struct DocumentedDefault {
+        /// `[section]` the key sits under, if any.
+        section: Option<String>,
+        key: String,
+        /// `X` as a value, or `None` for an option documented as unset.
+        documented: Option<toml::Value>,
+    }
 
-        for line in include_str!("../examples/powerline.toml").lines() {
+    /// Reads every `(default: X)` annotation on an uncommented option.
+    /// A list's default is written as its items, comma-separated. For any
+    /// other option, text after the first `;` or `,` is a note, as in
+    /// `(default: true; still needs "pr" in segments)`.
+    fn documented_defaults(example: &str) -> Vec<DocumentedDefault> {
+        let mut section = None;
+        let mut found = Vec::new();
+        for line in example.lines() {
             if let Some(name) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
                 section = Some(name.to_string());
                 continue;
@@ -919,41 +925,62 @@ mod tests {
             let Some((key, value)) = setting.split_once('=') else {
                 continue;
             };
-            let Some(noted) = comment
+            let Some(text) = comment
                 .split_once("(default: ")
                 .and_then(|(_, rest)| rest.split_once(')'))
-                .map(|(noted, _)| noted.split([';', ',']).next().unwrap().trim())
+                .map(|(text, _)| text)
             else {
                 continue;
             };
-            if value.trim().starts_with('[') {
-                continue; // a list, described in prose
-            }
 
-            let key = key.trim();
-            let table = match &section {
-                Some(name) => defaults.get(name).and_then(|t| t.as_table()),
-                None => Some(&defaults),
-            };
-            let actual = table.and_then(|t| t.get(key));
-            let expected = if noted.starts_with("unset") {
-                None
+            let documented = if value.trim().starts_with('[') {
+                let items = text.split(',').map(|item| item.trim().into()).collect();
+                Some(toml::Value::Array(items))
             } else {
-                let parsed: toml::Table = toml::from_str(&format!("v = {noted}"))
-                    .unwrap_or_else(|e| panic!("`(default: {noted})` for {key}: {e}"));
-                parsed.get("v").cloned()
+                let text = text.split([';', ',']).next().unwrap().trim();
+                (!text.starts_with("unset")).then(|| {
+                    let parsed: toml::Table = toml::from_str(&format!("v = {text}"))
+                        .unwrap_or_else(|e| panic!("`(default: {text})`: {e}"));
+                    parsed["v"].clone()
+                })
             };
-            if actual != expected.as_ref() {
-                wrong.push(format!(
-                    "{}{key}: comment says {noted}, default is {actual:?}",
-                    section
-                        .as_deref()
-                        .map(|s| format!("[{s}] "))
-                        .unwrap_or_default()
-                ));
-            }
+            found.push(DocumentedDefault {
+                section: section.clone(),
+                key: key.trim().to_string(),
+                documented,
+            });
         }
+        found
+    }
 
-        assert_eq!(wrong, Vec::<String>::new());
+    /// The example annotates each option with `(default: X)`. Nothing else
+    /// ties that text to `Config::default()`, so a changed default would
+    /// leave a stale comment behind.
+    #[test]
+    fn test_example_config_default_comments_match_the_defaults() {
+        let defaults: toml::Table =
+            toml::from_str(&Config::default().to_toml_string().unwrap()).unwrap();
+
+        let mismatches: Vec<String> =
+            documented_defaults(include_str!("../examples/powerline.toml"))
+                .into_iter()
+                .filter_map(|option| {
+                    let table = match &option.section {
+                        Some(name) => defaults.get(name).and_then(|t| t.as_table()),
+                        None => Some(&defaults),
+                    };
+                    let actual = table.and_then(|t| t.get(&option.key));
+                    (actual != option.documented.as_ref()).then(|| {
+                        format!(
+                            "{}.{}: comment says {:?}, default is {actual:?}",
+                            option.section.as_deref().unwrap_or(""),
+                            option.key,
+                            option.documented
+                        )
+                    })
+                })
+                .collect();
+
+        assert_eq!(mismatches, Vec::<String>::new());
     }
 }
