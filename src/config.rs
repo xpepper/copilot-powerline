@@ -873,6 +873,7 @@ mod tests {
         all.total_tokens.prefix = prefix.clone();
         all.cache_expiry.prefix = prefix.clone();
         all.model.prefix = prefix.clone();
+        all.tool_overhead.prefix = prefix.clone();
         all.pr.prefix = prefix;
         let known: toml::Table = toml::from_str(&all.to_toml_string().unwrap()).unwrap();
 
