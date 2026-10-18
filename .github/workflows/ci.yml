@@ -158,13 +158,12 @@ jobs:
         with:
           tool: cargo-mutants@27.1.0,cargo-nextest
 
-      - name: Diff against the base branch
+      # The same script developers run before pushing, so both agree.
+      - name: Run cargo-mutants on the diff
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: git diff "origin/$BASE_REF...HEAD" > pr.diff
-
-      - name: Run cargo-mutants on the diff
-        run: cargo mutants --in-diff pr.diff --test-tool nextest --no-shuffle -j 2
+          MUTANTS_JOBS: 2
+        run: scripts/mutants-diff "origin/$BASE_REF"
 
       # A diff with no mutable Rust code writes no mutants.out.
       - name: Summarize surviving mutants
