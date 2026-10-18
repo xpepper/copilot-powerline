@@ -131,12 +131,7 @@ mod tests {
             ..Default::default()
         };
         let p = Palette::for_theme("plain");
-        let pr = PullRequestInfo {
-            number: 50,
-            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
-            review_state: None,
-            unresolved_threads: None,
-        };
+        let pr = reviewed_pr(None, None);
         assert!(render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).is_none());
     }
 
@@ -144,12 +139,7 @@ mod tests {
     fn test_render_pr_plain_theme() {
         let cfg = PrConfig::default();
         let p = Palette::for_theme("plain");
-        let pr = PullRequestInfo {
-            number: 50,
-            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
-            review_state: None,
-            unresolved_threads: None,
-        };
+        let pr = reviewed_pr(None, None);
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "PR #50");
     }
@@ -158,12 +148,7 @@ mod tests {
     fn test_render_pr_nerd_icon() {
         let cfg = PrConfig::default();
         let p = Palette::for_theme("plain");
-        let pr = PullRequestInfo {
-            number: 50,
-            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
-            review_state: None,
-            unresolved_threads: None,
-        };
+        let pr = reviewed_pr(None, None);
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Nerd, &p).unwrap();
         assert_eq!(rendered, " #50");
     }
@@ -172,12 +157,7 @@ mod tests {
     fn test_render_pr_emoji_icon() {
         let cfg = PrConfig::default();
         let p = Palette::for_theme("plain");
-        let pr = PullRequestInfo {
-            number: 50,
-            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
-            review_state: None,
-            unresolved_threads: None,
-        };
+        let pr = reviewed_pr(None, None);
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Emoji, &p).unwrap();
         assert_eq!(rendered, "🔀 #50");
     }
@@ -186,12 +166,7 @@ mod tests {
     fn test_render_pr_hyperlink_and_colors() {
         let cfg = PrConfig::default();
         let p = Palette::for_theme("colorblind");
-        let pr = PullRequestInfo {
-            number: 50,
-            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
-            review_state: None,
-            unresolved_threads: None,
-        };
+        let pr = reviewed_pr(None, None);
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
 
         // Must contain OSC 8 hyperlink sequence.
@@ -228,10 +203,8 @@ mod tests {
         let cfg = PrConfig::default();
         let p = Palette::for_theme("colorblind");
         let pr = PullRequestInfo {
-            number: 50,
             url: "https://evil.example.com/pull/50".to_string(),
-            review_state: None,
-            unresolved_threads: None,
+            ..reviewed_pr(None, None)
         };
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
 
@@ -246,12 +219,7 @@ mod tests {
             ..Default::default()
         };
         let p = Palette::for_theme("colorblind");
-        let pr = PullRequestInfo {
-            number: 50,
-            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
-            review_state: None,
-            unresolved_threads: None,
-        };
+        let pr = reviewed_pr(None, None);
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
 
         // Must NOT contain OSC 8 sequence.
