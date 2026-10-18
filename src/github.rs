@@ -1,3 +1,4 @@
+use crate::config::PrConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::fs::{self, File};
@@ -392,8 +393,8 @@ fn spawn_background_fetch(repo_dir: &Path, cache_path: &Path, fetch_unresolved: 
             .arg(cache_path)
             .arg("--repo-dir")
             .arg(repo_dir);
-        if !fetch_unresolved {
-            command.arg("--skip-unresolved");
+        if fetch_unresolved {
+            command.arg("--fetch-unresolved");
         }
         let _ = command
             .stdin(Stdio::null())
@@ -411,8 +412,7 @@ fn spawn_background_fetch(repo_dir: &Path, cache_path: &Path, fetch_unresolved: 
 pub fn get_pr_info(
     repo_dir: &Path,
     branch: &str,
-    ttl_seconds: u64,
-    fetch_unresolved: bool,
+    config: &PrConfig,
     gh_available: bool,
 ) -> Option<PullRequestInfo> {
     if !gh_available {
@@ -424,7 +424,7 @@ pub fn get_pr_info(
     let throttle_seconds = 15;
 
     if let Some(entry) = read_cache_entry(&cache_path) {
-        if is_cache_fresh(&entry, ttl_seconds, now) {
+        if is_cache_fresh(&entry, config.cache_ttl_seconds, now) {
             return entry.pr;
         }
 
@@ -433,14 +433,14 @@ pub fn get_pr_info(
         // stale entry on disk is left untouched (never marked fresh) until
         // a real refresh completes.
         if try_claim_spawn(&cache_path, now, throttle_seconds) {
-            spawn_background_fetch(repo_dir, &cache_path, fetch_unresolved);
+            spawn_background_fetch(repo_dir, &cache_path, config.show_unresolved);
         }
 
         entry.pr
     } else {
         // No cache exists yet. If not throttled, claim and spawn.
         if try_claim_spawn(&cache_path, now, throttle_seconds) {
-            spawn_background_fetch(repo_dir, &cache_path, fetch_unresolved);
+            spawn_background_fetch(repo_dir, &cache_path, config.show_unresolved);
         }
         None
     }
@@ -718,7 +718,7 @@ mod tests {
 
     #[test]
     fn test_get_pr_info_when_gh_not_available() {
-        let res = get_pr_info(Path::new("/some/repo"), "main", 60, true, false);
+        let res = get_pr_info(Path::new("/some/repo"), "main", &PrConfig::default(), false);
         assert!(res.is_none());
     }
 

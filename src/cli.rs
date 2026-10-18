@@ -41,7 +41,7 @@ pub struct Cli {
     #[arg(long, hide = true)]
     pub repo_dir: Option<PathBuf>,
 
-    /// Internal worker flag: skip counting the PR's unresolved review threads
+    /// Internal worker flag: also count the PR's unresolved review threads
     #[arg(long, hide = true)]
-    pub skip_unresolved: bool,
+    pub fetch_unresolved: bool,
 }
