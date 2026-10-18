@@ -9,6 +9,7 @@ pub mod session_cost;
 pub mod spend_format;
 pub mod spend_total;
 pub mod tokens;
+pub mod tool_overhead;
 pub mod total_tokens;
 
 /// Whether `name` is one of the `segments` active for the current display
@@ -60,6 +61,7 @@ mod tests {
             cache_expiry::NAME,
             model::NAME,
             pr::NAME,
+            tool_overhead::NAME,
         ];
         let config = crate::config::Config::default();
         for name in config.segments.iter().chain(&config.compact_segments) {

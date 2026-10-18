@@ -110,6 +110,17 @@ pub fn cache_expiry_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
     }
 }
 
+pub fn tool_overhead_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
+    if let Some(c) = custom {
+        return c;
+    }
+    match icon_set {
+        IconSet::Plain => "Tools:",
+        IconSet::Nerd => "\u{f1064}", // nf-md-tools
+        IconSet::Emoji => "🧰",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -123,6 +134,7 @@ mod tests {
         assert_eq!(pr_icon(IconSet::Plain, None), "PR");
         assert_eq!(model_icon(IconSet::Plain, None), "Model:");
         assert_eq!(cache_expiry_icon(IconSet::Plain, None), "Idle:");
+        assert_eq!(tool_overhead_icon(IconSet::Plain, None), "Tools:");
     }
 
     #[test]
@@ -132,6 +144,7 @@ mod tests {
         assert_eq!(reasoning_icon(IconSet::Nerd, None), "󰚩");
         assert_eq!(total_tokens_icon(IconSet::Nerd, None), "󰓅");
         assert_eq!(pr_icon(IconSet::Nerd, None), "");
+        assert_eq!(tool_overhead_icon(IconSet::Nerd, None), "\u{f1064}");
     }
 
     #[test]
@@ -145,6 +158,7 @@ mod tests {
         assert_eq!(pr_icon(IconSet::Emoji, None), "🔀");
         assert_eq!(model_icon(IconSet::Emoji, None), "🤖");
         assert_eq!(cache_expiry_icon(IconSet::Emoji, None), "⏳");
+        assert_eq!(tool_overhead_icon(IconSet::Emoji, None), "🧰");
     }
 
     #[test]
