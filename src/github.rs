@@ -236,25 +236,10 @@ pub struct PrView {
 /// reviewDecision,latestReviews`.
 pub fn parse_pr_view(stdout: &[u8]) -> Option<PrView> {
     let payload: GhPrViewPayload = serde_json::from_slice(stdout).ok()?;
-    let has_review = |wanted: &str| {
-        payload
-            .latest_reviews
-            .iter()
-            .any(|r| r.state.as_deref() == Some(wanted))
-    };
     // Without a `state` (an older `gh`), the PR counts as not open: review
     // info is hidden rather than shown for a PR that may be merged.
     let open = payload.state.as_deref() == Some("OPEN");
-    let review_state = match payload.review_decision.as_deref() {
-        _ if !open => None,
-        _ if payload.is_draft => Some(ReviewState::Draft),
-        Some("APPROVED") => Some(ReviewState::Approved),
-        Some("CHANGES_REQUESTED") => Some(ReviewState::ChangesRequested),
-        Some("REVIEW_REQUIRED") => None,
-        _ if has_review("CHANGES_REQUESTED") => Some(ReviewState::ChangesRequested),
-        _ if has_review("APPROVED") => Some(ReviewState::Approved),
-        _ => None,
-    };
+    let review_state = if open { review_state(&payload) } else { None };
 
     Some(PrView {
         open,
@@ -267,9 +252,48 @@ pub fn parse_pr_view(stdout: &[u8]) -> Option<PrView> {
     })
 }
 
+/// An open PR's Review State, first match wins: draft, then GitHub's own
+/// review decision, then the latest review of each reviewer.
+fn review_state(payload: &GhPrViewPayload) -> Option<ReviewState> {
+    if payload.is_draft {
+        return Some(ReviewState::Draft);
+    }
+    match payload.review_decision.as_deref() {
+        Some("APPROVED") => return Some(ReviewState::Approved),
+        Some("CHANGES_REQUESTED") => return Some(ReviewState::ChangesRequested),
+        Some("REVIEW_REQUIRED") => return None,
+        _ => {}
+    }
+    let has_review = |wanted: &str| {
+        payload
+            .latest_reviews
+            .iter()
+            .any(|r| r.state.as_deref() == Some(wanted))
+    };
+    if has_review("CHANGES_REQUESTED") {
+        Some(ReviewState::ChangesRequested)
+    } else if has_review("APPROVED") {
+        Some(ReviewState::Approved)
+    } else {
+        None
+    }
+}
+
 /// How many review threads the GraphQL query fetches; past that the count
 /// shows as a lower bound (`3+`) instead of paginating.
 const REVIEW_THREADS_PAGE: u32 = 100;
+
+const REVIEW_THREADS_QUERY: &str = r"
+query($owner: String!, $repo: String!, $number: Int!, $first: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviewThreads(first: $first) {
+        pageInfo { hasNextPage }
+        nodes { isResolved }
+      }
+    }
+  }
+}";
 
 /// The pull request's Unresolved Threads. `more` is set when the first
 /// page of threads did not hold them all, so `count` is a lower bound.
@@ -362,19 +386,18 @@ fn fetch_unresolved_threads(
     timeout: Duration,
 ) -> Option<UnresolvedThreads> {
     let (owner, repo, number) = pr_coordinates(url)?;
-    let query = format!(
-        "query($owner:String!,$repo:String!,$number:Int!){{repository(owner:$owner,name:$repo){{pullRequest(number:$number){{reviewThreads(first:{REVIEW_THREADS_PAGE}){{pageInfo{{hasNextPage}} nodes{{isResolved}}}}}}}}}}"
-    );
     let output = output_with_timeout(
         Command::new("gh")
             .args(["api", "graphql", "-f"])
-            .arg(format!("query={query}"))
+            .arg(format!("query={REVIEW_THREADS_QUERY}"))
             .arg("-f")
             .arg(format!("owner={owner}"))
             .arg("-f")
             .arg(format!("repo={repo}"))
             .arg("-F")
             .arg(format!("number={number}"))
+            .arg("-F")
+            .arg(format!("first={REVIEW_THREADS_PAGE}"))
             .current_dir(repo_dir),
         timeout,
     )?;

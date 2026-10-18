@@ -65,7 +65,8 @@ fn fake_gh(sandbox: &Sandbox, pr_view: &str, threads: Option<&str>) -> FakeGh {
         &gh,
         format!(
             "#!/bin/sh\n\
-             echo \"$*\" >> '{log}'\n\
+             echo \"$*\" | /usr/bin/tr '\\n' ' ' >> '{log}'\n\
+             echo >> '{log}'\n\
              case \"$1\" in\n\
              pr) exec /bin/cat '{pr_view}' ;;\n\
              api) [ -f '{threads}' ] && exec /bin/cat '{threads}' ;;\n\
