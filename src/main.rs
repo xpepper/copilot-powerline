@@ -7,6 +7,7 @@ mod cli;
 mod config;
 mod cycle_usage;
 mod db;
+mod events;
 mod git;
 mod github;
 mod icons;
@@ -34,6 +35,7 @@ use segments::pr::{self, render_pr_segment};
 use segments::reasoning::{self, render_reasoning_segment};
 use segments::session_cost::{self, render_session_cost_segment};
 use segments::tokens::{self, render_tokens_segment};
+use segments::tool_overhead::{self, render_tool_overhead_segment};
 use segments::total_tokens::{self, render_total_tokens_segment};
 use theme::Palette;
 
@@ -257,6 +259,15 @@ fn main() {
         None
     };
 
+    let tool_usage = if tool_overhead::is_visible(&segments, &config.tool_overhead) {
+        input
+            .transcript_path
+            .as_deref()
+            .and_then(|dir| events::latest_main_usage(Path::new(dir)))
+    } else {
+        None
+    };
+
     if let Some(log_path) = payload_log::path_from_env() {
         payload_log::append(
             &log_path,
@@ -371,6 +382,17 @@ fn main() {
                 if let Some(s) =
                     render_pr_segment(pr_info.as_ref(), &config.pr, config.icon_set, &palette)
                 {
+                    rendered_segments.push(s);
+                }
+            }
+            tool_overhead::NAME => {
+                if let Some(s) = render_tool_overhead_segment(
+                    tool_usage,
+                    &input.context_window,
+                    &config.tool_overhead,
+                    config.icon_set,
+                    &palette,
+                ) {
                     rendered_segments.push(s);
                 }
             }

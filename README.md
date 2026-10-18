@@ -169,6 +169,7 @@ cargo install --path .
 | `total_tokens` | `󰓅` | `📊` | `Total:` | `4.5M` | **Total Session Tokens**: Total cumulative token throughput (input + output + cached) exchanged across all turns and compactions in the session. |
 | `model` | `󰘚` | `🤖` | `Model:` | `Auto → Claude Opus 4.5` | **Active Model** *(optional, not in the default `segments` list)*: The model Copilot is using. With `auto`, shows which model the router picked, so a switch to a pricier model is visible. |
 | `pr` | `` | `🔀` | `PR` | `PR #50` | **Pull Request Reference** *(optional, not in the default `segments` list)*: The current branch's open pull request, as a clickable hyperlink. Requires an authenticated `gh` CLI; hidden when the branch has no open PR or `gh` is unavailable. |
+| `tool_overhead` | `󱁤` | `🧰` | `Tools:` | `68k (34%)` | **Tool Overhead** *(optional, not in the default `segments` list)*: The tokens Copilot CLI reports for the tool definitions it sends in each request, and their share of the context window. Only definitions sent in full count: in checks on Copilot CLI 1.0.98 the value was the same for Claude and GPT-6 Luna sessions however many MCP tools were listed (they appear to be loaded on demand), but grew with each MCP tool on Gemini. So it shows what every request pays for tools, not the size of your MCP setup; `/context` in Copilot CLI shows that. Tools Copilot loads on demand after a search add to the prompt but not to this value. It can also differ slightly from `/context`'s totals. Read from the latest main-agent step in the session's event log (`events.jsonl`, an internal Copilot CLI file), so it shows nothing until the session has made a model call, and nothing on sessions started with Copilot CLI 1.0.93 or earlier. Always shows by default; set `min_tokens` (for example `30000`, where the median session uses about 9k) to show it only at or above a size. |
 
 ---
 
@@ -193,6 +194,7 @@ segments = [
     # "model",      # Opt-in: the active model (and where `auto` routed)
     # "pr",         # Opt-in: the current branch's PR (requires the `gh` CLI)
     # "cycle_cost", # Opt-in: GitHub's billing-cycle usage (requires the `gh` CLI)
+    # "tool_overhead", # Opt-in: size of the tool definitions sent with every request
 ]
 ```
 

@@ -3,6 +3,10 @@ use serde::Deserialize;
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct CopilotInput {
     pub session_id: Option<String>,
+    /// The session's directory under Copilot's state dir, which holds its
+    /// Event Log. `null` while the session has no id.
+    #[serde(default)]
+    pub transcript_path: Option<String>,
     #[serde(default)]
     pub context_window: ContextWindow,
     #[serde(default)]
@@ -124,6 +128,20 @@ mod tests {
         assert_eq!(input.context_window.current_context_tokens, None);
         assert_eq!(input.ai_used.total_nano_aiu, 0);
         assert!(input.model.is_none());
+    }
+
+    #[test]
+    fn test_parse_transcript_path() {
+        let input = CopilotInput::from_json(r#"{"transcript_path": "/state/sess-123"}"#);
+        assert_eq!(input.transcript_path.as_deref(), Some("/state/sess-123"));
+    }
+
+    #[test]
+    fn test_null_or_missing_transcript_path_is_none() {
+        // Copilot CLI sends null when the session has no id yet.
+        let null = CopilotInput::from_json(r#"{"transcript_path": null}"#);
+        assert_eq!(null.transcript_path, None);
+        assert_eq!(CopilotInput::from_json("{}").transcript_path, None);
     }
 
     #[test]

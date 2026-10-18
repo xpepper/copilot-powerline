@@ -117,6 +117,8 @@ pub struct Config {
     pub pr: PrConfig,
     #[serde(default)]
     pub model: ModelConfig,
+    #[serde(default)]
+    pub tool_overhead: ToolOverheadConfig,
 }
 
 fn default_theme() -> String {
@@ -490,6 +492,7 @@ impl Default for Config {
             cache_expiry: CacheExpiryConfig::default(),
             pr: PrConfig::default(),
             model: ModelConfig::default(),
+            tool_overhead: ToolOverheadConfig::default(),
         }
     }
 }
@@ -510,6 +513,36 @@ impl Default for ModelConfig {
         Self {
             enabled: true,
             prefix: None,
+        }
+    }
+}
+
+/// Optional size of the tool definitions Copilot CLI sends in each request
+/// (e.g. `Tools: 15k (15%)`), so you can see what every request pays for
+/// tools. Only definitions sent in full count: tools Copilot loads on demand
+/// (MCP tools on Claude and GPT-6 Luna, as far as checked) do not. It reads
+/// the latest main-agent step from the session's event log, so it shows
+/// nothing until the session has made a model call.
+///
+/// Not in the default `segments` list: add `"tool_overhead"` to opt in. It
+/// always shows by default; set `min_tokens` to show it only above a size
+/// (the median session uses about 9k, and 30k is unusually high).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolOverheadConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub prefix: Option<String>,
+    /// Stay quiet below this many tokens.
+    #[serde(default)]
+    pub min_tokens: u64,
+}
+
+impl Default for ToolOverheadConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            prefix: None,
+            min_tokens: 0,
         }
     }
 }
@@ -651,6 +684,32 @@ mod tests {
         let cfg = Config::from_toml("[tokens]\nshow_percentage = false\n").unwrap();
         assert!(!cfg.tokens.show_percentage);
         assert_eq!(cfg.tokens.alert_threshold, 100_000);
+    }
+
+    #[test]
+    fn test_tool_overhead_is_opt_in_and_always_shown_by_default() {
+        let cfg = Config::default();
+        // Opt-in: it must not appear in either default segment list.
+        assert!(!cfg.segments.iter().any(|s| s == "tool_overhead"));
+        assert!(!cfg.compact_segments.iter().any(|s| s == "tool_overhead"));
+        assert!(cfg.tool_overhead.enabled);
+        // No floor by default: a user who lists the segment wants to see it.
+        assert_eq!(cfg.tool_overhead.min_tokens, 0);
+        assert_eq!(cfg.tool_overhead.prefix, None);
+    }
+
+    #[test]
+    fn test_tool_overhead_section_without_enabled_keeps_it_on() {
+        let cfg = Config::from_toml("[tool_overhead]\nmin_tokens = 30000\n").unwrap();
+        assert!(cfg.tool_overhead.enabled);
+        assert_eq!(cfg.tool_overhead.min_tokens, 30_000);
+    }
+
+    #[test]
+    fn test_config_without_a_tool_overhead_section_gets_defaults() {
+        let cfg = Config::from_toml("theme = \"nord\"\n").unwrap();
+        assert!(cfg.tool_overhead.enabled);
+        assert_eq!(cfg.tool_overhead.min_tokens, 0);
     }
 
     #[test]
@@ -816,6 +875,7 @@ mod tests {
         all.total_tokens.prefix = prefix.clone();
         all.cache_expiry.prefix = prefix.clone();
         all.model.prefix = prefix.clone();
+        all.tool_overhead.prefix = prefix.clone();
         all.pr.prefix = prefix;
         let known: toml::Table = toml::from_str(&all.to_toml_string().unwrap()).unwrap();
 
