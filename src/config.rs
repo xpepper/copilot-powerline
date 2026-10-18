@@ -563,6 +563,13 @@ pub struct PrConfig {
     pub hyperlinks: bool,
     #[serde(default = "default_pr_cache_ttl")]
     pub cache_ttl_seconds: u64,
+    /// Show the Review State (draft, approved, changes requested).
+    #[serde(default = "default_true")]
+    pub show_review_state: bool,
+    /// Show the count of Unresolved Threads. Off also skips the extra
+    /// `gh api graphql` call that counts them.
+    #[serde(default = "default_true")]
+    pub show_unresolved: bool,
 }
 
 fn default_pr_cache_ttl() -> u64 {
@@ -576,6 +583,8 @@ impl Default for PrConfig {
             prefix: None,
             hyperlinks: true,
             cache_ttl_seconds: default_pr_cache_ttl(),
+            show_review_state: true,
+            show_unresolved: true,
         }
     }
 }

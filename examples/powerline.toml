@@ -93,6 +93,8 @@ show_tokens = false      # Also show the context size, e.g. "· 92k context" (de
 enabled = true           # Enable pull request segment (default: true; still needs "pr" in `segments`)
 hyperlinks = true        # Make "PR #50" a clickable link to the PR (default: true)
 cache_ttl_seconds = 60   # Freshness TTL in seconds before running background `gh pr view` (default: 60)
+show_review_state = true # Show "draft", "approved" or "changes requested" after the number (default: true)
+show_unresolved = true   # Show "3 unresolved" while review threads are open; false also skips the extra `gh api graphql` call (default: true)
 
 [model]
 enabled = true           # Enable active model segment (default: true; still needs "model" in `segments`)

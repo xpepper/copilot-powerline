@@ -98,7 +98,7 @@ fn main() {
 
     if let Some(cache_path) = cli.fetch_pr_cache {
         let repo_dir = cli.repo_dir.unwrap_or_else(|| PathBuf::from("."));
-        github::fetch_and_write_pr_cache(&repo_dir, &cache_path);
+        github::fetch_and_write_pr_cache(&repo_dir, &cache_path, !cli.skip_unresolved);
         return;
     }
 
@@ -179,6 +179,7 @@ fn main() {
                     &repo_dir,
                     &branch,
                     config.pr.cache_ttl_seconds,
+                    config.pr.show_unresolved,
                     github::is_gh_available(),
                 )
             })
