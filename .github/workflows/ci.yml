@@ -97,6 +97,9 @@ jobs:
       - name: Test docs-only change detection
         run: bash tests/test-docs-only-change.sh
 
+      - name: Test mutants-diff script
+        run: bash tests/test-mutants-diff.sh
+
   # The release workflow publishes to crates.io, and a crates.io version
   # cannot be re-uploaded, so catch packaging problems before tagging.
   package:

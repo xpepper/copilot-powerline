@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Runs cargo-mutants on the lines this branch changes, as the CI Mutants job
+# does, so surviving mutants show up before the push. Usage:
+#   scripts/mutants-diff [base]   # base defaults to main
+# Exits non-zero when a mutant survives (cargo-mutants exits 2).
+set -euo pipefail
+
+base="${1:-main}"
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+# The diff is taken from commits, so uncommitted edits would go untested.
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo "mutants-diff: commit or stash your changes first; only committed changes are diffed" >&2
+  exit 1
+fi
+
+out="$root/target/mutants-diff"
+mkdir -p "$out" "$root/target/mutants-home"
+git diff "$base...HEAD" > "$out/pr.diff"
+
+# A throwaway HOME keeps mutants away from the real ~/.copilot and cache
+# dir. It sits under target/, outside the system temp dir, because a test
+# keeps caches out of the temp dir. rustup must still find its toolchains.
+rustup_home="${RUSTUP_HOME:-$HOME/.rustup}"
+cargo_home="${CARGO_HOME:-$HOME/.cargo}"
+RUSTUP_HOME="$rustup_home" CARGO_HOME="$cargo_home" HOME="$root/target/mutants-home" \
+  "${CARGO:-cargo}" mutants --in-diff "$out/pr.diff" --test-tool nextest -j 4
