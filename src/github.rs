@@ -622,6 +622,17 @@ mod tests {
     }
 
     #[test]
+    fn test_a_changes_requested_decision_wins_over_an_approval() {
+        let view = pr_view(&format!(
+            r#""isDraft":false,"reviewDecision":"CHANGES_REQUESTED","latestReviews":[{}]"#,
+            review("APPROVED")
+        ))
+        .unwrap();
+
+        assert_eq!(view.pr.review_state, Some(ReviewState::ChangesRequested));
+    }
+
+    #[test]
     fn test_a_required_review_not_yet_given_sets_no_state() {
         let view = pr_view(&format!(
             r#""isDraft":false,"reviewDecision":"REVIEW_REQUIRED","latestReviews":[{}]"#,
@@ -734,6 +745,8 @@ mod tests {
             "https://github.com/o/r/issues/50",
             "https://github.com/o/r/pull/x",
             "https://github.com/o/pull/50",
+            "https://github.com//r/pull/50",
+            "https://github.com/o//pull/50",
         ] {
             assert_eq!(pr_coordinates(url), None, "{url}");
         }
