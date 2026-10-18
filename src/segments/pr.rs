@@ -95,6 +95,7 @@ mod tests {
         let pr = PullRequestInfo {
             number: 50,
             url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+            review_state: None,
         };
         assert!(render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).is_none());
     }
@@ -106,6 +107,7 @@ mod tests {
         let pr = PullRequestInfo {
             number: 50,
             url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+            review_state: None,
         };
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "PR #50");
@@ -118,6 +120,7 @@ mod tests {
         let pr = PullRequestInfo {
             number: 50,
             url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+            review_state: None,
         };
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Nerd, &p).unwrap();
         assert_eq!(rendered, " #50");
@@ -130,6 +133,7 @@ mod tests {
         let pr = PullRequestInfo {
             number: 50,
             url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+            review_state: None,
         };
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Emoji, &p).unwrap();
         assert_eq!(rendered, "🔀 #50");
@@ -142,6 +146,7 @@ mod tests {
         let pr = PullRequestInfo {
             number: 50,
             url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+            review_state: None,
         };
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
 
@@ -162,6 +167,7 @@ mod tests {
         let pr = PullRequestInfo {
             number: 50,
             url: "https://github.com/org/repo/pull/50\x1b]52;c;ZXZpbA==\x07".to_string(),
+            review_state: None,
         };
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
 
@@ -179,6 +185,7 @@ mod tests {
         let pr = PullRequestInfo {
             number: 50,
             url: "https://evil.example.com/pull/50".to_string(),
+            review_state: None,
         };
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
 
@@ -196,6 +203,7 @@ mod tests {
         let pr = PullRequestInfo {
             number: 50,
             url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+            review_state: None,
         };
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
 

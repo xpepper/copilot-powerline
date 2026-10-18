@@ -7,10 +7,21 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+/// The verdict a pull request's reviews add up to (see `GLOSSARY.md`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ReviewState {
+    Draft,
+    Approved,
+    ChangesRequested,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PullRequestInfo {
     pub number: u64,
     pub url: String,
+    // Optional so cache files written before review support still parse.
+    #[serde(default)]
+    pub review_state: Option<ReviewState>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -188,9 +199,65 @@ fn create_lock(lock_path: &Path) -> bool {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct GhPrViewPayload {
     number: u64,
     url: String,
+    #[serde(default)]
+    state: Option<String>,
+    #[serde(default)]
+    is_draft: bool,
+    // Empty when the repo requires no approving review, as on every recent
+    // PR in this repo, hence the fallback to `latest_reviews`.
+    #[serde(default)]
+    review_decision: Option<String>,
+    #[serde(default)]
+    latest_reviews: Vec<GhReview>,
+}
+
+#[derive(Deserialize)]
+struct GhReview {
+    #[serde(default)]
+    state: Option<String>,
+}
+
+/// What the worker learns from one `gh pr view` call.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrView {
+    pub pr: PullRequestInfo,
+    pub open: bool,
+}
+
+/// Parses the stdout of `gh pr view --json number,url,state,isDraft,
+/// reviewDecision,latestReviews`.
+pub fn parse_pr_view(stdout: &[u8]) -> Option<PrView> {
+    let payload: GhPrViewPayload = serde_json::from_slice(stdout).ok()?;
+    let has_review = |wanted: &str| {
+        payload
+            .latest_reviews
+            .iter()
+            .any(|r| r.state.as_deref() == Some(wanted))
+    };
+    let open = payload.state.as_deref() == Some("OPEN");
+    let review_state = match payload.review_decision.as_deref() {
+        _ if !open => None,
+        _ if payload.is_draft => Some(ReviewState::Draft),
+        Some("APPROVED") => Some(ReviewState::Approved),
+        Some("CHANGES_REQUESTED") => Some(ReviewState::ChangesRequested),
+        Some("REVIEW_REQUIRED") => None,
+        _ if has_review("CHANGES_REQUESTED") => Some(ReviewState::ChangesRequested),
+        _ if has_review("APPROVED") => Some(ReviewState::Approved),
+        _ => None,
+    };
+
+    Some(PrView {
+        open,
+        pr: PullRequestInfo {
+            number: payload.number,
+            url: payload.url,
+            review_state,
+        },
+    })
 }
 
 /// Runs `gh pr view` synchronously and writes the result to the cache file.
@@ -203,32 +270,22 @@ pub fn fetch_and_write_pr_cache(repo_dir: &Path, cache_path: &Path) {
 
     let output = output_with_timeout(
         Command::new("gh")
-            .args(["pr", "view", "--json", "number,url"])
+            .args([
+                "pr",
+                "view",
+                "--json",
+                "number,url,state,isDraft,reviewDecision,latestReviews",
+            ])
             .current_dir(repo_dir),
         GH_TIMEOUT,
     );
 
-    let entry = match output {
-        Some(out) if out.status.success() => {
-            if let Ok(payload) = serde_json::from_slice::<GhPrViewPayload>(&out.stdout) {
-                PrCacheEntry {
-                    timestamp: now,
-                    pr: Some(PullRequestInfo {
-                        number: payload.number,
-                        url: payload.url,
-                    }),
-                }
-            } else {
-                PrCacheEntry {
-                    timestamp: now,
-                    pr: None,
-                }
-            }
-        }
-        _ => PrCacheEntry {
-            timestamp: now,
-            pr: None,
-        },
+    let view = output
+        .filter(|out| out.status.success())
+        .and_then(|out| parse_pr_view(&out.stdout));
+    let entry = PrCacheEntry {
+        timestamp: now,
+        pr: view.map(|view| view.pr),
     };
 
     let _ = write_cache_entry(cache_path, &entry);
@@ -334,6 +391,7 @@ mod tests {
             pr: Some(PullRequestInfo {
                 number: 50,
                 url: "https://github.com/org/repo/pull/50".to_string(),
+                review_state: None,
             }),
         };
 
@@ -391,6 +449,108 @@ mod tests {
         let path3 = get_cache_file_path(Path::new("/some/repo"), "feature-y");
         assert_eq!(path1, path2);
         assert_ne!(path1, path3);
+    }
+
+    fn pr_view(fields: &str) -> Option<PrView> {
+        let json = format!(
+            r#"{{"number":50,"url":"https://github.com/org/repo/pull/50","state":"OPEN",{fields}}}"#
+        );
+        parse_pr_view(json.as_bytes())
+    }
+
+    fn review(state: &str) -> String {
+        format!(r#"{{"author":{{"login":"someone"}},"state":"{state}"}}"#)
+    }
+
+    #[test]
+    fn test_changes_requested_review_beats_an_approval() {
+        let view = pr_view(&format!(
+            r#""isDraft":false,"reviewDecision":"","latestReviews":[{},{}]"#,
+            review("APPROVED"),
+            review("CHANGES_REQUESTED")
+        ))
+        .unwrap();
+
+        assert_eq!(view.pr.number, 50);
+        assert_eq!(view.pr.url, "https://github.com/org/repo/pull/50");
+        assert_eq!(view.pr.review_state, Some(ReviewState::ChangesRequested));
+        assert!(view.open);
+    }
+
+    #[test]
+    fn test_a_draft_shows_as_draft_whatever_its_reviews_say() {
+        let view = pr_view(&format!(
+            r#""isDraft":true,"reviewDecision":"CHANGES_REQUESTED","latestReviews":[{}]"#,
+            review("CHANGES_REQUESTED")
+        ))
+        .unwrap();
+
+        assert_eq!(view.pr.review_state, Some(ReviewState::Draft));
+    }
+
+    #[test]
+    fn test_the_review_decision_wins_over_the_latest_reviews() {
+        let view = pr_view(&format!(
+            r#""isDraft":false,"reviewDecision":"APPROVED","latestReviews":[{}]"#,
+            review("CHANGES_REQUESTED")
+        ))
+        .unwrap();
+
+        assert_eq!(view.pr.review_state, Some(ReviewState::Approved));
+    }
+
+    #[test]
+    fn test_a_required_review_not_yet_given_sets_no_state() {
+        let view = pr_view(&format!(
+            r#""isDraft":false,"reviewDecision":"REVIEW_REQUIRED","latestReviews":[{}]"#,
+            review("APPROVED")
+        ))
+        .unwrap();
+
+        assert_eq!(view.pr.review_state, None);
+    }
+
+    #[test]
+    fn test_a_merged_pr_has_no_review_state() {
+        let json = format!(
+            r#"{{"number":50,"url":"https://github.com/org/repo/pull/50","state":"MERGED","isDraft":false,"reviewDecision":"","latestReviews":[{}]}}"#,
+            review("APPROVED")
+        );
+        let view = parse_pr_view(json.as_bytes()).unwrap();
+
+        assert!(!view.open);
+        assert_eq!(view.pr.review_state, None);
+    }
+
+    #[test]
+    fn test_comments_and_dismissed_reviews_set_no_state() {
+        let view = pr_view(&format!(
+            r#""isDraft":false,"reviewDecision":"","latestReviews":[{},{}]"#,
+            review("COMMENTED"),
+            review("DISMISSED")
+        ))
+        .unwrap();
+
+        assert_eq!(view.pr.review_state, None);
+    }
+
+    #[test]
+    fn test_a_cache_entry_from_before_review_support_still_parses() {
+        let temp_file = std::env::temp_dir().join(format!(
+            "test_cache_old_{}_{}.json",
+            std::process::id(),
+            current_timestamp()
+        ));
+        fs::write(
+            &temp_file,
+            r#"{"timestamp":1000,"pr":{"number":50,"url":"https://github.com/org/repo/pull/50"}}"#,
+        )
+        .unwrap();
+
+        let loaded = read_cache_entry(&temp_file).unwrap();
+        let _ = fs::remove_file(&temp_file);
+
+        assert_eq!(loaded.pr.unwrap().review_state, None);
     }
 
     #[test]
@@ -477,6 +637,7 @@ mod tests {
             pr: Some(PullRequestInfo {
                 number: 7,
                 url: "https://github.com/org/repo/pull/7".to_string(),
+                review_state: None,
             }),
         };
         write_cache_entry(&cache_path, &original).unwrap();
