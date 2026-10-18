@@ -239,9 +239,29 @@ mod tests {
         }
     }
 
+    /// A config with both review switches on, as they are off by default.
+    fn reviews_shown() -> PrConfig {
+        PrConfig {
+            show_review_state: true,
+            show_unresolved: true,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_render_pr_shows_no_review_info_by_default() {
+        let cfg = PrConfig::default();
+        let p = Palette::for_theme("plain");
+        let pr = reviewed_pr(Some(ReviewState::ChangesRequested), Some((3, false)));
+
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        assert_eq!(rendered, "PR #50");
+    }
+
     #[test]
     fn test_render_pr_review_state_and_unresolved_threads() {
-        let cfg = PrConfig::default();
+        let cfg = reviews_shown();
         let p = Palette::for_theme("plain");
         let pr = reviewed_pr(Some(ReviewState::ChangesRequested), Some((3, false)));
 
@@ -252,7 +272,7 @@ mod tests {
 
     #[test]
     fn test_render_pr_alert_colour_only_on_what_needs_action() {
-        let cfg = PrConfig::default();
+        let cfg = reviews_shown();
         let p = Palette::for_theme("colorblind");
 
         let changes = reviewed_pr(Some(ReviewState::ChangesRequested), Some((3, false)));
@@ -274,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_render_pr_hyperlink_stays_on_the_number() {
-        let cfg = PrConfig::default();
+        let cfg = reviews_shown();
         let p = Palette::for_theme("colorblind");
         let pr = reviewed_pr(Some(ReviewState::Approved), Some((1, false)));
 
@@ -286,7 +306,7 @@ mod tests {
 
     #[test]
     fn test_render_pr_unresolved_count_past_the_first_page_is_a_lower_bound() {
-        let cfg = PrConfig::default();
+        let cfg = reviews_shown();
         let p = Palette::for_theme("plain");
         let pr = reviewed_pr(None, Some((3, true)));
 
@@ -297,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_render_pr_unknown_count_when_only_later_pages_could_hold_unresolved_threads() {
-        let cfg = PrConfig::default();
+        let cfg = reviews_shown();
         let p = Palette::for_theme("plain");
         let pr = reviewed_pr(None, Some((0, true)));
 
@@ -308,7 +328,7 @@ mod tests {
 
     #[test]
     fn test_render_pr_nothing_extra_without_reviews_or_open_threads() {
-        let cfg = PrConfig::default();
+        let cfg = reviews_shown();
         let p = Palette::for_theme("plain");
         let pr = reviewed_pr(None, Some((0, false)));
 
@@ -326,13 +346,13 @@ mod tests {
 
         let no_state = PrConfig {
             show_review_state: false,
-            ..Default::default()
+            ..reviews_shown()
         };
         assert_eq!(render(no_state), "PR #50 · 3 unresolved");
 
         let no_threads = PrConfig {
             show_unresolved: false,
-            ..Default::default()
+            ..reviews_shown()
         };
         assert_eq!(render(no_threads), "PR #50 · changes requested");
     }

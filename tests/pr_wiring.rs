@@ -18,6 +18,10 @@ use std::time::{Duration, Instant};
 
 const URL: &str = "https://github.com/org/repo/pull/50";
 
+/// A config showing the pr segment with both review switches on, as they
+/// are off by default.
+const REVIEWS_ON: &str = "theme = \"plain\"\nsegments = [\"pr\"]\n\n[pr]\nshow_review_state = true\nshow_unresolved = true\n";
+
 fn pr_view(state: &str, latest_review: &str) -> String {
     format!(
         r#"{{"number":50,"url":"{URL}","state":"{state}","isDraft":false,"reviewDecision":"","latestReviews":[{{"author":{{"login":"someone"}},"state":"{latest_review}"}}]}}"#
@@ -122,7 +126,7 @@ fn shown_after_fetch(sandbox: &Sandbox, gh: &FakeGh) -> String {
 #[test]
 fn test_shows_review_state_and_unresolved_threads_after_the_fetch() {
     let sandbox = Sandbox::new();
-    sandbox.write_config("theme = \"plain\"\nsegments = [\"pr\"]\n");
+    sandbox.write_config(REVIEWS_ON);
     let gh = fake_gh(
         &sandbox,
         &pr_view("OPEN", "CHANGES_REQUESTED"),
@@ -148,7 +152,7 @@ fn test_shows_review_state_and_unresolved_threads_after_the_fetch() {
 #[test]
 fn test_a_failed_thread_query_still_shows_the_review_state() {
     let sandbox = Sandbox::new();
-    sandbox.write_config("theme = \"plain\"\nsegments = [\"pr\"]\n");
+    sandbox.write_config(REVIEWS_ON);
     let gh = fake_gh(&sandbox, &pr_view("OPEN", "CHANGES_REQUESTED"), None);
 
     let line = shown_after_fetch(&sandbox, &gh);
@@ -159,7 +163,7 @@ fn test_a_failed_thread_query_still_shows_the_review_state() {
 #[test]
 fn test_a_merged_pr_skips_the_thread_query() {
     let sandbox = Sandbox::new();
-    sandbox.write_config("theme = \"plain\"\nsegments = [\"pr\"]\n");
+    sandbox.write_config(REVIEWS_ON);
     let gh = fake_gh(&sandbox, &pr_view("MERGED", "APPROVED"), Some(THREADS));
 
     let line = shown_after_fetch(&sandbox, &gh);
@@ -169,10 +173,26 @@ fn test_a_merged_pr_skips_the_thread_query() {
 }
 
 #[test]
-fn test_turning_off_the_unresolved_count_skips_the_thread_query() {
+fn test_the_default_config_shows_no_review_info_and_skips_the_thread_query() {
+    let sandbox = Sandbox::new();
+    sandbox.write_config("theme = \"plain\"\nsegments = [\"pr\"]\n");
+    let gh = fake_gh(
+        &sandbox,
+        &pr_view("OPEN", "CHANGES_REQUESTED"),
+        Some(THREADS),
+    );
+
+    let line = shown_after_fetch(&sandbox, &gh);
+
+    assert_eq!(line, "PR #50");
+    assert_eq!(gh.calls().len(), 1, "{:?}", gh.calls());
+}
+
+#[test]
+fn test_the_review_state_alone_skips_the_thread_query() {
     let sandbox = Sandbox::new();
     sandbox
-        .write_config("theme = \"plain\"\nsegments = [\"pr\"]\n\n[pr]\nshow_unresolved = false\n");
+        .write_config("theme = \"plain\"\nsegments = [\"pr\"]\n\n[pr]\nshow_review_state = true\n");
     let gh = fake_gh(&sandbox, &pr_view("OPEN", "APPROVED"), Some(THREADS));
 
     let line = shown_after_fetch(&sandbox, &gh);
