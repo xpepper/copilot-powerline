@@ -7,6 +7,7 @@ mod cli;
 mod config;
 mod cycle_usage;
 mod db;
+mod events;
 mod git;
 mod github;
 mod icons;
