@@ -8,7 +8,7 @@ Identifiers, comments and user-facing docs (README, `examples/powerline.toml`, h
 
 ## One setting, one name
 
-A setting that crosses a boundary (config key, hidden worker flag, function parameter) keeps one name and one polarity end to end: `show_unresolved` in config becomes `fetch_unresolved` in the worker and `--fetch-unresolved` on its command line, never `--skip-unresolved`.
+A setting that crosses a boundary (config key, hidden worker flag, function parameter) keeps one name and one polarity end to end: `show_unresolved` in config becomes `fetch_unresolved` in the worker and `--fetch-unresolved` on its command line.
 
 ## Flag arguments
 
