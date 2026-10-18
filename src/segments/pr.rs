@@ -97,13 +97,16 @@ fn review_parts(
     }
     if let Some(threads) = pr
         .unresolved_threads
-        .filter(|t| config.show_unresolved && t.count > 0)
+        .filter(|t| config.show_unresolved && (t.count > 0 || t.more))
     {
-        let more = if threads.more { "+" } else { "" };
-        parts.push((
-            format!("{}{} unresolved", threads.count, more),
-            palette.tokens_alert,
-        ));
+        // Only the first page of threads is counted, so with more pages the
+        // count is a lower bound, and none on the first page says nothing.
+        let count = match (threads.count, threads.more) {
+            (0, _) => "?".to_string(),
+            (count, true) => format!("{count}+"),
+            (count, false) => count.to_string(),
+        };
+        parts.push((format!("{count} unresolved"), palette.tokens_alert));
     }
     parts
 }
@@ -314,14 +317,25 @@ mod tests {
     }
 
     #[test]
-    fn test_render_pr_unresolved_count_past_the_first_page() {
+    fn test_render_pr_unresolved_count_past_the_first_page_is_a_lower_bound() {
         let cfg = PrConfig::default();
         let p = Palette::for_theme("plain");
-        let pr = reviewed_pr(None, Some((100, true)));
+        let pr = reviewed_pr(None, Some((3, true)));
 
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
 
-        assert_eq!(rendered, "PR #50 · 100+ unresolved");
+        assert_eq!(rendered, "PR #50 · 3+ unresolved");
+    }
+
+    #[test]
+    fn test_render_pr_unknown_count_when_only_later_pages_could_hold_unresolved_threads() {
+        let cfg = PrConfig::default();
+        let p = Palette::for_theme("plain");
+        let pr = reviewed_pr(None, Some((0, true)));
+
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        assert_eq!(rendered, "PR #50 · ? unresolved");
     }
 
     #[test]

@@ -265,7 +265,7 @@ pub fn parse_pr_view(stdout: &[u8]) -> Option<PrView> {
 }
 
 /// How many review threads the GraphQL query fetches; past that the count
-/// shows as `100+` instead of paginating.
+/// shows as a lower bound (`3+`) instead of paginating.
 const REVIEW_THREADS_PAGE: u32 = 100;
 
 /// The pull request's Unresolved Threads. `more` is set when the first
