@@ -897,4 +897,63 @@ mod tests {
         let example: toml::Table = toml::from_str(example).unwrap();
         assert_eq!(unknown_keys(&example, &known, ""), Vec::<String>::new());
     }
+
+    /// The example annotates each option with `(default: X)`. Nothing else
+    /// ties that text to `Config::default()`, so a changed default would
+    /// leave a stale comment behind.
+    #[test]
+    fn test_example_config_default_comments_match_the_defaults() {
+        let defaults: toml::Table =
+            toml::from_str(&Config::default().to_toml_string().unwrap()).unwrap();
+        let mut section: Option<String> = None;
+        let mut wrong = Vec::new();
+
+        for line in include_str!("../examples/powerline.toml").lines() {
+            if let Some(name) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
+                section = Some(name.to_string());
+                continue;
+            }
+            let Some((setting, comment)) = line.split_once('#') else {
+                continue;
+            };
+            let Some((key, value)) = setting.split_once('=') else {
+                continue;
+            };
+            let Some(noted) = comment
+                .split_once("(default: ")
+                .and_then(|(_, rest)| rest.split_once(')'))
+                .map(|(noted, _)| noted.split([';', ',']).next().unwrap().trim())
+            else {
+                continue;
+            };
+            if value.trim().starts_with('[') {
+                continue; // a list, described in prose
+            }
+
+            let key = key.trim();
+            let table = match &section {
+                Some(name) => defaults.get(name).and_then(|t| t.as_table()),
+                None => Some(&defaults),
+            };
+            let actual = table.and_then(|t| t.get(key));
+            let expected = if noted.starts_with("unset") {
+                None
+            } else {
+                let parsed: toml::Table = toml::from_str(&format!("v = {noted}"))
+                    .unwrap_or_else(|e| panic!("`(default: {noted})` for {key}: {e}"));
+                parsed.get("v").cloned()
+            };
+            if actual != expected.as_ref() {
+                wrong.push(format!(
+                    "{}{key}: comment says {noted}, default is {actual:?}",
+                    section
+                        .as_deref()
+                        .map(|s| format!("[{s}] "))
+                        .unwrap_or_default()
+                ));
+            }
+        }
+
+        assert_eq!(wrong, Vec::<String>::new());
+    }
 }
