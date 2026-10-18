@@ -128,3 +128,13 @@ _Avoid_: Colour scheme, skin
 **Icon Set**:
 How each Segment is labelled: Nerd Font glyphs, emoji, or plain text.
 _Avoid_: Glyphs, symbols
+
+## Pull request
+
+**Review State**:
+The verdict a pull request's reviews add up to: draft, approved or changes requested. A pull request with no deciding review has none.
+_Avoid_: Review status, PR status
+
+**Unresolved Thread**:
+A review conversation on a pull request not yet marked resolved, including ones on code that has since changed.
+_Avoid_: Open comment, pending review
