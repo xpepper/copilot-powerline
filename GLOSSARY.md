@@ -38,6 +38,20 @@ _Avoid_: Total tokens, throughput
 Tokens a model spends thinking before it answers, accumulated over the Session.
 _Avoid_: Think tokens, thinking budget
 
+## Event data
+
+**Event Log**:
+Copilot's own record of what happened in a Session, one entry per event. It carries what the status line payload does not, such as per-Step usage and tool runs.
+_Avoid_: Transcript, session file, history
+
+**Usage Record**:
+The Event Log's entry for one Step: its model, token counts and the size of the tool definitions at that moment.
+_Avoid_: Step record, call record
+
+**Tool Overhead**:
+The tokens the tool definitions (built-in and MCP) add to every request. It is read from the latest Step of the main agent, because sub-agents get their own tool set.
+_Avoid_: Tool tokens, MCP cost, tool size
+
 ## Prompt cache
 
 **Prompt Cache**:
