@@ -517,10 +517,12 @@ impl Default for ModelConfig {
     }
 }
 
-/// Optional size of the tool definitions Copilot CLI sends with every request
-/// (e.g. `Tools: 68k (34%)`), so an MCP setup that eats the context window
-/// gets noticed. It reads the latest main-agent step from the session's event
-/// log, so it shows nothing until the session has made a model call.
+/// Optional size of the tool definitions Copilot CLI sends in each request
+/// (e.g. `Tools: 15k (15%)`), so you can see what every request pays for
+/// tools. Only definitions sent in full count: tools Copilot loads on demand
+/// (MCP tools on Claude and GPT-6 Luna, as far as checked) do not. It reads
+/// the latest main-agent step from the session's event log, so it shows
+/// nothing until the session has made a model call.
 ///
 /// Not in the default `segments` list: add `"tool_overhead"` to opt in. It
 /// always shows by default; set `min_tokens` to show it only above a size

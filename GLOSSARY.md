@@ -49,7 +49,7 @@ The Event Log's entry for one Step: its model, token counts and the size of the 
 _Avoid_: Step record, call record
 
 **Tool Overhead**:
-The tokens the tool definitions (built-in and MCP) add to every request. It is read from the latest Step of the main agent, because sub-agents get their own tool set.
+The tokens the tool definitions that Copilot sends in full add to every request. Tools loaded on demand do not count. It is read from the latest Step of the main agent, because sub-agents get their own tool set.
 _Avoid_: Tool tokens, MCP cost, tool size
 
 ## Prompt cache
