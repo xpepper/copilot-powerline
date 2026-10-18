@@ -216,4 +216,17 @@ mod tests {
         );
         assert_eq!(latest_main_usage_in(dir.path(), whole_line - 1), None);
     }
+
+    #[test]
+    fn test_reads_about_the_last_megabyte_by_default() {
+        let near = session_dir(&[main_record(68_000), filler(500_000)]);
+        assert_eq!(
+            latest_main_usage(near.path()),
+            Some(UsageRecord {
+                tool_tokens: 68_000
+            })
+        );
+        let far = session_dir(&[main_record(68_000), filler(1_200_000)]);
+        assert_eq!(latest_main_usage(far.path()), None);
+    }
 }
