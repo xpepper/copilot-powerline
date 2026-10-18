@@ -1,6 +1,6 @@
 use super::is_listed;
 use crate::config::{IconSet, PrConfig};
-use crate::github::PullRequestInfo;
+use crate::github::{PullRequestInfo, ReviewState};
 use crate::icons::pr_icon;
 use crate::theme::Palette;
 
@@ -70,12 +70,51 @@ pub fn render_pr_segment(
         format!("{}{}{}", palette.pr, pr_text, palette.reset)
     };
 
-    Some(format!("{}{}", icon_part, formatted_pr))
+    let mut rendered = format!("{}{}", icon_part, formatted_pr);
+    for (text, color) in review_parts(pr, config, palette) {
+        rendered.push_str(&format!(" · {}{}{}", color, text, palette.reset));
+    }
+    Some(rendered)
+}
+
+/// The Review State and Unresolved Threads shown after the number, each with
+/// its colour: the alert colour for what needs action, the segment's own
+/// colour otherwise.
+fn review_parts(
+    pr: &PullRequestInfo,
+    config: &PrConfig,
+    palette: &Palette,
+) -> Vec<(String, &'static str)> {
+    let mut parts = Vec::new();
+    if let Some(state) = pr.review_state.filter(|_| config.show_review_state) {
+        parts.push(match state {
+            ReviewState::Draft => ("draft".to_string(), palette.pr),
+            ReviewState::Approved => ("approved".to_string(), palette.pr),
+            ReviewState::ChangesRequested => {
+                ("changes requested".to_string(), palette.tokens_alert)
+            }
+        });
+    }
+    if let Some(threads) = pr
+        .unresolved_threads
+        .filter(|t| config.show_unresolved && (t.count > 0 || t.more))
+    {
+        // Only the first page of threads is counted, so with more pages the
+        // count is a lower bound, and none on the first page says nothing.
+        let count = match (threads.count, threads.more) {
+            (0, _) => "?".to_string(),
+            (count, true) => format!("{count}+"),
+            (count, false) => count.to_string(),
+        };
+        parts.push((format!("{count} unresolved"), palette.tokens_alert));
+    }
+    parts
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::github::UnresolvedThreads;
     use crate::segments::names;
 
     #[test]
@@ -92,10 +131,7 @@ mod tests {
             ..Default::default()
         };
         let p = Palette::for_theme("plain");
-        let pr = PullRequestInfo {
-            number: 50,
-            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
-        };
+        let pr = reviewed_pr(None, None);
         assert!(render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).is_none());
     }
 
@@ -103,10 +139,7 @@ mod tests {
     fn test_render_pr_plain_theme() {
         let cfg = PrConfig::default();
         let p = Palette::for_theme("plain");
-        let pr = PullRequestInfo {
-            number: 50,
-            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
-        };
+        let pr = reviewed_pr(None, None);
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
         assert_eq!(rendered, "PR #50");
     }
@@ -115,10 +148,7 @@ mod tests {
     fn test_render_pr_nerd_icon() {
         let cfg = PrConfig::default();
         let p = Palette::for_theme("plain");
-        let pr = PullRequestInfo {
-            number: 50,
-            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
-        };
+        let pr = reviewed_pr(None, None);
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Nerd, &p).unwrap();
         assert_eq!(rendered, " #50");
     }
@@ -127,10 +157,7 @@ mod tests {
     fn test_render_pr_emoji_icon() {
         let cfg = PrConfig::default();
         let p = Palette::for_theme("plain");
-        let pr = PullRequestInfo {
-            number: 50,
-            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
-        };
+        let pr = reviewed_pr(None, None);
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Emoji, &p).unwrap();
         assert_eq!(rendered, "🔀 #50");
     }
@@ -139,10 +166,7 @@ mod tests {
     fn test_render_pr_hyperlink_and_colors() {
         let cfg = PrConfig::default();
         let p = Palette::for_theme("colorblind");
-        let pr = PullRequestInfo {
-            number: 50,
-            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
-        };
+        let pr = reviewed_pr(None, None);
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
 
         // Must contain OSC 8 hyperlink sequence.
@@ -162,6 +186,8 @@ mod tests {
         let pr = PullRequestInfo {
             number: 50,
             url: "https://github.com/org/repo/pull/50\x1b]52;c;ZXZpbA==\x07".to_string(),
+            review_state: None,
+            unresolved_threads: None,
         };
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
 
@@ -177,8 +203,8 @@ mod tests {
         let cfg = PrConfig::default();
         let p = Palette::for_theme("colorblind");
         let pr = PullRequestInfo {
-            number: 50,
             url: "https://evil.example.com/pull/50".to_string(),
+            ..reviewed_pr(None, None)
         };
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
 
@@ -193,15 +219,142 @@ mod tests {
             ..Default::default()
         };
         let p = Palette::for_theme("colorblind");
-        let pr = PullRequestInfo {
-            number: 50,
-            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
-        };
+        let pr = reviewed_pr(None, None);
         let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
 
         // Must NOT contain OSC 8 sequence.
         assert!(!rendered.contains("\x1b]8;;"));
         assert!(rendered.contains("#50"));
+    }
+
+    fn reviewed_pr(
+        review_state: Option<ReviewState>,
+        unresolved: Option<(u32, bool)>,
+    ) -> PullRequestInfo {
+        PullRequestInfo {
+            number: 50,
+            url: "https://github.com/xpepper/copilot-powerline/pull/50".to_string(),
+            review_state,
+            unresolved_threads: unresolved.map(|(count, more)| UnresolvedThreads { count, more }),
+        }
+    }
+
+    /// A config with both review switches on, as they are off by default.
+    fn reviews_shown() -> PrConfig {
+        PrConfig {
+            show_review_state: true,
+            show_unresolved: true,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_render_pr_shows_no_review_info_by_default() {
+        let cfg = PrConfig::default();
+        let p = Palette::for_theme("plain");
+        let pr = reviewed_pr(Some(ReviewState::ChangesRequested), Some((3, false)));
+
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        assert_eq!(rendered, "PR #50");
+    }
+
+    #[test]
+    fn test_render_pr_review_state_and_unresolved_threads() {
+        let cfg = reviews_shown();
+        let p = Palette::for_theme("plain");
+        let pr = reviewed_pr(Some(ReviewState::ChangesRequested), Some((3, false)));
+
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        assert_eq!(rendered, "PR #50 · changes requested · 3 unresolved");
+    }
+
+    #[test]
+    fn test_render_pr_alert_colour_only_on_what_needs_action() {
+        let cfg = reviews_shown();
+        let p = Palette::for_theme("colorblind");
+
+        let changes = reviewed_pr(Some(ReviewState::ChangesRequested), Some((3, false)));
+        let rendered = render_pr_segment(Some(&changes), &cfg, IconSet::Plain, &p).unwrap();
+        assert!(rendered.contains(&format!(
+            " · {}changes requested{}",
+            p.tokens_alert, p.reset
+        )));
+        assert!(rendered.contains(&format!(" · {}3 unresolved{}", p.tokens_alert, p.reset)));
+
+        let draft = reviewed_pr(Some(ReviewState::Draft), None);
+        let rendered = render_pr_segment(Some(&draft), &cfg, IconSet::Plain, &p).unwrap();
+        assert!(rendered.contains(&format!(" · {}draft{}", p.pr, p.reset)));
+
+        let approved = reviewed_pr(Some(ReviewState::Approved), None);
+        let rendered = render_pr_segment(Some(&approved), &cfg, IconSet::Plain, &p).unwrap();
+        assert!(rendered.contains(&format!(" · {}approved{}", p.pr, p.reset)));
+    }
+
+    #[test]
+    fn test_render_pr_hyperlink_stays_on_the_number() {
+        let cfg = reviews_shown();
+        let p = Palette::for_theme("colorblind");
+        let pr = reviewed_pr(Some(ReviewState::Approved), Some((1, false)));
+
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        assert!(rendered.contains("\x1b\\#50\x1b]8;;\x1b\\"));
+        assert_eq!(rendered.matches("\x1b]8;;").count(), 2);
+    }
+
+    #[test]
+    fn test_render_pr_unresolved_count_past_the_first_page_is_a_lower_bound() {
+        let cfg = reviews_shown();
+        let p = Palette::for_theme("plain");
+        let pr = reviewed_pr(None, Some((3, true)));
+
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        assert_eq!(rendered, "PR #50 · 3+ unresolved");
+    }
+
+    #[test]
+    fn test_render_pr_unknown_count_when_only_later_pages_could_hold_unresolved_threads() {
+        let cfg = reviews_shown();
+        let p = Palette::for_theme("plain");
+        let pr = reviewed_pr(None, Some((0, true)));
+
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        assert_eq!(rendered, "PR #50 · ? unresolved");
+    }
+
+    #[test]
+    fn test_render_pr_nothing_extra_without_reviews_or_open_threads() {
+        let cfg = reviews_shown();
+        let p = Palette::for_theme("plain");
+        let pr = reviewed_pr(None, Some((0, false)));
+
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        assert_eq!(rendered, "PR #50");
+    }
+
+    #[test]
+    fn test_render_pr_switches_hide_review_state_and_unresolved_threads() {
+        let p = Palette::for_theme("plain");
+        let pr = reviewed_pr(Some(ReviewState::ChangesRequested), Some((3, false)));
+        let render =
+            |cfg: PrConfig| render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        let no_state = PrConfig {
+            show_review_state: false,
+            ..reviews_shown()
+        };
+        assert_eq!(render(no_state), "PR #50 · 3 unresolved");
+
+        let no_threads = PrConfig {
+            show_unresolved: false,
+            ..reviews_shown()
+        };
+        assert_eq!(render(no_threads), "PR #50 · changes requested");
     }
 
     #[test]

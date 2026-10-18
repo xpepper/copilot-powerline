@@ -98,7 +98,7 @@ fn main() {
 
     if let Some(cache_path) = cli.fetch_pr_cache {
         let repo_dir = cli.repo_dir.unwrap_or_else(|| PathBuf::from("."));
-        github::fetch_and_write_pr_cache(&repo_dir, &cache_path);
+        github::fetch_and_write_pr_cache(&repo_dir, &cache_path, cli.fetch_unresolved);
         return;
     }
 
@@ -175,12 +175,7 @@ fn main() {
         // subdirectory of the repo the status line was invoked from.
         git::find_repo_root(&cwd).and_then(|repo_dir| {
             git::get_git_branch(&repo_dir).and_then(|branch| {
-                github::get_pr_info(
-                    &repo_dir,
-                    &branch,
-                    config.pr.cache_ttl_seconds,
-                    github::is_gh_available(),
-                )
+                github::get_pr_info(&repo_dir, &branch, &config.pr, github::is_gh_available())
             })
         })
     } else {
