@@ -563,7 +563,9 @@ pub struct PrConfig {
     pub hyperlinks: bool,
     #[serde(default = "default_pr_cache_ttl")]
     pub cache_ttl_seconds: u64,
-    /// Show the Review State (draft, approved, changes requested).
+    /// Spell out the Review State (draft, approved, changes requested)
+    /// after the number. The number is tinted by it either way, and a
+    /// palette without colours always spells it out.
     #[serde(default)]
     pub show_review_state: bool,
     /// Show the count of Unresolved Threads. Off (the default) also skips

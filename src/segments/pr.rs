@@ -55,6 +55,11 @@ pub fn render_pr_segment(
     };
 
     let pr_text = format!("#{}", pr.number);
+    // The review state tints the number; without a state it keeps the
+    // segment's own colour.
+    let number_colour = pr
+        .review_state
+        .map_or(palette.pr, |state| review_colour(state, palette));
 
     let formatted_pr = if palette.reset.is_empty() {
         // Plain theme without escape codes.
@@ -64,10 +69,10 @@ pub fn render_pr_segment(
         // underline + color + OSC8-open + text + OSC8-close + reset
         format!(
             "\x1b[4m{}\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\{}",
-            palette.pr, pr.url, pr_text, palette.reset
+            number_colour, pr.url, pr_text, palette.reset
         )
     } else {
-        format!("{}{}{}", palette.pr, pr_text, palette.reset)
+        format!("{}{}{}", number_colour, pr_text, palette.reset)
     };
 
     let mut rendered = format!("{}{}", icon_part, formatted_pr);
@@ -77,23 +82,31 @@ pub fn render_pr_segment(
     Some(rendered)
 }
 
-/// The Review State and Unresolved Threads shown after the number, each with
-/// its colour: the alert colour for what needs action, the segment's own
-/// colour otherwise.
+fn review_colour(state: ReviewState, palette: &Palette) -> &'static str {
+    match state {
+        ReviewState::Draft => palette.pr_draft,
+        ReviewState::Approved => palette.pr_approved,
+        ReviewState::ChangesRequested => palette.pr_changes_requested,
+    }
+}
+
+/// The Review State and Unresolved Threads shown after the number. The
+/// state is spelled out when asked for, and when the palette has no colours
+/// (the number's tint is then the only signal there would be).
 fn review_parts(
     pr: &PullRequestInfo,
     config: &PrConfig,
     palette: &Palette,
 ) -> Vec<(String, &'static str)> {
     let mut parts = Vec::new();
-    if let Some(state) = pr.review_state.filter(|_| config.show_review_state) {
-        parts.push(match state {
-            ReviewState::Draft => ("draft".to_string(), palette.pr),
-            ReviewState::Approved => ("approved".to_string(), palette.pr),
-            ReviewState::ChangesRequested => {
-                ("changes requested".to_string(), palette.tokens_alert)
-            }
-        });
+    let spell_out = config.show_review_state || palette.reset.is_empty();
+    if let Some(state) = pr.review_state.filter(|_| spell_out) {
+        let text = match state {
+            ReviewState::Draft => "draft",
+            ReviewState::Approved => "approved",
+            ReviewState::ChangesRequested => "changes requested",
+        };
+        parts.push((text.to_string(), review_colour(state, palette)));
     }
     if let Some(threads) = pr
         .unresolved_threads
@@ -248,15 +261,86 @@ mod tests {
         }
     }
 
+    /// A config without hyperlinks, so the number is `{colour}#50{reset}`.
+    fn colour_only() -> PrConfig {
+        PrConfig {
+            hyperlinks: false,
+            ..Default::default()
+        }
+    }
+
     #[test]
-    fn test_render_pr_shows_no_review_info_by_default() {
+    fn test_render_pr_colours_the_number_by_review_state_and_adds_no_words_by_default() {
+        let cfg = colour_only();
+        let p = Palette::for_theme("github");
+        let cases = [
+            (ReviewState::Approved, p.pr_approved),
+            (ReviewState::ChangesRequested, p.pr_changes_requested),
+            (ReviewState::Draft, p.pr_draft),
+        ];
+
+        for (state, colour) in cases {
+            let pr = reviewed_pr(Some(state), None);
+            let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+            assert!(
+                rendered.ends_with(&format!("{colour}#50{}", p.reset)),
+                "{rendered:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_render_pr_keeps_the_segment_colour_without_a_review_state() {
+        let p = Palette::for_theme("github");
+        let pr = reviewed_pr(None, None);
+
+        let rendered = render_pr_segment(Some(&pr), &colour_only(), IconSet::Plain, &p).unwrap();
+
+        assert!(
+            rendered.ends_with(&format!("{}#50{}", p.pr, p.reset)),
+            "{rendered:?}"
+        );
+    }
+
+    #[test]
+    fn test_render_pr_colour_theme_shows_no_review_words_unless_asked() {
+        let p = Palette::for_theme("colorblind");
+        let pr = reviewed_pr(Some(ReviewState::Approved), None);
+
+        let quiet = render_pr_segment(Some(&pr), &colour_only(), IconSet::Plain, &p).unwrap();
+        assert!(!quiet.contains("approved"));
+
+        let cfg = PrConfig {
+            show_review_state: true,
+            ..colour_only()
+        };
+        let worded = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+        assert!(
+            worded.ends_with(&format!(
+                "{c}#50{r} · {c}approved{r}",
+                c = p.pr_approved,
+                r = p.reset
+            )),
+            "{worded:?}"
+        );
+    }
+
+    #[test]
+    fn test_render_pr_plain_theme_spells_the_review_state_as_the_only_signal() {
         let cfg = PrConfig::default();
         let p = Palette::for_theme("plain");
-        let pr = reviewed_pr(Some(ReviewState::ChangesRequested), Some((3, false)));
+        let render = |state| {
+            let pr = reviewed_pr(Some(state), None);
+            render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap()
+        };
 
-        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
-
-        assert_eq!(rendered, "PR #50");
+        assert_eq!(render(ReviewState::Approved), "PR #50 · approved");
+        assert_eq!(render(ReviewState::Draft), "PR #50 · draft");
+        assert_eq!(
+            render(ReviewState::ChangesRequested),
+            "PR #50 · changes requested"
+        );
     }
 
     #[test]
@@ -271,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    fn test_render_pr_alert_colour_only_on_what_needs_action() {
+    fn test_render_pr_review_words_take_the_colour_of_their_state() {
         let cfg = reviews_shown();
         let p = Palette::for_theme("colorblind");
 
@@ -279,17 +363,17 @@ mod tests {
         let rendered = render_pr_segment(Some(&changes), &cfg, IconSet::Plain, &p).unwrap();
         assert!(rendered.contains(&format!(
             " · {}changes requested{}",
-            p.tokens_alert, p.reset
+            p.pr_changes_requested, p.reset
         )));
         assert!(rendered.contains(&format!(" · {}3 unresolved{}", p.tokens_alert, p.reset)));
 
         let draft = reviewed_pr(Some(ReviewState::Draft), None);
         let rendered = render_pr_segment(Some(&draft), &cfg, IconSet::Plain, &p).unwrap();
-        assert!(rendered.contains(&format!(" · {}draft{}", p.pr, p.reset)));
+        assert!(rendered.contains(&format!(" · {}draft{}", p.pr_draft, p.reset)));
 
         let approved = reviewed_pr(Some(ReviewState::Approved), None);
         let rendered = render_pr_segment(Some(&approved), &cfg, IconSet::Plain, &p).unwrap();
-        assert!(rendered.contains(&format!(" · {}approved{}", p.pr, p.reset)));
+        assert!(rendered.contains(&format!(" · {}approved{}", p.pr_approved, p.reset)));
     }
 
     #[test]
@@ -338,23 +422,17 @@ mod tests {
     }
 
     #[test]
-    fn test_render_pr_switches_hide_review_state_and_unresolved_threads() {
+    fn test_render_pr_switch_hides_unresolved_threads() {
         let p = Palette::for_theme("plain");
         let pr = reviewed_pr(Some(ReviewState::ChangesRequested), Some((3, false)));
-        let render =
-            |cfg: PrConfig| render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
-
-        let no_state = PrConfig {
-            show_review_state: false,
-            ..reviews_shown()
-        };
-        assert_eq!(render(no_state), "PR #50 · 3 unresolved");
-
-        let no_threads = PrConfig {
+        let cfg = PrConfig {
             show_unresolved: false,
             ..reviews_shown()
         };
-        assert_eq!(render(no_threads), "PR #50 · changes requested");
+
+        let rendered = render_pr_segment(Some(&pr), &cfg, IconSet::Plain, &p).unwrap();
+
+        assert_eq!(rendered, "PR #50 · changes requested");
     }
 
     #[test]

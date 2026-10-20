@@ -173,7 +173,7 @@ fn test_a_merged_pr_skips_the_thread_query() {
 }
 
 #[test]
-fn test_the_default_config_shows_no_review_info_and_skips_the_thread_query() {
+fn test_the_default_config_skips_the_thread_query() {
     let sandbox = Sandbox::new();
     sandbox.write_config("theme = \"plain\"\nsegments = [\"pr\"]\n");
     let gh = fake_gh(
@@ -184,7 +184,8 @@ fn test_the_default_config_shows_no_review_info_and_skips_the_thread_query() {
 
     let line = shown_after_fetch(&sandbox, &gh);
 
-    assert_eq!(line, "PR #50");
+    // The plain theme has no colours, so the review state is spelled out.
+    assert_eq!(line, "PR #50 · changes requested");
     assert_eq!(gh.calls().len(), 1, "{:?}", gh.calls());
 }
 
