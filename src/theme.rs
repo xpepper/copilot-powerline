@@ -137,6 +137,13 @@ mod tests {
         assert_eq!(gh.pr_changes_requested, "\x1b[1;31m");
         assert_eq!(gh.pr_draft, "\x1b[90m");
 
+        // Only the colorblind palette (the fallback) is blue/orange.
+        for theme in ["nord", "tokyo-night"] {
+            let palette = Palette::for_theme(theme);
+            assert_eq!(palette.pr_approved, "\x1b[92m", "{theme}");
+            assert_eq!(palette.pr_changes_requested, "\x1b[1;31m", "{theme}");
+        }
+
         let plain = Palette::for_theme("plain");
         assert_eq!(plain.pr_approved, "");
         assert_eq!(plain.pr_changes_requested, "");
