@@ -101,6 +101,7 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 - **GitHub Cycle Usage** *(optional, experimental)*: Shows the AI credits GitHub counts for your current billing cycle across every Copilot surface (IDE, github.com, CLI), fetched with the `gh` CLI in the background. Opt in by adding `cycle_cost` to `segments`. A [helper script](#experimental-exact-github-usage-refresh) can also log it over time.
 - **Pull Request Reference** *(optional)*: Shows the current branch's pull request as a clickable link, tinted by its review state and optionally followed by its unresolved review threads (e.g. `PR #50 · changes requested · 3 unresolved`), via the `gh` CLI. Disabled from the default segment list; opt in by adding `pr` to `segments`.
 - **Active Model** *(optional)*: Shows the model in use and, with `auto`, which model the router picked (e.g. `Auto → Claude Opus 4.5`). Opt in by adding `model` to `segments`.
+- **Fusion Routing** *(optional)*: Shows Fusion's execution pattern, observed models and roles, handoffs, and completion state. Opt in by adding `fusion` to `segments`.
 - **Compact Mode**: Switch to a shorter segment list and back with `copilot-powerline --toggle`, without restarting Copilot (see [Compact mode](#compact-mode)).
 - **Configurable AIC Display**: Toggle whether AI Credits (`... AIC`) appear alongside dollar amounts.
 - **Multiple Styles & Icon Sets**: Choose from `minimal`, `powerline`, `capsule`, or `plain`, with `nerd`, `emoji`, or `plain` icons.
@@ -168,8 +169,24 @@ cargo install --path .
 | `reasoning` | `󰚩` | `🧠` | `Think:` | `6.2k` | **Reasoning Tokens**: Cumulative thinking tokens used by reasoning models in the session. Automatically hidden when 0. |
 | `total_tokens` | `󰓅` | `📊` | `Total:` | `4.5M` | **Total Session Tokens**: Total cumulative token throughput (input + output + cached) exchanged across all turns and compactions in the session. |
 | `model` | `󰘚` | `🤖` | `Model:` | `Auto → Claude Opus 4.5` | **Active Model** *(optional, not in the default `segments` list)*: The model Copilot is using. With `auto`, shows which model the router picked, so a switch to a pricier model is visible. |
+| `fusion` | `󰘚` | `🔀` | `Fusion:` | `critique: draft=claude-opus-5.5 (observed)` | **Fusion Routing** *(optional, not in the default lists)*: The latest Fusion execution pattern (`single`, `cascade`, `critique`), observed models by phase, handoffs, and completed Turn outcome. Read locally from the Event Log; no network calls. See [Fusion telemetry](#fusion-telemetry) for the meaning and limits of each state. |
 | `pr` | `` | `🔀` | `PR` | `PR #50 · changes requested · 3 unresolved` | **Pull Request Reference** *(optional, not in the default `segments` list)*: The current branch's open pull request, as a clickable hyperlink, whose number is tinted by its review state: green for `approved` (blue in `colorblind`), red for `changes requested` (orange in `colorblind`), grey for `draft`, and the segment color when there is no deciding review. Set `show_review_state = true` under `[pr]` to also spell the state out after the number (`approved`, `draft` or `changes requested`); the `plain` theme has no colors, so it always spells it out. With `show_unresolved = true` (opt-in) it adds the number of unresolved review threads, outdated ones included, in the alert color; nothing is added when no thread is open. Requires an authenticated `gh` CLI; hidden when the branch has no open PR or `gh` is unavailable. |
 | `tool_overhead` | `󱁤` | `🧰` | `Tools:` | `68k (34%)` | **Tool Overhead** *(optional, not in the default `segments` list)*: The tokens Copilot CLI reports for the tool definitions it sends in each request, and their share of the context window. Only definitions sent in full count: in checks on Copilot CLI 1.0.98 the value was the same for Claude and GPT-6 Luna sessions however many MCP tools were listed (they appear to be loaded on demand), but grew with each MCP tool on Gemini. So it shows what every request pays for tools, not the size of your MCP setup; `/context` in Copilot CLI shows that. Tools Copilot loads on demand after a search add to the prompt but not to this value. It can also differ slightly from `/context`'s totals. Read from the latest main-agent step in the session's event log (`events.jsonl`, an internal Copilot CLI file), so it shows nothing until the session has made a model call, and nothing on sessions started with Copilot CLI 1.0.93 or earlier. Always shows by default; set `min_tokens` (for example `30000`, where the median session uses about 9k) to show it only at or above a size. |
+
+### Fusion telemetry
+
+Add `"fusion"` to `segments` (and `compact_segments` if wanted). `[fusion]` accepts `enabled` (default `true`) and `prefix`, like the other segments. Defaults remain unchanged.
+
+The segment distinguishes evidence from plans:
+
+- `cascade (planned)`: a routing decision exists, but no model execution has been observed. Configured reviewers and fallbacks are not listed as models used.
+- `critique: draft=..., critic=... (observed)`: Usage Records or completed phases identify models that ran. This is not a live-phase indicator.
+- `cascade: primary=..., handoff=... (handoff)`: Fusion requested a handoff, not proof the target model ran.
+- `cascade: primary=..., repair=..., final=... (completed, escalated)`: the Turn finished, with its final source model and a recorded handoff. Other reported outcomes are shown as reported.
+
+The display describes the latest routing decision, including after completion. A new decision, model change, or non-Fusion Step clears the previous evidence; sub-agent events are ignored. It reads only the last 1 MiB of `events.jsonl`, so older phases can be absent even when recent usage or completion is visible. Missing or unsupported telemetry hides quietly. This is an internal CLI format, verified against 1.0.105, not a stable public API.
+
+[Fusion has no Context Window of its own](https://docs.github.com/en/copilot/concepts/models/copilot-fusion). Each model has its own limit; the `tokens` segment retains the conservative limit Copilot CLI reports for Fusion's model pool. Its occupancy is not the sum of tokens spent across models or phases.
 
 ---
 
@@ -192,6 +209,7 @@ segments = [
     "total_tokens",
     "cache_expiry",
     # "model",      # Opt-in: the active model (and where `auto` routed)
+    # "fusion",     # Opt-in: Fusion pattern, observed models/roles and outcome
     # "pr",         # Opt-in: the current branch's PR (requires the `gh` CLI)
     # "cycle_cost", # Opt-in: GitHub's billing-cycle usage (requires the `gh` CLI)
     # "tool_overhead", # Opt-in: size of the tool definitions sent with every request

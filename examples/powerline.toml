@@ -7,7 +7,7 @@ style = "minimal"        # Layout style: "minimal", "powerline", "capsule", "pla
 icon_set = "nerd"        # Glyph style: "nerd" (Nerd Font), "emoji", "plain" (text labels) (default: "plain")
 theme = "colorblind"     # Color palette: "colorblind", "github", "nord", "tokyo-night", "plain" (default: "colorblind")
 mode = "full"            # "full" shows `segments`, "compact" shows `compact_segments`; `--toggle` switches (default: "full")
-segments = [             # Full mode segments in display order (default list excludes "pr", "model", "cycle_cost", "tool_overhead")
+segments = [             # Full mode segments in display order (default list excludes "pr", "model", "fusion", "cycle_cost", "tool_overhead")
     "tokens",            # Active context tokens used vs model limit and percentage
     "session_cost",      # Current session spend in USD
     "cache",             # Prompt cache hit rate or token count
@@ -18,6 +18,7 @@ segments = [             # Full mode segments in display order (default list exc
     "total_tokens",      # Cumulative token volume across turns and compactions
     "cache_expiry",      # Reminder after a long break: idle time, prompt cache likely cold
     # "model",           # Active model, and where `auto` routing sent the request
+    # "fusion",          # Fusion pattern, observed models/roles, handoffs and outcome
     # "tool_overhead",   # Size of the tool definitions sent with every request, and their share of the window
 ]
 compact_segments = [     # Compact mode segments (default: tokens, session_cost, month_cost, cache_expiry)
@@ -98,6 +99,10 @@ show_unresolved = false   # Show "3 unresolved" while there are unresolved revie
 
 [model]
 enabled = true           # Enable active model segment (default: true; still needs "model" in `segments`)
+
+[fusion]
+enabled = true           # Enable Fusion routing segment (default: true; still needs "fusion" in the active segment list)
+# prefix = "Fusion:"     # Replaces the segment icon or label in any icon set (default: unset)
 
 [tool_overhead]
 enabled = true           # Enable tool overhead segment (default: true; still needs "tool_overhead" in `segments`)

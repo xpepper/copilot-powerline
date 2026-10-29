@@ -1,6 +1,7 @@
 pub mod cache;
 pub mod cache_expiry;
 pub mod cycle_cost;
+pub mod fusion;
 pub mod model;
 pub mod month_cost;
 pub mod pr;
@@ -60,6 +61,7 @@ mod tests {
             total_tokens::NAME,
             cache_expiry::NAME,
             model::NAME,
+            fusion::NAME,
             pr::NAME,
             tool_overhead::NAME,
         ];

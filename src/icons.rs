@@ -88,6 +88,17 @@ pub fn model_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
     }
 }
 
+pub fn fusion_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
+    if let Some(c) = custom {
+        return c;
+    }
+    match icon_set {
+        IconSet::Plain => "Fusion:",
+        IconSet::Nerd => "\u{f061a}",
+        IconSet::Emoji => "\u{1f500}",
+    }
+}
+
 pub fn pr_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
     if let Some(c) = custom {
         return c;
