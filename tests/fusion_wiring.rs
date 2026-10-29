@@ -306,6 +306,29 @@ fn test_auto_v2_selection_is_planned_until_usage_observes_the_model() {
 }
 
 #[test]
+fn test_fusion_events_without_an_id_do_not_alter_auto_routing() {
+    let sandbox = Sandbox::new();
+    sandbox.write_config(LISTED);
+    let line = refresh(
+        &sandbox,
+        &[
+            auto_resolved("gpt-6-luna"),
+            event("session.fusion_handoff", json!({"targetModel": "repair"})),
+            event(
+                "session.fusion_completed",
+                json!({
+                    "pattern": "cascade",
+                    "outcome": "completed",
+                    "finalSourceModel": "repair"
+                }),
+            ),
+        ],
+    );
+    assert_shows(&line, "Fusion: auto: selected=gpt-6-luna (planned)");
+    assert!(!line.contains("repair"));
+}
+
+#[test]
 fn test_auto_usage_without_decision_observes_only_the_latest_step() {
     let sandbox = Sandbox::new();
     sandbox.write_config(LISTED);
