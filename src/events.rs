@@ -105,12 +105,14 @@ pub fn latest_fusion(dir: &Path) -> Option<FusionRouting> {
             if let Some(usage) = data.usage
                 && usage.is_auto == Some(true)
             {
-                routing = FusionRouting::auto(usage.model.clone());
-                if let Some(current) = routing.as_mut()
-                    && let Some(model) = usage.model
-                {
-                    current.observed.push(("model".to_string(), model));
-                }
+                // Usage observes the model, so it is not also kept as selected.
+                routing = FusionRouting::auto(usage.model).map(|mut current| {
+                    let selected = current.selected_model.take();
+                    current
+                        .observed
+                        .extend(selected.map(|model| ("model".to_string(), model)));
+                    current
+                });
             }
         } else if event.kind == "session.fusion_resolved" {
             retire(&mut routing, &mut retired);
