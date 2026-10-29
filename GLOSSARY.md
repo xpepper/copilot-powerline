@@ -27,7 +27,7 @@ _Avoid_: Inactivity, break time
 ## Context and tokens
 
 **Context Window**:
-The tokens the model currently holds for the Session, measured against the model's context limit.
+The tokens the model currently holds for the Session, measured against the model's context limit. For Fusion, the displayed limit is conservative across its model pool, not a context limit belonging to the orchestrator.
 _Avoid_: Tokens (as the name of this concept), prompt size
 
 **Total Session Tokens**:
@@ -51,6 +51,12 @@ _Avoid_: Step record, call record
 **Tool Overhead**:
 The tokens the tool definitions that Copilot sends in full add to every request. Tools loaded on demand do not count. It is read from the latest Step of the main agent, because sub-agents get their own tool set.
 _Avoid_: Tool tokens, MCP cost, tool size
+
+**Fusion Routing**:
+Fusion's choice of an execution pattern and models for a Turn. An execution pattern can be single-model, cascade (solver, judge, conditional repair), or critique (draft, review, revision).
+
+**Fusion Phase**:
+A model's role within a Fusion Turn, such as drafting, judging, critiquing or repairing. A Phase can contain multiple Steps; a planned Phase need not run.
 
 ## Prompt cache
 

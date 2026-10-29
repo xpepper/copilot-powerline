@@ -26,6 +26,172 @@ pub struct UsageRecord {
 /// so a window of 1 MB finds it without reading the whole log.
 const TAIL_WINDOW: u64 = 1024 * 1024;
 
+pub struct FusionRouting {
+    id: String,
+    pub pattern: String,
+    pub observed: Vec<(String, String)>,
+    pub handoff_model: Option<String>,
+    pub final_model: Option<String>,
+    pub outcome: Option<String>,
+}
+
+impl FusionRouting {
+    fn new(id: Option<&str>, pattern: Option<&str>) -> Option<Self> {
+        let id = id.filter(|id| !id.is_empty())?;
+        let pattern = pattern?;
+        matches!(pattern, "single" | "cascade" | "critique").then(|| Self {
+            id: id.to_string(),
+            pattern: pattern.to_string(),
+            observed: Vec::new(),
+            handoff_model: None,
+            final_model: None,
+            outcome: None,
+        })
+    }
+}
+
+/// The latest Fusion routing decision in the bounded tail of the Event Log.
+pub fn latest_fusion(dir: &Path) -> Option<FusionRouting> {
+    let tail = read_tail(&dir.join("events.jsonl"), TAIL_WINDOW)?;
+    let mut routing: Option<FusionRouting> = None;
+    // Fusion IDs that were replaced, reset or unsupported: late events for
+    // them must not bring their routing back.
+    let mut retired: Vec<String> = Vec::new();
+    for line in tail.split(|&b| b == b'\n') {
+        let Ok(line) = std::str::from_utf8(line) else {
+            continue;
+        };
+        if !line.contains("\"session.fusion_")
+            && !line.contains("\"assistant.fusion_phase_completed\"")
+            && !line.contains("\"session.usage_record\"")
+            && !line.contains("\"session.model_change\"")
+        {
+            continue;
+        }
+        let Ok(event) = serde_json::from_str::<FusionEvent>(line) else {
+            continue;
+        };
+        if event.agent_id.is_some() {
+            continue;
+        }
+        let data = event.data;
+        if event.kind == "session.model_change"
+            || (event.kind == "session.usage_record"
+                && data
+                    .usage
+                    .as_ref()
+                    .is_none_or(|usage| usage.fusion.is_none()))
+        {
+            retire(&mut routing, &mut retired);
+        } else if event.kind == "session.fusion_resolved" {
+            retire(&mut routing, &mut retired);
+            routing = FusionRouting::new(data.fusion_id.as_deref(), data.pattern.as_deref());
+            if routing.is_none()
+                && let Some(id) = data.fusion_id.clone()
+            {
+                retired.push(id);
+            }
+        } else {
+            // A decision line can be missing (torn write, unknown shape), so
+            // a completion or usage line for an unseen Fusion starts its own.
+            let started = match event.kind.as_str() {
+                "session.fusion_completed" => {
+                    FusionRouting::new(data.fusion_id.as_deref(), data.pattern.as_deref())
+                }
+                "session.usage_record" => data
+                    .usage
+                    .as_ref()
+                    .and_then(|usage| usage.fusion.as_ref())
+                    .and_then(|fusion| {
+                        FusionRouting::new(fusion.fusion_id.as_deref(), fusion.pattern.as_deref())
+                    }),
+                _ => None,
+            };
+            if let Some(started) = started
+                && routing
+                    .as_ref()
+                    .is_none_or(|current| current.id != started.id)
+                && !retired.contains(&started.id)
+            {
+                retire(&mut routing, &mut retired);
+                routing = Some(started);
+            }
+            let Some(current) = routing.as_mut() else {
+                continue;
+            };
+            if data.fusion_id.as_deref() == Some(&current.id) {
+                match event.kind.as_str() {
+                    "session.fusion_handoff" => current.handoff_model = data.target_model,
+                    "session.fusion_completed" => {
+                        current.final_model = data.final_source_model;
+                        current.outcome = data.outcome;
+                    }
+                    _ => {}
+                }
+            }
+            let observation = match event.kind.as_str() {
+                "assistant.fusion_phase_completed" => {
+                    Some((data.fusion_id, data.phase_kind, data.model))
+                }
+                "session.usage_record" => data.usage.and_then(|usage| {
+                    let fusion = usage.fusion?;
+                    Some((fusion.fusion_id, fusion.phase_kind, usage.model))
+                }),
+                _ => None,
+            };
+            if let Some((Some(id), Some(phase), Some(model))) = observation
+                && id == current.id
+                && !current.observed.contains(&(phase.clone(), model.clone()))
+            {
+                current.observed.push((phase, model));
+            }
+        }
+    }
+    routing
+}
+
+fn retire(routing: &mut Option<FusionRouting>, retired: &mut Vec<String>) {
+    if let Some(old) = routing.take() {
+        retired.push(old.id);
+    }
+}
+
+#[derive(Deserialize)]
+struct FusionEvent {
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(rename = "agentId")]
+    agent_id: Option<String>,
+    data: FusionData,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FusionData {
+    fusion_id: Option<String>,
+    pattern: Option<String>,
+    phase_kind: Option<String>,
+    model: Option<String>,
+    usage: Option<FusionUsage>,
+    target_model: Option<String>,
+    final_source_model: Option<String>,
+    outcome: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct FusionUsage {
+    model: Option<String>,
+    fusion: Option<FusionPhase>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FusionPhase {
+    fusion_id: Option<String>,
+    phase_kind: Option<String>,
+    pattern: Option<String>,
+}
+
 /// The latest main-agent Usage Record in the Event Log in `dir`.
 pub fn latest_main_usage(dir: &Path) -> Option<UsageRecord> {
     latest_main_usage_in(dir, TAIL_WINDOW)
@@ -228,5 +394,90 @@ mod tests {
         );
         let far = session_dir(&[main_record(68_000), filler(1_200_000)]);
         assert_eq!(latest_main_usage(far.path()), None);
+    }
+
+    #[test]
+    fn test_fusion_uses_only_complete_recent_lines_and_skips_partial_writes() {
+        let decision =
+            r#"{"type":"session.fusion_resolved","data":{"fusionId":"f","pattern":"single"}}"#;
+        let outside = session_dir(&[decision.to_string(), filler(1_200_000)]);
+        assert!(latest_fusion(outside.path()).is_none());
+
+        let inside = session_dir(&[
+            filler(1_200_000),
+            decision.to_string(),
+            r#"{"type":"session.fusion_resolved","data":{"fusionId":"partial"#.to_string(),
+        ]);
+        assert_eq!(latest_fusion(inside.path()).unwrap().pattern, "single");
+        assert!(latest_fusion(&inside.path().join("missing")).is_none());
+    }
+
+    fn resolved(id: &str, pattern: &str) -> String {
+        format!(
+            r#"{{"type":"session.fusion_resolved","data":{{"fusionId":"{id}","pattern":"{pattern}"}}}}"#
+        )
+    }
+
+    fn completed(id: &str, pattern: &str) -> String {
+        format!(
+            r#"{{"type":"session.fusion_completed","data":{{"fusionId":"{id}","pattern":"{pattern}","finalSourceModel":"m-{id}","outcome":"ok"}}}}"#
+        )
+    }
+
+    fn fusion_usage(id: &str, pattern: &str) -> String {
+        format!(
+            r#"{{"type":"session.usage_record","data":{{"usage":{{"model":"m-{id}","fusion":{{"fusionId":"{id}","pattern":"{pattern}","phaseKind":"primary"}}}}}}}}"#
+        )
+    }
+
+    const MODEL_CHANGE: &str = r#"{"type":"session.model_change","data":{}}"#;
+
+    #[test]
+    fn test_late_events_do_not_revive_a_route_hidden_by_an_unsupported_decision() {
+        let dir = session_dir(&[
+            resolved("old", "single"),
+            resolved("new", "unknown"),
+            completed("old", "single"),
+            fusion_usage("old", "single"),
+        ]);
+        assert!(latest_fusion(dir.path()).is_none());
+    }
+
+    #[test]
+    fn test_late_events_do_not_revive_a_route_cleared_by_a_reset() {
+        let dir = session_dir(&[
+            resolved("old", "single"),
+            MODEL_CHANGE.to_string(),
+            completed("old", "single"),
+        ]);
+        assert!(latest_fusion(dir.path()).is_none());
+    }
+
+    #[test]
+    fn test_late_events_do_not_revive_a_replaced_route() {
+        let dir = session_dir(&[
+            resolved("old", "single"),
+            resolved("new", "cascade"),
+            completed("old", "single"),
+        ]);
+        let routing = latest_fusion(dir.path()).unwrap();
+        assert_eq!(routing.pattern, "cascade");
+        assert_eq!(routing.final_model, None);
+    }
+
+    #[test]
+    fn test_a_new_fusion_id_replaces_the_route_when_its_decision_line_is_missing() {
+        let usage = session_dir(&[resolved("old", "single"), fusion_usage("new", "cascade")]);
+        let routing = latest_fusion(usage.path()).unwrap();
+        assert_eq!(routing.pattern, "cascade");
+        assert_eq!(
+            routing.observed,
+            vec![("primary".to_string(), "m-new".to_string())]
+        );
+
+        let done = session_dir(&[resolved("old", "single"), completed("new", "critique")]);
+        let routing = latest_fusion(done.path()).unwrap();
+        assert_eq!(routing.pattern, "critique");
+        assert_eq!(routing.final_model.as_deref(), Some("m-new"));
     }
 }

@@ -29,6 +29,7 @@ use renderer::render_segments;
 use segments::cache::{self, render_cache_segment};
 use segments::cache_expiry::{self, render_cache_expiry_segment};
 use segments::cycle_cost::{self, render_cycle_cost_segment};
+use segments::fusion::{self, render_fusion_segment};
 use segments::model::{self, render_model_segment};
 use segments::month_cost::{self, render_month_cost_segment};
 use segments::pr::{self, render_pr_segment};
@@ -263,6 +264,20 @@ fn main() {
         None
     };
 
+    let fusion_routing = if config.fusion.enabled
+        && segments::is_listed(&segments, fusion::NAME)
+        && matches!(
+            input.model.as_ref().and_then(|model| model.id.as_deref()),
+            Some("auto" | "hydrafusion" | "hydrafusion-max")
+        ) {
+        input
+            .transcript_path
+            .as_deref()
+            .and_then(|dir| events::latest_fusion(Path::new(dir)))
+    } else {
+        None
+    };
+
     if let Some(log_path) = payload_log::path_from_env() {
         payload_log::append(
             &log_path,
@@ -367,6 +382,16 @@ fn main() {
                 if let Some(s) = render_model_segment(
                     input.model.as_ref(),
                     &config.model,
+                    config.icon_set,
+                    &palette,
+                ) {
+                    rendered_segments.push(s);
+                }
+            }
+            fusion::NAME => {
+                if let Some(s) = render_fusion_segment(
+                    fusion_routing.as_ref(),
+                    &config.fusion,
                     config.icon_set,
                     &palette,
                 ) {

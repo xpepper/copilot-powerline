@@ -118,6 +118,8 @@ pub struct Config {
     #[serde(default)]
     pub model: ModelConfig,
     #[serde(default)]
+    pub fusion: FusionConfig,
+    #[serde(default)]
     pub tool_overhead: ToolOverheadConfig,
 }
 
@@ -492,6 +494,7 @@ impl Default for Config {
             cache_expiry: CacheExpiryConfig::default(),
             pr: PrConfig::default(),
             model: ModelConfig::default(),
+            fusion: FusionConfig::default(),
             tool_overhead: ToolOverheadConfig::default(),
         }
     }
@@ -509,6 +512,23 @@ pub struct ModelConfig {
 }
 
 impl Default for ModelConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            prefix: None,
+        }
+    }
+}
+
+/// Optional Fusion Routing from the Event Log. Add `"fusion"` to opt in.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FusionConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub prefix: Option<String>,
+}
+
+impl Default for FusionConfig {
     fn default() -> Self {
         Self {
             enabled: true,
@@ -892,6 +912,7 @@ mod tests {
         all.total_tokens.prefix = prefix.clone();
         all.cache_expiry.prefix = prefix.clone();
         all.model.prefix = prefix.clone();
+        all.fusion.prefix = prefix.clone();
         all.tool_overhead.prefix = prefix.clone();
         all.pr.prefix = prefix;
         let known: toml::Table = toml::from_str(&all.to_toml_string().unwrap()).unwrap();
