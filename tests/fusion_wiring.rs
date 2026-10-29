@@ -270,3 +270,87 @@ fn test_a_non_fusion_step_clears_routing_even_while_auto_is_selected() {
     );
     assert!(!line.contains("Fusion:"), "stale routing in {line:?}");
 }
+
+fn auto_resolved(model: &str) -> Value {
+    event(
+        "session.auto_mode_resolved",
+        json!({"chosenModel": model, "routingMethod": "auto_v2", "fallback": false}),
+    )
+}
+
+fn auto_usage(model: &str) -> Value {
+    event(
+        "session.usage_record",
+        json!({"usage": {"model": model, "isAuto": true}}),
+    )
+}
+
+#[test]
+fn test_auto_v2_selection_is_planned_until_usage_observes_the_model() {
+    let sandbox = Sandbox::new();
+    sandbox.write_config(LISTED);
+    let mut events = vec![auto_resolved("gpt-6-luna")];
+    let line = refresh(&sandbox, &events);
+    assert_shows(&line, "Fusion: auto: selected=gpt-6-luna (planned)");
+
+    events.extend([auto_usage("gpt-6-luna"), auto_usage("gpt-6-luna")]);
+    let line = refresh(&sandbox, &events);
+    assert_shows(&line, "Fusion: auto: model=gpt-6-luna (observed)");
+    assert_eq!(line.matches("model=gpt-6-luna").count(), 1);
+    assert!(!line.contains("primary="));
+
+    events.push(auto_resolved("next-model"));
+    let line = refresh(&sandbox, &events);
+    assert_shows(&line, "Fusion: auto: selected=next-model (planned)");
+    assert!(!line.contains("gpt-6-luna"));
+}
+
+#[test]
+fn test_auto_usage_without_decision_observes_only_the_latest_step() {
+    let sandbox = Sandbox::new();
+    sandbox.write_config(LISTED);
+    let line = refresh(
+        &sandbox,
+        &[resolved("old", "cascade"), auto_usage("actual-model")],
+    );
+    assert_shows(&line, "Fusion: auto: model=actual-model (observed)");
+    assert!(!line.contains("cascade"));
+}
+
+#[test]
+fn test_auto_routing_ignores_subagents_and_clears_on_reset_or_missing_evidence() {
+    let sandbox = Sandbox::new();
+    sandbox.write_config(LISTED);
+    let mut subagent = auto_resolved("child-model");
+    subagent["agentId"] = json!("child");
+    let mut subagent_usage = auto_usage("child-model");
+    subagent_usage["agentId"] = json!("child");
+    let line = refresh(
+        &sandbox,
+        &[auto_resolved("main-model"), subagent, subagent_usage],
+    );
+    assert_shows(&line, "Fusion: auto: selected=main-model (planned)");
+    assert!(!line.contains("child-model"));
+
+    for reset in [
+        event("session.model_change", json!({"newModel": "auto"})),
+        event(
+            "session.usage_record",
+            json!({"usage": {"model": "direct"}}),
+        ),
+        event("session.auto_mode_resolved", json!({})),
+        auto_resolved(""),
+        auto_usage(""),
+        event("session.usage_record", json!({"usage": {"isAuto": true}})),
+    ] {
+        let line = refresh(&sandbox, &[auto_resolved("old-model"), reset]);
+        assert!(!line.contains("Fusion:"), "stale routing in {line:?}");
+    }
+
+    let line = refresh(
+        &sandbox,
+        &[auto_usage("old-model"), auto_usage("new-model")],
+    );
+    assert_shows(&line, "Fusion: auto: model=new-model (observed)");
+    assert!(!line.contains("old-model"));
+}

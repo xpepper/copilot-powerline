@@ -181,6 +181,7 @@ The segment distinguishes evidence from plans:
 
 - `cascade (planned)`: a routing decision exists, but no model execution has been observed. Configured reviewers and fallbacks are not listed as models used.
 - `critique: draft=..., critic=... (observed)`: Usage Records or completed phases identify models that ran. This is not a live-phase indicator.
+- `auto: selected=gpt-6-luna (planned)`: Auto routing selected a model. After a Usage Record confirms execution, this becomes `auto: model=gpt-6-luna (observed)`. Auto routing does not report phase roles.
 - `cascade: primary=..., handoff=... (handoff)`: Fusion requested a handoff, not proof the target model ran.
 - `cascade: primary=..., repair=..., final=... (completed, escalated)`: the Turn finished, with its final source model and a recorded handoff. Other reported outcomes are shown as reported.
 

@@ -22,6 +22,11 @@ pub fn render_fusion_segment(
         .iter()
         .map(|(phase, model)| format!("{phase}={model}"))
         .collect::<Vec<_>>();
+    if models.is_empty()
+        && let Some(model) = &routing.selected_model
+    {
+        models.push(format!("selected={model}"));
+    }
     if let Some(model) = &routing.final_model {
         models.push(format!("final={model}"));
     } else if let Some(model) = &routing.handoff_model {

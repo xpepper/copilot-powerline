@@ -27,8 +27,9 @@ pub struct UsageRecord {
 const TAIL_WINDOW: u64 = 1024 * 1024;
 
 pub struct FusionRouting {
-    id: String,
+    id: Option<String>,
     pub pattern: String,
+    pub selected_model: Option<String>,
     pub observed: Vec<(String, String)>,
     pub handoff_model: Option<String>,
     pub final_model: Option<String>,
@@ -40,8 +41,22 @@ impl FusionRouting {
         let id = id.filter(|id| !id.is_empty())?;
         let pattern = pattern?;
         matches!(pattern, "single" | "cascade" | "critique").then(|| Self {
-            id: id.to_string(),
+            id: Some(id.to_string()),
             pattern: pattern.to_string(),
+            selected_model: None,
+            observed: Vec::new(),
+            handoff_model: None,
+            final_model: None,
+            outcome: None,
+        })
+    }
+
+    fn auto(model: Option<String>) -> Option<Self> {
+        let model = model.filter(|model| !model.is_empty())?;
+        Some(Self {
+            id: None,
+            pattern: "auto".to_string(),
+            selected_model: Some(model),
             observed: Vec::new(),
             handoff_model: None,
             final_model: None,
@@ -65,6 +80,7 @@ pub fn latest_fusion(dir: &Path) -> Option<FusionRouting> {
             && !line.contains("\"assistant.fusion_phase_completed\"")
             && !line.contains("\"session.usage_record\"")
             && !line.contains("\"session.model_change\"")
+            && !line.contains("\"session.auto_mode_resolved\"")
         {
             continue;
         }
@@ -75,7 +91,10 @@ pub fn latest_fusion(dir: &Path) -> Option<FusionRouting> {
             continue;
         }
         let data = event.data;
-        if event.kind == "session.model_change"
+        if event.kind == "session.auto_mode_resolved" {
+            retire(&mut routing, &mut retired);
+            routing = FusionRouting::auto(data.chosen_model);
+        } else if event.kind == "session.model_change"
             || (event.kind == "session.usage_record"
                 && data
                     .usage
@@ -83,6 +102,16 @@ pub fn latest_fusion(dir: &Path) -> Option<FusionRouting> {
                     .is_none_or(|usage| usage.fusion.is_none()))
         {
             retire(&mut routing, &mut retired);
+            if let Some(usage) = data.usage
+                && usage.is_auto == Some(true)
+            {
+                routing = FusionRouting::auto(usage.model.clone());
+                if let Some(current) = routing.as_mut()
+                    && let Some(model) = usage.model
+                {
+                    current.observed.push(("model".to_string(), model));
+                }
+            }
         } else if event.kind == "session.fusion_resolved" {
             retire(&mut routing, &mut retired);
             routing = FusionRouting::new(data.fusion_id.as_deref(), data.pattern.as_deref());
@@ -111,7 +140,7 @@ pub fn latest_fusion(dir: &Path) -> Option<FusionRouting> {
                 && routing
                     .as_ref()
                     .is_none_or(|current| current.id != started.id)
-                && !retired.contains(&started.id)
+                && !started.id.as_ref().is_some_and(|id| retired.contains(id))
             {
                 retire(&mut routing, &mut retired);
                 routing = Some(started);
@@ -119,7 +148,7 @@ pub fn latest_fusion(dir: &Path) -> Option<FusionRouting> {
             let Some(current) = routing.as_mut() else {
                 continue;
             };
-            if data.fusion_id.as_deref() == Some(&current.id) {
+            if data.fusion_id.is_some() && data.fusion_id == current.id {
                 match event.kind.as_str() {
                     "session.fusion_handoff" => current.handoff_model = data.target_model,
                     "session.fusion_completed" => {
@@ -140,7 +169,7 @@ pub fn latest_fusion(dir: &Path) -> Option<FusionRouting> {
                 _ => None,
             };
             if let Some((Some(id), Some(phase), Some(model))) = observation
-                && id == current.id
+                && Some(&id) == current.id.as_ref()
                 && !current.observed.contains(&(phase.clone(), model.clone()))
             {
                 current.observed.push((phase, model));
@@ -151,8 +180,10 @@ pub fn latest_fusion(dir: &Path) -> Option<FusionRouting> {
 }
 
 fn retire(routing: &mut Option<FusionRouting>, retired: &mut Vec<String>) {
-    if let Some(old) = routing.take() {
-        retired.push(old.id);
+    if let Some(old) = routing.take()
+        && let Some(id) = old.id
+    {
+        retired.push(id);
     }
 }
 
@@ -168,6 +199,7 @@ struct FusionEvent {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FusionData {
+    chosen_model: Option<String>,
     fusion_id: Option<String>,
     pattern: Option<String>,
     phase_kind: Option<String>,
@@ -181,6 +213,8 @@ struct FusionData {
 #[derive(Deserialize)]
 struct FusionUsage {
     model: Option<String>,
+    #[serde(rename = "isAuto")]
+    is_auto: Option<bool>,
     fusion: Option<FusionPhase>,
 }
 
