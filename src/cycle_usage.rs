@@ -7,9 +7,9 @@
 //! refresh (this binary re-invoked with `--fetch-cycle-usage`).
 
 use serde::{Deserialize, Serialize};
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CycleUsage {
@@ -58,15 +58,7 @@ fn read_entry(cache_path: &Path) -> Option<CacheEntry> {
 
 /// Re-invokes this binary as a detached `--fetch-cycle-usage` worker.
 pub fn spawn_background_fetch(cache_path: &Path) {
-    if let Ok(exe) = std::env::current_exe() {
-        let _ = Command::new(exe)
-            .arg("--fetch-cycle-usage")
-            .arg(cache_path)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn();
-    }
+    crate::worker::spawn_detached(&[OsStr::new("--fetch-cycle-usage"), cache_path.as_os_str()]);
 }
 
 /// Calls the API and writes the result to the cache.

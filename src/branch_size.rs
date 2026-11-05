@@ -7,8 +7,9 @@
 
 use crate::worker::{WORKER_TIMEOUT, output_with_timeout};
 use serde::{Deserialize, Serialize};
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::time::Instant;
 
 /// How much the branch changed since it left the default branch.
@@ -69,22 +70,16 @@ fn read_entry(cache_path: &Path) -> Option<CacheEntry> {
 
 /// Re-invokes this binary as a detached `--fetch-branch-size` worker.
 pub fn spawn_background_fetch(repo_dir: &Path, cache_path: &Path, default_branch: Option<&str>) {
-    if let Ok(exe) = std::env::current_exe() {
-        let mut command = Command::new(exe);
-        command
-            .arg("--fetch-branch-size")
-            .arg(cache_path)
-            .arg("--repo-dir")
-            .arg(repo_dir);
-        if let Some(branch) = default_branch {
-            command.arg("--default-branch").arg(branch);
-        }
-        let _ = command
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn();
+    let mut args = vec![
+        OsStr::new("--fetch-branch-size"),
+        cache_path.as_os_str(),
+        OsStr::new("--repo-dir"),
+        repo_dir.as_os_str(),
+    ];
+    if let Some(branch) = default_branch {
+        args.extend([OsStr::new("--default-branch"), OsStr::new(branch)]);
     }
+    crate::worker::spawn_detached(&args);
 }
 
 /// Measures the branch with `git` and writes the result to the cache.

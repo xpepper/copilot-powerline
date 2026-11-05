@@ -1,8 +1,10 @@
 //! Shared plumbing for the detached background workers (`--fetch-pr-cache`,
 //! `--fetch-cycle-usage`, `--fetch-branch-size`): a check that the program a
 //! worker runs is installed, a throttled claim so only one worker runs per
-//! cache file, and a deadline on the external command it runs.
+//! cache file, starting the worker detached, and a deadline on the external
+//! command it runs.
 
+use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -31,6 +33,19 @@ pub fn is_on_path(program: &str) -> bool {
         let candidate = dir.join(program);
         candidate.is_file()
     })
+}
+
+/// Re-invokes this binary with `args` as a detached worker. Its stdio is
+/// null, so it never holds the status line's pipes open.
+pub fn spawn_detached(args: &[&OsStr]) {
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = Command::new(exe)
+            .args(args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn();
+    }
 }
 
 /// Runs `command` and returns its stdout, or `None` when it cannot start or

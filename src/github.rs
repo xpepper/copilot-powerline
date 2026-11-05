@@ -1,9 +1,10 @@
 use crate::config::PrConfig;
 use crate::worker::{WORKER_TIMEOUT, lock_file_path, output_with_timeout, refresh_if_stale};
 use serde::{Deserialize, Serialize};
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// The verdict a pull request's reviews add up to (see `GLOSSARY.md`).
@@ -265,22 +266,16 @@ fn fetch_unresolved_threads(
 }
 
 fn spawn_background_fetch(repo_dir: &Path, cache_path: &Path, fetch_unresolved: bool) {
-    if let Ok(exe) = std::env::current_exe() {
-        let mut command = Command::new(exe);
-        command
-            .arg("--fetch-pr-cache")
-            .arg(cache_path)
-            .arg("--repo-dir")
-            .arg(repo_dir);
-        if fetch_unresolved {
-            command.arg("--fetch-unresolved");
-        }
-        let _ = command
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn();
+    let mut args = vec![
+        OsStr::new("--fetch-pr-cache"),
+        cache_path.as_os_str(),
+        OsStr::new("--repo-dir"),
+        repo_dir.as_os_str(),
+    ];
+    if fetch_unresolved {
+        args.push(OsStr::new("--fetch-unresolved"));
     }
+    crate::worker::spawn_detached(&args);
 }
 
 /// Returns the current branch's PR info, if any is cached and fresh.
