@@ -206,6 +206,18 @@ mod tests {
     }
 
     #[test]
+    fn test_stale_cache_is_shown_while_a_refresh_starts() {
+        let (_dir, path) = cache_with(Some(CacheEntry {
+            timestamp: NOW - TTL,
+            size: Some(size()),
+        }));
+
+        let result = get(&path, NOW);
+
+        assert_eq!(result, (Some(size()), true));
+    }
+
+    #[test]
     fn test_each_branch_of_a_repository_has_its_own_cache() {
         let repo = Path::new("/some/repo");
 
