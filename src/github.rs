@@ -3,9 +3,7 @@ use crate::worker::{
     THROTTLE_SECONDS, WORKER_TIMEOUT, lock_file_path, output_with_timeout, try_claim_spawn,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::hash_map::DefaultHasher;
 use std::fs;
-use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -59,12 +57,7 @@ pub fn is_gh_available() -> bool {
 }
 
 pub fn get_cache_file_path(repo_dir: &Path, branch: &str) -> PathBuf {
-    let mut hasher = DefaultHasher::new();
-    repo_dir.to_string_lossy().hash(&mut hasher);
-    branch.hash(&mut hasher);
-    let hash = hasher.finish();
-
-    crate::state::base_dir().join(format!("pr_{:016x}.json", hash))
+    crate::state::branch_file("pr", repo_dir, branch)
 }
 
 pub fn read_cache_entry(cache_path: &Path) -> Option<PrCacheEntry> {
@@ -406,24 +399,6 @@ mod tests {
         assert!(is_cache_fresh(&entry, 60, 150));
         assert!(!is_cache_fresh(&entry, 60, 160));
         assert!(!is_cache_fresh(&entry, 60, 200));
-    }
-
-    #[test]
-    fn test_get_cache_file_path_avoids_shared_temp_dir_when_private_cache_available() {
-        if let Some(cache_dir) = dirs::cache_dir() {
-            let path = get_cache_file_path(Path::new("/some/repo"), "feature-x");
-            assert!(path.starts_with(&cache_dir));
-            assert!(!path.starts_with(std::env::temp_dir()));
-        }
-    }
-
-    #[test]
-    fn test_get_cache_file_path_deterministic() {
-        let path1 = get_cache_file_path(Path::new("/some/repo"), "feature-x");
-        let path2 = get_cache_file_path(Path::new("/some/repo"), "feature-x");
-        let path3 = get_cache_file_path(Path::new("/some/repo"), "feature-y");
-        assert_eq!(path1, path2);
-        assert_ne!(path1, path3);
     }
 
     fn pr_view(fields: &str) -> Option<PrView> {
