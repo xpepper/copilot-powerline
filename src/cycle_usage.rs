@@ -49,7 +49,7 @@ pub fn get_cycle_usage(
     let fresh = entry
         .as_ref()
         .is_some_and(|e| now.saturating_sub(e.timestamp) < ttl_seconds);
-    if !fresh && crate::github::try_claim_spawn(cache_path, now, THROTTLE_SECONDS) {
+    if !fresh && crate::worker::try_claim_spawn(cache_path, now, THROTTLE_SECONDS) {
         spawn_refresh(cache_path);
     }
 
@@ -85,14 +85,15 @@ pub fn fetch_and_write_cycle_cache(cache_path: &Path) {
     let now = crate::github::current_timestamp();
     let previous = read_entry(cache_path);
     let mut command = api_command(std::env::var_os("COPILOT_GITHUB_TOKEN"));
-    let entry = match crate::github::output_with_timeout(&mut command, crate::github::GH_TIMEOUT) {
-        Some(out) => entry_from(out.status.success(), &out.stdout, now, previous.as_ref()),
-        None => entry_from(false, &[], now, previous.as_ref()),
-    };
+    let entry =
+        match crate::worker::output_with_timeout(&mut command, crate::worker::WORKER_TIMEOUT) {
+            Some(out) => entry_from(out.status.success(), &out.stdout, now, previous.as_ref()),
+            None => entry_from(false, &[], now, previous.as_ref()),
+        };
     if let Ok(json) = serde_json::to_string(&entry) {
         let _ = crate::state::write_private_atomic(cache_path, json.as_bytes());
     }
-    let _ = std::fs::remove_file(crate::github::lock_file_path(cache_path));
+    let _ = std::fs::remove_file(crate::worker::lock_file_path(cache_path));
 }
 
 /// `gh api` for the Copilot user endpoint. gh picks its token from

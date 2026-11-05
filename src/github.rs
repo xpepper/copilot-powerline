@@ -1,11 +1,11 @@
 use crate::config::PrConfig;
+use crate::worker::{WORKER_TIMEOUT, lock_file_path, output_with_timeout, try_claim_spawn};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
-use std::fs::{self, File};
+use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Command, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// The verdict a pull request's reviews add up to (see `GLOSSARY.md`).
@@ -76,130 +76,8 @@ pub fn write_cache_entry(cache_path: &Path, entry: &PrCacheEntry) -> std::io::Re
     crate::state::write_private_atomic(cache_path, json.as_bytes())
 }
 
-/// How long a background `gh` call may run. Shorter than the refresh
-/// throttle, so a hung call is killed before the next worker can start.
-pub const GH_TIMEOUT: Duration = Duration::from_secs(10);
-
-/// Runs `command` and returns its stdout, or `None` when it cannot start or
-/// is still running after `timeout` (it is killed). stderr is discarded.
-///
-/// Without a deadline, a `gh` call stuck on the network would hold the
-/// refresh claim until it goes stale, and the next worker would pile on.
-pub fn output_with_timeout(command: &mut Command, timeout: Duration) -> Option<Output> {
-    let mut child = command
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
-    let mut pipe = child.stdout.take()?;
-    // Drained on its own thread so a large response cannot fill the pipe and
-    // stall the child while this thread polls.
-    let reader = std::thread::spawn(move || {
-        let mut buf = Vec::new();
-        let _ = pipe.read_to_end(&mut buf);
-        buf
-    });
-
-    let deadline = Instant::now() + timeout;
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) if Instant::now() < deadline => {
-                std::thread::sleep(Duration::from_millis(25));
-            }
-            _ => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return None;
-            }
-        }
-    };
-    Some(Output {
-        status,
-        stdout: reader.join().ok()?,
-        stderr: Vec::new(),
-    })
-}
-
 pub fn is_cache_fresh(entry: &PrCacheEntry, ttl_seconds: u64, now: u64) -> bool {
     now.saturating_sub(entry.timestamp) < ttl_seconds
-}
-
-pub fn lock_file_path(cache_path: &Path) -> PathBuf {
-    cache_path.with_extension("lock")
-}
-
-/// Returns true if a background refresh claim for `cache_path` was taken
-/// recently (within `throttle_seconds`), based on the claim lock file's
-/// mtime. The lock file is a separate marker from the cache entry itself, so
-/// throttling never touches (or misrepresents the freshness of) cached data.
-pub fn should_throttle_spawn(cache_path: &Path, now: u64, throttle_seconds: u64) -> bool {
-    is_lock_fresh(&lock_file_path(cache_path), now, throttle_seconds)
-}
-
-/// Atomically claims the right to spawn a background refresh for
-/// `cache_path`. Returns true if this call won the claim, false if another
-/// process already holds a live claim (or won a concurrent race for a new
-/// one). The claim never reads or writes the cache entry, so a losing (or
-/// failing) refresh attempt can never mark stale cached data as fresh.
-pub fn try_claim_spawn(cache_path: &Path, now: u64, throttle_seconds: u64) -> bool {
-    if should_throttle_spawn(cache_path, now, throttle_seconds) {
-        return false;
-    }
-
-    let lock_path = lock_file_path(cache_path);
-    if let Some(parent) = lock_path.parent() {
-        let _ = crate::state::ensure_private_dir(parent);
-    }
-
-    if create_lock(&lock_path) {
-        return true;
-    }
-
-    // A lock exists and looked stale (e.g. left behind by a crashed worker).
-    // Only the holder of a short-lived reclaim guard may delete it, and it
-    // re-checks staleness under the guard, so a lock freshly created by a
-    // concurrent claimer is never removed.
-    let guard_path = lock_path.with_extension("lock.reclaim");
-    if !create_lock(&guard_path) {
-        if !is_lock_fresh(&guard_path, now, throttle_seconds) {
-            // A crashed reclaimer left its guard behind; clear it so a
-            // later refresh can reclaim.
-            let _ = fs::remove_file(&guard_path);
-        }
-        return false;
-    }
-    let won = !is_lock_fresh(&lock_path, now, throttle_seconds) && {
-        let _ = fs::remove_file(&lock_path);
-        create_lock(&lock_path)
-    };
-    let _ = fs::remove_file(&guard_path);
-    won
-}
-
-fn is_lock_fresh(lock_path: &Path, now: u64, throttle_seconds: u64) -> bool {
-    fs::metadata(lock_path)
-        .and_then(|metadata| metadata.modified())
-        .ok()
-        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
-        .is_some_and(|dur| now.saturating_sub(dur.as_secs()) < throttle_seconds)
-}
-
-/// `create_new` fails if another process's creation won, which is what
-/// arbitrates the race.
-fn create_lock(lock_path: &Path) -> bool {
-    match File::options().write(true).create_new(true).open(lock_path) {
-        Ok(_file) => {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let _ = fs::set_permissions(lock_path, fs::Permissions::from_mode(0o600));
-            }
-            true
-        }
-        Err(_) => false,
-    }
 }
 
 #[derive(Deserialize)]
@@ -356,7 +234,7 @@ pub fn fetch_and_write_pr_cache(repo_dir: &Path, cache_path: &Path, fetch_unreso
                 "number,url,state,isDraft,reviewDecision,latestReviews",
             ])
             .current_dir(repo_dir),
-        GH_TIMEOUT,
+        WORKER_TIMEOUT,
     );
 
     let view = output
@@ -365,9 +243,9 @@ pub fn fetch_and_write_pr_cache(repo_dir: &Path, cache_path: &Path, fetch_unreso
     let pr = view.map(|view| {
         let mut pr = view.pr;
         if view.open && fetch_unresolved {
-            // Both calls share one GH_TIMEOUT, so the worker as a whole
+            // Both calls share one WORKER_TIMEOUT, so the worker as a whole
             // still ends before the throttle lets the next one start.
-            let remaining = GH_TIMEOUT.saturating_sub(started.elapsed());
+            let remaining = WORKER_TIMEOUT.saturating_sub(started.elapsed());
             pr.unresolved_threads = fetch_unresolved_threads(repo_dir, &pr.url, remaining);
         }
         pr
@@ -472,32 +350,6 @@ pub fn get_pr_info(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[cfg(unix)]
-    #[test]
-    fn test_output_with_timeout_returns_stdout_of_a_finished_command() {
-        let mut command = Command::new("echo");
-        command.arg("hello");
-        let out = output_with_timeout(&mut command, Duration::from_secs(5)).unwrap();
-        assert!(out.status.success());
-        assert_eq!(out.stdout, b"hello\n");
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn test_output_with_timeout_kills_a_command_that_hangs() {
-        let started = std::time::Instant::now();
-        let mut command = Command::new("sleep");
-        command.arg("30");
-        assert!(output_with_timeout(&mut command, Duration::from_millis(200)).is_none());
-        assert!(started.elapsed() < Duration::from_secs(5));
-    }
-
-    #[test]
-    fn test_output_with_timeout_is_none_when_the_command_is_missing() {
-        let mut command = Command::new("copilot-powerline-no-such-command");
-        assert!(output_with_timeout(&mut command, Duration::from_secs(1)).is_none());
-    }
 
     #[test]
     fn test_cache_entry_roundtrip() {
@@ -756,100 +608,5 @@ mod tests {
     fn test_get_pr_info_when_gh_not_available() {
         let res = get_pr_info(Path::new("/some/repo"), "main", &PrConfig::default(), false);
         assert!(res.is_none());
-    }
-
-    fn unique_cache_path(label: &str) -> PathBuf {
-        std::env::temp_dir().join(format!(
-            "copilot_powerline_test_{}_{}_{}.json",
-            label,
-            std::process::id(),
-            current_timestamp()
-        ))
-    }
-
-    #[test]
-    fn test_try_claim_spawn_only_one_winner_when_racing() {
-        let cache_path = unique_cache_path("claim_race");
-        let now = current_timestamp();
-
-        let first = try_claim_spawn(&cache_path, now, 15);
-        let second = try_claim_spawn(&cache_path, now, 15);
-
-        let _ = fs::remove_file(lock_file_path(&cache_path));
-
-        assert!(first, "first claim attempt should win");
-        assert!(!second, "second concurrent claim attempt should lose");
-    }
-
-    #[test]
-    fn test_try_claim_spawn_allows_reclaim_after_throttle_window() {
-        let cache_path = unique_cache_path("claim_reclaim");
-        let now = current_timestamp();
-
-        assert!(try_claim_spawn(&cache_path, now, 15));
-        assert!(try_claim_spawn(&cache_path, now + 20, 15));
-
-        let _ = fs::remove_file(lock_file_path(&cache_path));
-    }
-
-    #[test]
-    fn test_try_claim_spawn_single_winner_when_reclaiming_stale_lock_concurrently() {
-        use std::sync::{Arc, Barrier};
-        use std::time::Duration;
-
-        let now = current_timestamp();
-        for round in 0..50 {
-            let cache_path = unique_cache_path(&format!("claim_stale_race_{round}"));
-            let lock_path = lock_file_path(&cache_path);
-            let stale = File::create(&lock_path).unwrap();
-            stale
-                .set_modified(UNIX_EPOCH + Duration::from_secs(now - 100))
-                .unwrap();
-            drop(stale);
-
-            let barrier = Arc::new(Barrier::new(8));
-            let handles: Vec<_> = (0..8)
-                .map(|_| {
-                    let (barrier, cache_path) = (barrier.clone(), cache_path.clone());
-                    std::thread::spawn(move || {
-                        barrier.wait();
-                        try_claim_spawn(&cache_path, now, 15)
-                    })
-                })
-                .collect();
-            let winners = handles
-                .into_iter()
-                .map(|h| h.join().unwrap())
-                .filter(|won| *won)
-                .count();
-
-            let _ = fs::remove_file(&lock_path);
-            assert_eq!(winners, 1, "round {round}: exactly one claim must win");
-        }
-    }
-
-    #[test]
-    fn test_try_claim_spawn_does_not_touch_cache_entry() {
-        let cache_path = unique_cache_path("claim_no_touch");
-        let original = PrCacheEntry {
-            timestamp: 100,
-            pr: Some(PullRequestInfo {
-                number: 7,
-                url: "https://github.com/org/repo/pull/7".to_string(),
-                review_state: None,
-                unresolved_threads: None,
-            }),
-        };
-        write_cache_entry(&cache_path, &original).unwrap();
-
-        let now = current_timestamp();
-        assert!(try_claim_spawn(&cache_path, now, 15));
-
-        let unchanged = read_cache_entry(&cache_path).unwrap();
-
-        let _ = fs::remove_file(&cache_path);
-        let _ = fs::remove_file(lock_file_path(&cache_path));
-
-        assert_eq!(unchanged, original);
     }
 }

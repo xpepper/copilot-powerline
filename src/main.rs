@@ -21,6 +21,7 @@ mod segments;
 mod spend;
 mod state;
 mod theme;
+mod worker;
 
 use cli::Cli;
 use config::{Config, IconSet, Style};
