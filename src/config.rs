@@ -627,6 +627,10 @@ pub struct BranchSizeConfig {
     /// How long a measured size is considered fresh.
     #[serde(default = "default_branch_size_cache_ttl")]
     pub cache_ttl_seconds: u64,
+    /// The branch on `origin` to compare with. Unset, it is read from
+    /// `origin/HEAD`, and the segment is hidden when that does not exist.
+    #[serde(default)]
+    pub default_branch: Option<String>,
 }
 
 fn default_branch_size_cache_ttl() -> u64 {
@@ -638,6 +642,7 @@ impl Default for BranchSizeConfig {
         Self {
             enabled: true,
             cache_ttl_seconds: default_branch_size_cache_ttl(),
+            default_branch: None,
         }
     }
 }
@@ -796,6 +801,14 @@ mod tests {
 
         assert!(cfg.branch_size.enabled);
         assert_eq!(cfg.branch_size.cache_ttl_seconds, 60);
+        assert_eq!(cfg.branch_size.default_branch, None);
+    }
+
+    #[test]
+    fn test_branch_size_reads_the_default_branch() {
+        let cfg = Config::from_toml("[branch_size]\ndefault_branch = \"develop\"\n").unwrap();
+
+        assert_eq!(cfg.branch_size.default_branch.as_deref(), Some("develop"));
     }
 
     #[test]
@@ -963,6 +976,7 @@ mod tests {
         all.model.prefix = prefix.clone();
         all.fusion.prefix = prefix.clone();
         all.tool_overhead.prefix = prefix.clone();
+        all.branch_size.default_branch = Some("main".to_string());
         all.pr.prefix = prefix;
         let known: toml::Table = toml::from_str(&all.to_toml_string().unwrap()).unwrap();
 

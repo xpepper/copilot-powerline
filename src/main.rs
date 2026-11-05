@@ -108,7 +108,11 @@ fn main() {
 
     if let Some(cache_path) = cli.fetch_branch_size {
         let repo_dir = cli.repo_dir.unwrap_or_else(|| PathBuf::from("."));
-        branch_size::fetch_and_write_branch_size(&repo_dir, &cache_path);
+        branch_size::fetch_and_write_branch_size(
+            &repo_dir,
+            &cache_path,
+            cli.default_branch.as_deref(),
+        );
         return;
     }
 
@@ -203,7 +207,13 @@ fn main() {
             &branch_size::cache_path(repo_dir, branch),
             config.branch_size.cache_ttl_seconds,
             github::current_timestamp(),
-            |cache_path| branch_size::spawn_background_fetch(repo_dir, cache_path),
+            |cache_path| {
+                branch_size::spawn_background_fetch(
+                    repo_dir,
+                    cache_path,
+                    config.branch_size.default_branch.as_deref(),
+                )
+            },
         ),
         _ => None,
     };

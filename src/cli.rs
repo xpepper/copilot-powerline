@@ -41,6 +41,11 @@ pub struct Cli {
     #[arg(long, hide = true)]
     pub fetch_branch_size: Option<PathBuf>,
 
+    /// Internal worker flag: the branch on `origin` the branch size compares
+    /// with, instead of `origin/HEAD`
+    #[arg(long, hide = true)]
+    pub default_branch: Option<String>,
+
     /// Internal worker flag indicating the target repo directory for the PR
     /// and branch size workers
     #[arg(long, hide = true)]

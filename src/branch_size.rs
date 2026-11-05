@@ -56,13 +56,18 @@ fn read_entry(cache_path: &Path) -> Option<CacheEntry> {
 }
 
 /// Re-invokes this binary as a detached `--fetch-branch-size` worker.
-pub fn spawn_background_fetch(repo_dir: &Path, cache_path: &Path) {
+pub fn spawn_background_fetch(repo_dir: &Path, cache_path: &Path, default_branch: Option<&str>) {
     if let Ok(exe) = std::env::current_exe() {
-        let _ = Command::new(exe)
+        let mut command = Command::new(exe);
+        command
             .arg("--fetch-branch-size")
             .arg(cache_path)
             .arg("--repo-dir")
-            .arg(repo_dir)
+            .arg(repo_dir);
+        if let Some(branch) = default_branch {
+            command.arg("--default-branch").arg(branch);
+        }
+        let _ = command
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -74,10 +79,14 @@ pub fn spawn_background_fetch(repo_dir: &Path, cache_path: &Path) {
 ///
 /// This runs `git diff`, so it must only ever run in the detached worker
 /// started by `spawn_background_fetch`, never on the hot path.
-pub fn fetch_and_write_branch_size(repo_dir: &Path, cache_path: &Path) {
+pub fn fetch_and_write_branch_size(
+    repo_dir: &Path,
+    cache_path: &Path,
+    default_branch: Option<&str>,
+) {
     let entry = CacheEntry {
         timestamp: crate::github::current_timestamp(),
-        size: measure(repo_dir),
+        size: measure(repo_dir, default_branch),
     };
     if let Ok(json) = serde_json::to_string(&entry) {
         let _ = crate::state::write_private_atomic(cache_path, json.as_bytes());
@@ -86,8 +95,9 @@ pub fn fetch_and_write_branch_size(repo_dir: &Path, cache_path: &Path) {
 }
 
 /// The committed size since the merge base with `origin/<default>`, as a
-/// pull request counts it.
-fn measure(repo_dir: &Path) -> Option<BranchSize> {
+/// pull request counts it. Without a configured `default_branch`, it is read
+/// from `origin/HEAD`.
+fn measure(repo_dir: &Path, default_branch: Option<&str>) -> Option<BranchSize> {
     let started = Instant::now();
     // All calls share one WORKER_TIMEOUT, so the worker as a whole still
     // ends before the throttle lets the next one start.
@@ -104,11 +114,14 @@ fn measure(repo_dir: &Path) -> Option<BranchSize> {
             .flatten()
     };
 
-    let default_branch = default_branch_from(&git(&[
-        "symbolic-ref",
-        "--short",
-        "refs/remotes/origin/HEAD",
-    ])?)?;
+    let default_branch = match default_branch {
+        Some(branch) => branch.to_string(),
+        None => default_branch_from(&git(&[
+            "symbolic-ref",
+            "--short",
+            "refs/remotes/origin/HEAD",
+        ])?)?,
+    };
     let range = format!("origin/{default_branch}...HEAD");
     let committed = parse_numstat(&git(&["diff", "--numstat", &range])?)?;
     Some(BranchSize {
