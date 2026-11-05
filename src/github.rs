@@ -1,11 +1,11 @@
 use crate::config::PrConfig;
-use crate::worker::{WORKER_TIMEOUT, lock_file_path, output_with_timeout, refresh_if_stale};
+use crate::worker::{Deadline, lock_file_path, output_with_timeout, refresh_if_stale};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// The verdict a pull request's reviews add up to (see `GLOSSARY.md`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -202,7 +202,7 @@ fn pr_coordinates(url: &str) -> Option<(&str, &str, u64)> {
 /// the status-line's hot path.
 pub fn fetch_and_write_pr_cache(repo_dir: &Path, cache_path: &Path, fetch_unresolved: bool) {
     let now = current_timestamp();
-    let started = Instant::now();
+    let deadline = Deadline::start();
 
     let output = output_with_timeout(
         Command::new("gh")
@@ -213,7 +213,7 @@ pub fn fetch_and_write_pr_cache(repo_dir: &Path, cache_path: &Path, fetch_unreso
                 "number,url,state,isDraft,reviewDecision,latestReviews",
             ])
             .current_dir(repo_dir),
-        WORKER_TIMEOUT,
+        deadline.remaining(),
     );
 
     let view = output
@@ -222,10 +222,8 @@ pub fn fetch_and_write_pr_cache(repo_dir: &Path, cache_path: &Path, fetch_unreso
     let pr = view.map(|view| {
         let mut pr = view.pr;
         if view.open && fetch_unresolved {
-            // Both calls share one WORKER_TIMEOUT, so the worker as a whole
-            // still ends before the throttle lets the next one start.
-            let remaining = WORKER_TIMEOUT.saturating_sub(started.elapsed());
-            pr.unresolved_threads = fetch_unresolved_threads(repo_dir, &pr.url, remaining);
+            pr.unresolved_threads =
+                fetch_unresolved_threads(repo_dir, &pr.url, deadline.remaining());
         }
         pr
     });

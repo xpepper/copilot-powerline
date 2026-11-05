@@ -5,12 +5,11 @@
 //! throttled, detached refresh (this binary re-invoked with
 //! `--fetch-branch-size`).
 
-use crate::worker::{WORKER_TIMEOUT, output_with_timeout};
+use crate::worker::{Deadline, output_with_timeout};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::Instant;
 
 /// How much the branch changed since it left the default branch.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -105,14 +104,11 @@ pub fn fetch_and_write_branch_size(
 /// pull request counts it, and the uncommitted changes on top. Without a
 /// configured `default_branch`, it is read from `origin/HEAD`.
 fn measure(repo_dir: &Path, default_branch: Option<&str>) -> Option<BranchSize> {
-    let started = Instant::now();
-    // All calls share one WORKER_TIMEOUT, so the worker as a whole still
-    // ends before the throttle lets the next one start.
+    let deadline = Deadline::start();
     let git = |args: &[&str]| {
-        let remaining = WORKER_TIMEOUT.saturating_sub(started.elapsed());
         let output = output_with_timeout(
             Command::new("git").args(args).current_dir(repo_dir),
-            remaining,
+            deadline.remaining(),
         )?;
         output
             .status

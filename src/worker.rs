@@ -20,6 +20,21 @@ pub const THROTTLE_SECONDS: u64 = 15;
 pub const WORKER_TIMEOUT: Duration = Duration::from_secs(10);
 const _: () = assert!(WORKER_TIMEOUT.as_secs() < THROTTLE_SECONDS);
 
+/// One `WORKER_TIMEOUT` shared by all of a worker's external commands, so
+/// the worker as a whole ends before the throttle lets the next one start.
+pub struct Deadline(Instant);
+
+impl Deadline {
+    pub fn start() -> Self {
+        Self(Instant::now() + WORKER_TIMEOUT)
+    }
+
+    /// The time left for the next command; zero once the deadline passed.
+    pub fn remaining(&self) -> Duration {
+        self.0.saturating_duration_since(Instant::now())
+    }
+}
+
 /// Whether `program` is a file in one of the `PATH` directories, checked
 /// without spawning it.
 pub fn is_on_path(program: &str) -> bool {
