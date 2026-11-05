@@ -148,6 +148,13 @@ pub struct DiffStat {
     pub files: u64,
 }
 
+impl DiffStat {
+    /// No file changed, not even one with no lines (a binary file).
+    pub fn is_empty(&self) -> bool {
+        self.files == 0
+    }
+}
+
 /// Adds up the output of `git diff --numstat`, one `added<TAB>removed<TAB>path`
 /// line per file. A binary file shows `-` for both counts, and adds no lines.
 fn parse_numstat(stdout: &str) -> Option<DiffStat> {

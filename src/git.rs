@@ -24,13 +24,6 @@ pub fn read_head(start_path: &Path) -> Option<Head> {
     }
 }
 
-/// Resolves the current git branch name without spawning a subprocess.
-pub fn get_git_branch(start_path: &Path) -> Option<String> {
-    match read_head(start_path)? {
-        Head::Branch(name) | Head::Detached(name) => Some(name),
-    }
-}
-
 /// Resolves the repository root (the directory containing the `.git` entry)
 /// by walking upward from `start_path`. Stable regardless of which
 /// subdirectory of the repository `start_path` is in, so callers can use it
@@ -80,17 +73,8 @@ mod tests {
     #[test]
     fn test_non_git_directory() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let branch = get_git_branch(temp_dir.path());
-        assert!(branch.is_none());
-    }
-
-    #[test]
-    fn test_git_branch_resolution() {
-        let repo = repo_with_head("ref: refs/heads/feature-awesome\n");
-
-        let branch = get_git_branch(repo.path());
-
-        assert_eq!(branch.as_deref(), Some("feature-awesome"));
+        let head = read_head(temp_dir.path());
+        assert!(head.is_none());
     }
 
     fn repo_with_head(head: &str) -> tempfile::TempDir {
@@ -132,14 +116,5 @@ mod tests {
 
         assert_eq!(root_from_top, root_from_nested);
         assert_eq!(root_from_top.unwrap(), temp_dir.path());
-    }
-
-    #[test]
-    fn test_detached_head_resolution() {
-        let repo = repo_with_head("d58460183921abc456\n");
-
-        let branch = get_git_branch(repo.path());
-
-        assert_eq!(branch.as_deref(), Some("d584601"));
     }
 }

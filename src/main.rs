@@ -26,6 +26,7 @@ mod worker;
 
 use cli::Cli;
 use config::{Config, IconSet, Style};
+use git::Head;
 use input::CopilotInput;
 use renderer::render_segments;
 use segments::branch_size::{self as branch_size_segment, render_branch_size_segment};
@@ -184,26 +185,34 @@ fn main() {
     // `cwd` field carries the same value, so it is not parsed.
     let pr_visible = pr::is_visible(&segments, &config.pr);
     let branch_size_visible = branch_size_segment::is_visible(&segments, &config.branch_size);
-    let repo_branch = if pr_visible || branch_size_visible {
+    let repo_head = if pr_visible || branch_size_visible {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         // Use the resolved repository root (not the raw cwd) so the cache
         // key and the worker's directory stay stable regardless of which
         // subdirectory of the repo the status line was invoked from.
         git::find_repo_root(&cwd)
-            .and_then(|repo_dir| git::get_git_branch(&repo_dir).map(|branch| (repo_dir, branch)))
+            .and_then(|repo_dir| git::read_head(&repo_dir).map(|head| (repo_dir, head)))
     } else {
         None
     };
 
-    let pr_info = match &repo_branch {
-        Some((repo_dir, branch)) if pr_visible => {
+    let pr_info = match &repo_head {
+        Some((repo_dir, Head::Branch(branch) | Head::Detached(branch))) if pr_visible => {
             github::get_pr_info(repo_dir, branch, &config.pr, github::is_gh_available())
         }
         _ => None,
     };
 
-    let branch_size = match &repo_branch {
-        Some((repo_dir, branch)) if branch_size_visible => branch_size::get_branch_size(
+    let measured_branch = match &repo_head {
+        Some((repo_dir, Head::Branch(branch)))
+            if branch_size_visible && worker::is_on_path("git") =>
+        {
+            Some((repo_dir.as_path(), branch.as_str()))
+        }
+        _ => None,
+    };
+    let branch_size = measured_branch.and_then(|(repo_dir, branch)| {
+        branch_size::get_branch_size(
             &branch_size::cache_path(repo_dir, branch),
             config.branch_size.cache_ttl_seconds,
             github::current_timestamp(),
@@ -214,9 +223,8 @@ fn main() {
                     config.branch_size.default_branch.as_deref(),
                 )
             },
-        ),
-        _ => None,
-    };
+        )
+    });
 
     let cycle_usage =
         if cycle_cost::is_visible(&segments, &config.cycle_cost) && github::is_gh_available() {
@@ -441,7 +449,9 @@ fn main() {
                 }
             }
             branch_size_segment::NAME => {
-                if let Some(s) = render_branch_size_segment(branch_size.as_ref()) {
+                if let Some(s) = measured_branch.and_then(|(_, branch)| {
+                    render_branch_size_segment(branch_size.as_ref(), branch)
+                }) {
                     rendered_segments.push(s);
                 }
             }

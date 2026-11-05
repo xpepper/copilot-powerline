@@ -232,7 +232,7 @@ fn test_adds_staged_and_unstaged_changes_as_uncommitted() {
 
     let line = repo.shown_after_fetch(1);
 
-    assert_eq!(line, "+3 -0 · 1 files vs main · +3 -1 uncommitted");
+    assert_eq!(line, "+3 -0 · 1 file vs main · +3 -1 uncommitted");
 }
 
 #[test]
@@ -260,7 +260,7 @@ fn test_each_branch_shows_its_own_size() {
     let after = repo.refresh();
 
     assert_eq!(before, "");
-    assert_eq!(after, "+1 -0 · 1 files vs main");
+    assert_eq!(after, "+1 -0 · 1 file vs main");
 }
 
 #[test]
@@ -276,7 +276,7 @@ fn test_a_fresh_size_is_shown_without_measuring_again() {
 
     let line = repo.refresh();
 
-    assert_eq!(line, "+3 -0 · 1 files vs main");
+    assert_eq!(line, "+3 -0 · 1 file vs main");
     assert_eq!(repo.git_callers().len(), calls, "measured again");
 }
 
@@ -293,7 +293,7 @@ fn test_a_stale_size_is_shown_until_the_next_refresh_replaces_it() {
     repo.wait_for_worker(1);
     let replaced = repo.refresh();
 
-    assert_eq!(stale, "+3 -0 · 1 files vs main");
+    assert_eq!(stale, "+3 -0 · 1 file vs main");
     assert_eq!(replaced, "+4 -0 · 2 files vs main");
 }
 
@@ -331,7 +331,7 @@ fn test_compares_with_the_configured_default_branch() {
 
     let line = repo.shown_after_fetch(1);
 
-    assert_eq!(line, "+1 -0 · 1 files vs develop");
+    assert_eq!(line, "+1 -0 · 1 file vs develop");
 }
 
 #[test]
@@ -342,7 +342,7 @@ fn test_reads_the_default_branch_in_a_linked_worktree() {
 
     let line = repo.shown_after_fetch(1);
 
-    assert_eq!(line, "+3 -0 · 1 files vs main");
+    assert_eq!(line, "+3 -0 · 1 file vs main");
 }
 
 #[test]
