@@ -157,6 +157,17 @@ impl Repo {
         )
     }
 
+    /// Refreshes with a `PATH` on which there is no `git`.
+    fn refresh_without_git(&self) -> String {
+        let empty = self.home().join("empty-bin");
+        fs::create_dir_all(&empty).unwrap();
+        self.sandbox.refresh_with_env(
+            &payload(SESSION, SESSION_SPEND),
+            &["--style", "plain", "--icon-set", "plain"],
+            &[("PATH", &empty)],
+        )
+    }
+
     /// Waits for the detached worker a refresh spawned: done once `caches`
     /// branch sizes are cached and no claim lock is held.
     fn wait_for_worker(&self, caches: usize) {
@@ -351,6 +362,79 @@ fn test_hidden_without_a_default_branch() {
     repo.sandbox.write_config(SHOWN);
     commit_file(repo.home(), "c.txt", "x\ny\nz\n");
     git(repo.home(), &["remote", "set-head", "origin", "--delete"]);
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "");
+}
+
+#[test]
+fn test_hidden_on_the_default_branch() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(SHOWN);
+    git(repo.home(), &["switch", "-q", "main"]);
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    fs::write(repo.home().join("a.txt"), "one\nTWO\n").unwrap();
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "");
+}
+
+#[test]
+fn test_hidden_on_a_detached_head() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(SHOWN);
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    git(repo.home(), &["switch", "-q", "--detach"]);
+
+    let line = repo.refresh();
+
+    assert_eq!(line, "");
+    assert!(repo.sandbox.state_files("branch_size_").is_empty());
+}
+
+#[test]
+fn test_hidden_without_changes() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(SHOWN);
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "");
+}
+
+#[test]
+fn test_hidden_outside_a_repository() {
+    let sandbox = Sandbox::new();
+    sandbox.write_config(SHOWN);
+
+    let line = sandbox.refresh_plain();
+
+    assert_eq!(line, "");
+    assert!(sandbox.state_files("branch_size_").is_empty());
+}
+
+#[test]
+fn test_hidden_without_git_and_never_starts_a_worker() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(SHOWN);
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+
+    let line = repo.refresh_without_git();
+
+    assert_eq!(line, "");
+    assert!(repo.sandbox.state_files("branch_size_").is_empty());
+}
+
+#[test]
+fn test_hidden_when_the_default_branch_is_not_on_origin() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(&format!(
+        "{SHOWN}\n[branch_size]\ndefault_branch = \"develop\"\n"
+    ));
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    fs::write(repo.home().join("a.txt"), "one\nTWO\n").unwrap();
 
     let line = repo.shown_after_fetch(1);
 
