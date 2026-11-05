@@ -1,5 +1,7 @@
 use crate::config::PrConfig;
-use crate::worker::{WORKER_TIMEOUT, lock_file_path, output_with_timeout, try_claim_spawn};
+use crate::worker::{
+    THROTTLE_SECONDS, WORKER_TIMEOUT, lock_file_path, output_with_timeout, try_claim_spawn,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
@@ -322,7 +324,6 @@ pub fn get_pr_info(
 
     let cache_path = get_cache_file_path(repo_dir, branch);
     let now = current_timestamp();
-    let throttle_seconds = 15;
 
     if let Some(entry) = read_cache_entry(&cache_path) {
         if is_cache_fresh(&entry, config.cache_ttl_seconds, now) {
@@ -333,14 +334,14 @@ pub fn get_pr_info(
         // of a concurrent race does not spawn a duplicate worker, and the
         // stale entry on disk is left untouched (never marked fresh) until
         // a real refresh completes.
-        if try_claim_spawn(&cache_path, now, throttle_seconds) {
+        if try_claim_spawn(&cache_path, now, THROTTLE_SECONDS) {
             spawn_background_fetch(repo_dir, &cache_path, config.show_unresolved);
         }
 
         entry.pr
     } else {
         // No cache exists yet. If not throttled, claim and spawn.
-        if try_claim_spawn(&cache_path, now, throttle_seconds) {
+        if try_claim_spawn(&cache_path, now, THROTTLE_SECONDS) {
             spawn_background_fetch(repo_dir, &cache_path, config.show_unresolved);
         }
         None

@@ -8,9 +8,14 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
+/// Minimum time between two background refreshes of one cache, even while
+/// they keep failing.
+pub const THROTTLE_SECONDS: u64 = 15;
+
 /// How long a worker's external command may run. Shorter than the refresh
 /// throttle, so a hung call is killed before the next worker can start.
 pub const WORKER_TIMEOUT: Duration = Duration::from_secs(10);
+const _: () = assert!(WORKER_TIMEOUT.as_secs() < THROTTLE_SECONDS);
 
 /// Runs `command` and returns its stdout, or `None` when it cannot start or
 /// is still running after `timeout` (it is killed). stderr is discarded.

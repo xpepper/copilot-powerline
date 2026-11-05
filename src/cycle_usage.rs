@@ -26,9 +26,6 @@ struct CacheEntry {
     usage: Option<CycleUsage>,
 }
 
-/// Minimum time between two background refreshes, even while failing.
-const THROTTLE_SECONDS: u64 = 15;
-
 pub fn cache_path() -> PathBuf {
     crate::state::base_dir().join("cycle_usage.json")
 }
@@ -49,7 +46,7 @@ pub fn get_cycle_usage(
     let fresh = entry
         .as_ref()
         .is_some_and(|e| now.saturating_sub(e.timestamp) < ttl_seconds);
-    if !fresh && crate::worker::try_claim_spawn(cache_path, now, THROTTLE_SECONDS) {
+    if !fresh && crate::worker::try_claim_spawn(cache_path, now, crate::worker::THROTTLE_SECONDS) {
         spawn_refresh(cache_path);
     }
 
