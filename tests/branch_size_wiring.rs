@@ -440,3 +440,20 @@ fn test_hidden_when_the_default_branch_is_not_on_origin() {
 
     assert_eq!(line, "");
 }
+
+#[test]
+fn test_shows_the_alert_color_above_the_line_limit() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(
+        "theme = \"github\"\nsegments = [\"branch_size\"]\n\n[branch_size]\nalert_above_lines = 3\n",
+    );
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    fs::write(repo.home().join("a.txt"), "one\ntwo\nthree\n").unwrap();
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(
+        line,
+        "\x1b[1;31m+3 -0 · 1 file vs main · +1 -0 uncommitted\x1b[0m"
+    );
+}
