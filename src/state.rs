@@ -14,7 +14,7 @@ use std::time::{Duration, SystemTime};
 /// else in the state directory (the `mode` override, the prune marker) is
 /// never touched. `session_file` and `branch_file` assert their kind is listed
 /// here.
-const PRUNABLE_KINDS: [&str; 5] = ["spend", "cache", "idle", "month", "pr"];
+const PRUNABLE_KINDS: [&str; 6] = ["spend", "cache", "idle", "month", "pr", "branch_size"];
 
 /// A session idle longer than this loses its snapshots; resuming it only
 /// re-creates the baselines (idle time restarts from zero).
@@ -378,6 +378,7 @@ mod tests {
             crate::idle::snapshot_path("s"),
             crate::month_spend::snapshot_path("s"),
             crate::github::get_cache_file_path(Path::new("repo"), "branch"),
+            crate::branch_size::cache_path(Path::new("repo"), "branch"),
         ]
         .map(|path| path.file_name().unwrap().to_string_lossy().into_owned());
 

@@ -2,6 +2,7 @@ use clap::Parser;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
+mod branch_size;
 mod cache_trend;
 mod cli;
 mod config;
@@ -27,6 +28,7 @@ use cli::Cli;
 use config::{Config, IconSet, Style};
 use input::CopilotInput;
 use renderer::render_segments;
+use segments::branch_size::{self as branch_size_segment, render_branch_size_segment};
 use segments::cache::{self, render_cache_segment};
 use segments::cache_expiry::{self, render_cache_expiry_segment};
 use segments::cycle_cost::{self, render_cycle_cost_segment};
@@ -104,6 +106,12 @@ fn main() {
         return;
     }
 
+    if let Some(cache_path) = cli.fetch_branch_size {
+        let repo_dir = cli.repo_dir.unwrap_or_else(|| PathBuf::from("."));
+        branch_size::fetch_and_write_branch_size(&repo_dir, &cache_path);
+        return;
+    }
+
     if let Some(cache_path) = cli.fetch_cycle_usage {
         cycle_usage::fetch_and_write_cycle_cache(&cache_path);
         return;
@@ -168,20 +176,36 @@ fn main() {
 
     // Copilot CLI spawns the status line command in the session's current
     // working directory (it follows `/cwd` and session switches), so the
-    // process cwd is the right place for PR lookups. The payload's `cwd`
-    // field carries the same value, so it is not parsed.
-    let pr_info = if pr::is_visible(&segments, &config.pr) {
+    // process cwd is the right place for PR and branch lookups. The payload's
+    // `cwd` field carries the same value, so it is not parsed.
+    let pr_visible = pr::is_visible(&segments, &config.pr);
+    let branch_size_visible = branch_size_segment::is_visible(&segments, &config.branch_size);
+    let repo_branch = if pr_visible || branch_size_visible {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         // Use the resolved repository root (not the raw cwd) so the cache
-        // key and gh working directory stay stable regardless of which
+        // key and the worker's directory stay stable regardless of which
         // subdirectory of the repo the status line was invoked from.
-        git::find_repo_root(&cwd).and_then(|repo_dir| {
-            git::get_git_branch(&repo_dir).and_then(|branch| {
-                github::get_pr_info(&repo_dir, &branch, &config.pr, github::is_gh_available())
-            })
-        })
+        git::find_repo_root(&cwd)
+            .and_then(|repo_dir| git::get_git_branch(&repo_dir).map(|branch| (repo_dir, branch)))
     } else {
         None
+    };
+
+    let pr_info = match &repo_branch {
+        Some((repo_dir, branch)) if pr_visible => {
+            github::get_pr_info(repo_dir, branch, &config.pr, github::is_gh_available())
+        }
+        _ => None,
+    };
+
+    let branch_size = match &repo_branch {
+        Some((repo_dir, branch)) if branch_size_visible => branch_size::get_branch_size(
+            &branch_size::cache_path(repo_dir, branch),
+            config.branch_size.cache_ttl_seconds,
+            github::current_timestamp(),
+            |cache_path| branch_size::spawn_background_fetch(repo_dir, cache_path),
+        ),
+        _ => None,
     };
 
     let cycle_usage =
@@ -403,6 +427,11 @@ fn main() {
                 if let Some(s) =
                     render_pr_segment(pr_info.as_ref(), &config.pr, config.icon_set, &palette)
                 {
+                    rendered_segments.push(s);
+                }
+            }
+            branch_size_segment::NAME => {
+                if let Some(s) = render_branch_size_segment(branch_size.as_ref()) {
                     rendered_segments.push(s);
                 }
             }

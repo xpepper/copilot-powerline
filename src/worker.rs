@@ -1,7 +1,7 @@
 //! Shared plumbing for the detached background workers (`--fetch-pr-cache`,
-//! `--fetch-cycle-usage`): a check that the program a worker runs is
-//! installed, a throttled claim so only one worker runs per cache file, and a
-//! deadline on the external command it runs.
+//! `--fetch-cycle-usage`, `--fetch-branch-size`): a check that the program a
+//! worker runs is installed, a throttled claim so only one worker runs per
+//! cache file, and a deadline on the external command it runs.
 
 use std::fs::{self, File};
 use std::io::Read;

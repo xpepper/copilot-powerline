@@ -1,3 +1,4 @@
+pub mod branch_size;
 pub mod cache;
 pub mod cache_expiry;
 pub mod cycle_cost;
@@ -64,6 +65,7 @@ mod tests {
             fusion::NAME,
             pr::NAME,
             tool_overhead::NAME,
+            branch_size::NAME,
         ];
         let config = crate::config::Config::default();
         for name in config.segments.iter().chain(&config.compact_segments) {
