@@ -51,35 +51,61 @@ fn commit_file(dir: &Path, name: &str, content: &str) {
     git(dir, &["commit", "-q", "-m", name]);
 }
 
-/// The sandbox `HOME` as a repository on branch `feature`, whose `origin` is
+/// Makes `dir` a repository on `main` with one commit, whose `origin` is
+/// the bare repository `origin` with `main` as its default branch.
+fn init_with_origin(dir: &Path, origin: &Path) {
+    git(origin, &["init", "-q", "--bare", "-b", "main"]);
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "user.name", "Test"]);
+    git(dir, &["config", "user.email", "test@example.com"]);
+    commit_file(dir, "a.txt", "one\ntwo\n");
+    git(dir, &["remote", "add", "origin", origin.to_str().unwrap()]);
+    git(dir, &["push", "-q", "origin", "main"]);
+    git(dir, &["remote", "set-head", "origin", "main"]);
+}
+
+/// The sandbox `HOME` as a checkout on branch `feature`, whose `origin` is
 /// a bare repository with `main` as its default branch.
 struct Repo {
     sandbox: Sandbox,
-    _origin: TempDir,
+    _dirs: Vec<TempDir>,
     bin: PathBuf,
     log: PathBuf,
     hang: PathBuf,
 }
 
 impl Repo {
+    /// `HOME` is the repository itself.
     fn new() -> Self {
         let sandbox = Sandbox::new();
-        let home = sandbox.home().to_path_buf();
         let origin = tempfile::tempdir().unwrap();
-        git(origin.path(), &["init", "-q", "--bare", "-b", "main"]);
+        init_with_origin(sandbox.home(), origin.path());
+        git(sandbox.home(), &["switch", "-q", "-c", "feature"]);
+        Self::with_git_wrapper(sandbox, vec![origin])
+    }
 
-        git(&home, &["init", "-q", "-b", "main"]);
-        git(&home, &["config", "user.name", "Test"]);
-        git(&home, &["config", "user.email", "test@example.com"]);
-        commit_file(&home, "a.txt", "one\ntwo\n");
+    /// `HOME` is a linked worktree of a repository that lives elsewhere.
+    fn linked_worktree() -> Self {
+        let sandbox = Sandbox::new();
+        let origin = tempfile::tempdir().unwrap();
+        let main = tempfile::tempdir().unwrap();
+        init_with_origin(main.path(), origin.path());
         git(
-            &home,
-            &["remote", "add", "origin", origin.path().to_str().unwrap()],
+            main.path(),
+            &[
+                "worktree",
+                "add",
+                "-q",
+                "-b",
+                "feature",
+                sandbox.home().to_str().unwrap(),
+            ],
         );
-        git(&home, &["push", "-q", "origin", "main"]);
-        git(&home, &["remote", "set-head", "origin", "main"]);
-        git(&home, &["switch", "-q", "-c", "feature"]);
+        Self::with_git_wrapper(sandbox, vec![origin, main])
+    }
 
+    fn with_git_wrapper(sandbox: Sandbox, dirs: Vec<TempDir>) -> Self {
+        let home = sandbox.home().to_path_buf();
         let bin = home.join("bin");
         fs::create_dir_all(&bin).unwrap();
         let log = home.join("git-calls.log");
@@ -102,7 +128,7 @@ impl Repo {
 
         Self {
             sandbox,
-            _origin: origin,
+            _dirs: dirs,
             bin,
             log,
             hang,
@@ -264,4 +290,44 @@ fn test_a_hung_git_is_stopped_before_the_next_refresh_may_start() {
 
     assert!(elapsed < THROTTLE, "the worker ran for {elapsed:?}");
     assert_eq!(repo.refresh(), "");
+}
+
+#[test]
+fn test_compares_with_the_configured_default_branch() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(&format!(
+        "{SHOWN}\n[branch_size]\ndefault_branch = \"develop\"\n"
+    ));
+    git(repo.home(), &["switch", "-q", "-c", "develop", "main"]);
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    git(repo.home(), &["push", "-q", "origin", "develop"]);
+    git(repo.home(), &["switch", "-q", "-c", "topic"]);
+    commit_file(repo.home(), "d.txt", "d\n");
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "+1 -0 · 1 files vs develop");
+}
+
+#[test]
+fn test_reads_the_default_branch_in_a_linked_worktree() {
+    let repo = Repo::linked_worktree();
+    repo.sandbox.write_config(SHOWN);
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "+3 -0 · 1 files vs main");
+}
+
+#[test]
+fn test_hidden_without_a_default_branch() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(SHOWN);
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    git(repo.home(), &["remote", "set-head", "origin", "--delete"]);
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "");
 }
