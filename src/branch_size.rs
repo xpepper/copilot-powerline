@@ -22,6 +22,16 @@ pub struct BranchSize {
     pub uncommitted: DiffStat,
 }
 
+impl BranchSize {
+    pub fn is_empty(&self) -> bool {
+        self.committed.is_empty() && self.uncommitted.is_empty()
+    }
+
+    pub fn changed_lines(&self) -> u64 {
+        self.committed.changed_lines() + self.uncommitted.changed_lines()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct CacheEntry {
     timestamp: u64,
@@ -152,6 +162,10 @@ impl DiffStat {
     /// No file changed, not even one with no lines (a binary file).
     pub fn is_empty(&self) -> bool {
         self.files == 0
+    }
+
+    pub fn changed_lines(&self) -> u64 {
+        self.added + self.removed
     }
 }
 

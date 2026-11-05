@@ -450,7 +450,12 @@ fn main() {
             }
             branch_size_segment::NAME => {
                 if let Some(s) = measured_branch.and_then(|(_, branch)| {
-                    render_branch_size_segment(branch_size.as_ref(), branch)
+                    render_branch_size_segment(
+                        branch_size.as_ref(),
+                        branch,
+                        &config.branch_size,
+                        &palette,
+                    )
                 }) {
                     rendered_segments.push(s);
                 }
