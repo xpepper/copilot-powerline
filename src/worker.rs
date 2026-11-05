@@ -75,6 +75,22 @@ pub fn output_with_timeout(command: &mut Command, timeout: Duration) -> Option<O
     })
 }
 
+/// Starts a background refresh of `cache_path` through `spawn_refresh` when
+/// the cache, written at `cached_at`, is missing or `ttl_seconds` old. At
+/// most one refresh starts per throttle window.
+pub fn refresh_if_stale(
+    cache_path: &Path,
+    cached_at: Option<u64>,
+    ttl_seconds: u64,
+    now: u64,
+    spawn_refresh: impl FnOnce(&Path),
+) {
+    let fresh = cached_at.is_some_and(|at| now.saturating_sub(at) < ttl_seconds);
+    if !fresh && try_claim_spawn(cache_path, now, THROTTLE_SECONDS) {
+        spawn_refresh(cache_path);
+    }
+}
+
 pub fn lock_file_path(cache_path: &Path) -> PathBuf {
     cache_path.with_extension("lock")
 }
@@ -204,6 +220,45 @@ mod tests {
             std::process::id(),
             current_timestamp()
         ))
+    }
+
+    /// Calls `refresh_if_stale` with a 60 s TTL and reports whether it
+    /// started a refresh.
+    fn refreshed(cache_path: &Path, cached_at: Option<u64>, now: u64) -> bool {
+        let mut spawned = false;
+        refresh_if_stale(cache_path, cached_at, 60, now, |_| spawned = true);
+        spawned
+    }
+
+    #[test]
+    fn test_a_cache_one_ttl_old_is_refreshed() {
+        let cache_path = unique_cache_path("refresh_stale");
+
+        let spawned = refreshed(&cache_path, Some(100), 160);
+
+        let _ = fs::remove_file(lock_file_path(&cache_path));
+        assert!(spawned);
+    }
+
+    #[test]
+    fn test_a_cache_younger_than_its_ttl_is_not_refreshed() {
+        let cache_path = unique_cache_path("refresh_fresh");
+
+        let spawned = refreshed(&cache_path, Some(100), 159);
+
+        assert!(!spawned);
+    }
+
+    #[test]
+    fn test_a_missing_cache_is_refreshed_once_per_throttle_window() {
+        let cache_path = unique_cache_path("refresh_missing");
+
+        let first = refreshed(&cache_path, None, 100);
+        let second = refreshed(&cache_path, None, 101);
+
+        let _ = fs::remove_file(lock_file_path(&cache_path));
+        assert!(first);
+        assert!(!second);
     }
 
     #[test]

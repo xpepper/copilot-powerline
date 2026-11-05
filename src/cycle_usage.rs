@@ -42,13 +42,8 @@ pub fn get_cycle_usage(
     spawn_refresh: impl FnOnce(&Path),
 ) -> Option<CycleUsage> {
     let entry = read_entry(cache_path);
-
-    let fresh = entry
-        .as_ref()
-        .is_some_and(|e| now.saturating_sub(e.timestamp) < ttl_seconds);
-    if !fresh && crate::worker::try_claim_spawn(cache_path, now, crate::worker::THROTTLE_SECONDS) {
-        spawn_refresh(cache_path);
-    }
+    let cached_at = entry.as_ref().map(|e| e.timestamp);
+    crate::worker::refresh_if_stale(cache_path, cached_at, ttl_seconds, now, spawn_refresh);
 
     entry
         .and_then(|e| e.usage)

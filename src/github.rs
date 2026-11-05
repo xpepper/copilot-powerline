@@ -1,7 +1,5 @@
 use crate::config::PrConfig;
-use crate::worker::{
-    THROTTLE_SECONDS, WORKER_TIMEOUT, lock_file_path, output_with_timeout, try_claim_spawn,
-};
+use crate::worker::{WORKER_TIMEOUT, lock_file_path, output_with_timeout, refresh_if_stale};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -58,10 +56,6 @@ pub fn write_cache_entry(cache_path: &Path, entry: &PrCacheEntry) -> std::io::Re
     let json = serde_json::to_string(entry)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     crate::state::write_private_atomic(cache_path, json.as_bytes())
-}
-
-pub fn is_cache_fresh(entry: &PrCacheEntry, ttl_seconds: u64, now: u64) -> bool {
-    now.saturating_sub(entry.timestamp) < ttl_seconds
 }
 
 #[derive(Deserialize)]
@@ -305,29 +299,17 @@ pub fn get_pr_info(
     }
 
     let cache_path = get_cache_file_path(repo_dir, branch);
-    let now = current_timestamp();
+    let entry = read_cache_entry(&cache_path);
+    let cached_at = entry.as_ref().map(|e| e.timestamp);
+    refresh_if_stale(
+        &cache_path,
+        cached_at,
+        config.cache_ttl_seconds,
+        current_timestamp(),
+        |path| spawn_background_fetch(repo_dir, path, config.show_unresolved),
+    );
 
-    if let Some(entry) = read_cache_entry(&cache_path) {
-        if is_cache_fresh(&entry, config.cache_ttl_seconds, now) {
-            return entry.pr;
-        }
-
-        // Cache is stale. Claim the right to refresh atomically; the loser
-        // of a concurrent race does not spawn a duplicate worker, and the
-        // stale entry on disk is left untouched (never marked fresh) until
-        // a real refresh completes.
-        if try_claim_spawn(&cache_path, now, THROTTLE_SECONDS) {
-            spawn_background_fetch(repo_dir, &cache_path, config.show_unresolved);
-        }
-
-        entry.pr
-    } else {
-        // No cache exists yet. If not throttled, claim and spawn.
-        if try_claim_spawn(&cache_path, now, THROTTLE_SECONDS) {
-            spawn_background_fetch(repo_dir, &cache_path, config.show_unresolved);
-        }
-        None
-    }
+    entry.and_then(|e| e.pr)
 }
 
 #[cfg(test)]
@@ -377,17 +359,6 @@ mod tests {
         assert_eq!(loaded, entry);
 
         let _ = fs::remove_file(&temp_file);
-    }
-
-    #[test]
-    fn test_cache_freshness() {
-        let entry = PrCacheEntry {
-            timestamp: 100,
-            pr: None,
-        };
-        assert!(is_cache_fresh(&entry, 60, 150));
-        assert!(!is_cache_fresh(&entry, 60, 160));
-        assert!(!is_cache_fresh(&entry, 60, 200));
     }
 
     fn pr_view(fields: &str) -> Option<PrView> {
