@@ -992,6 +992,7 @@ mod tests {
         all.fusion.prefix = prefix.clone();
         all.tool_overhead.prefix = prefix.clone();
         all.branch_size.default_branch = Some("main".to_string());
+        all.branch_size.alert_above_lines = Some(1);
         all.pr.prefix = prefix;
         let known: toml::Table = toml::from_str(&all.to_toml_string().unwrap()).unwrap();
 
