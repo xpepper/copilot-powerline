@@ -14,15 +14,23 @@ pub fn is_visible(segments: &[String], config: &BranchSizeConfig) -> bool {
 
 pub fn render_branch_size_segment(size: Option<&BranchSize>) -> Option<String> {
     let size = size?;
-    let DiffStat {
-        added,
-        removed,
-        files,
-    } = size.committed;
-    Some(format!(
-        "+{added} -{removed} · {files} files vs {}",
+    let committed = format!(
+        "{} · {} files vs {}",
+        lines(&size.committed),
+        size.committed.files,
         size.default_branch
+    );
+    if size.uncommitted.files == 0 {
+        return Some(committed);
+    }
+    Some(format!(
+        "{committed} · {} uncommitted",
+        lines(&size.uncommitted)
     ))
+}
+
+fn lines(stat: &DiffStat) -> String {
+    format!("+{} -{}", stat.added, stat.removed)
 }
 
 #[cfg(test)]
@@ -38,6 +46,18 @@ mod tests {
                 removed,
                 files,
             },
+            uncommitted: DiffStat::default(),
+        }
+    }
+
+    fn with_uncommitted(size: BranchSize, added: u64, removed: u64, files: u64) -> BranchSize {
+        BranchSize {
+            uncommitted: DiffStat {
+                added,
+                removed,
+                files,
+            },
+            ..size
         }
     }
 
@@ -48,6 +68,30 @@ mod tests {
         let rendered = render_branch_size_segment(Some(&size));
 
         assert_eq!(rendered.as_deref(), Some("+420 -80 · 12 files vs main"));
+    }
+
+    #[test]
+    fn test_adds_the_uncommitted_lines() {
+        let size = with_uncommitted(size(420, 80, 12), 35, 2, 3);
+
+        let rendered = render_branch_size_segment(Some(&size));
+
+        assert_eq!(
+            rendered.as_deref(),
+            Some("+420 -80 · 12 files vs main · +35 -2 uncommitted")
+        );
+    }
+
+    #[test]
+    fn test_an_uncommitted_binary_file_shows_no_lines() {
+        let size = with_uncommitted(size(4, 1, 1), 0, 0, 1);
+
+        let rendered = render_branch_size_segment(Some(&size));
+
+        assert_eq!(
+            rendered.as_deref(),
+            Some("+4 -1 · 1 files vs main · +0 -0 uncommitted")
+        );
     }
 
     #[test]

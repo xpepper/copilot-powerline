@@ -18,6 +18,8 @@ pub struct BranchSize {
     pub default_branch: String,
     /// What the branch's commits changed, as its pull request counts it.
     pub committed: DiffStat,
+    /// Staged and unstaged changes to tracked files, not yet committed.
+    pub uncommitted: DiffStat,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,8 +97,8 @@ pub fn fetch_and_write_branch_size(
 }
 
 /// The committed size since the merge base with `origin/<default>`, as a
-/// pull request counts it. Without a configured `default_branch`, it is read
-/// from `origin/HEAD`.
+/// pull request counts it, and the uncommitted changes on top. Without a
+/// configured `default_branch`, it is read from `origin/HEAD`.
 fn measure(repo_dir: &Path, default_branch: Option<&str>) -> Option<BranchSize> {
     let started = Instant::now();
     // All calls share one WORKER_TIMEOUT, so the worker as a whole still
@@ -124,9 +126,11 @@ fn measure(repo_dir: &Path, default_branch: Option<&str>) -> Option<BranchSize> 
     };
     let range = format!("origin/{default_branch}...HEAD");
     let committed = parse_numstat(&git(&["diff", "--numstat", &range])?)?;
+    let uncommitted = parse_numstat(&git(&["diff", "--numstat", "HEAD"])?)?;
     Some(BranchSize {
         default_branch,
         committed,
+        uncommitted,
     })
 }
 
@@ -203,6 +207,7 @@ mod tests {
                 removed: 1,
                 files: 2,
             },
+            uncommitted: DiffStat::default(),
         }
     }
 
