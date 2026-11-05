@@ -4,4 +4,10 @@ exclude_re = [
     # Starts a detached worker. Testing it needs timing-sensitive waits for a
     # process nobody can join; tests/cycle_usage_wiring.rs covers the worker.
     'src/cycle_usage\.rs:.*replace spawn_background_fetch with \(\)',
+    # Equivalent: a fast path. With it gone, try_claim_spawn still refuses a
+    # live claim, because it re-checks the lock's age under the reclaim guard.
+    'src/worker\.rs:.*replace should_throttle_spawn -> bool with false',
+    # Equivalent: `<` and `<=` differ only at the exact instant the deadline
+    # is reached, which no test can hit.
+    'src/worker\.rs:.*replace < with <= in output_with_timeout',
 ]

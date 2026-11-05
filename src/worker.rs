@@ -317,6 +317,23 @@ mod tests {
     }
 
     #[test]
+    fn test_a_claim_exactly_one_throttle_window_old_can_be_reclaimed() {
+        let cache_path = unique_cache_path("claim_boundary");
+        assert!(try_claim_spawn(&cache_path, current_timestamp(), 15));
+        let claimed_at = fs::metadata(lock_file_path(&cache_path))
+            .and_then(|m| m.modified())
+            .unwrap()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let reclaimed = try_claim_spawn(&cache_path, claimed_at + 15, 15);
+
+        assert!(reclaimed);
+        let _ = fs::remove_file(lock_file_path(&cache_path));
+    }
+
+    #[test]
     fn test_try_claim_spawn_single_winner_when_reclaiming_stale_lock_concurrently() {
         use std::sync::{Arc, Barrier};
         use std::time::Duration;

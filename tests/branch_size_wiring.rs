@@ -437,3 +437,18 @@ fn test_shows_the_alert_color_above_the_line_limit() {
         "\x1b[1;31m+3 -0 · 1 file vs main · +1 -0 uncommitted\x1b[0m"
     );
 }
+
+#[test]
+fn test_the_branch_lookup_starts_no_pr_worker() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(SHOWN);
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    let gh = repo.bin.join("gh");
+    fs::write(&gh, "#!/bin/sh\nexit 1\n").unwrap();
+    fs::set_permissions(&gh, fs::Permissions::from_mode(0o755)).unwrap();
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "+3 -0 · 1 file vs main");
+    assert!(repo.sandbox.state_files("pr_").is_empty());
+}

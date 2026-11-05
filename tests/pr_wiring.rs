@@ -177,3 +177,21 @@ fn test_the_review_state_alone_skips_the_thread_query() {
     assert_eq!(line, "PR #50 · approved");
     assert_eq!(gh.calls().len(), 1, "{:?}", gh.calls());
 }
+
+#[test]
+fn test_without_gh_no_pr_worker_starts() {
+    let sandbox = Sandbox::new();
+    sandbox.write_config(REVIEWS_ON);
+    fake_gh(&sandbox, &pr_view("OPEN", "APPROVED"), Some(THREADS));
+    let no_gh = sandbox.home().join("empty-bin");
+    fs::create_dir_all(&no_gh).unwrap();
+
+    let line = sandbox.refresh_with_env(
+        &payload(SESSION, SESSION_SPEND),
+        &["--style", "plain", "--icon-set", "plain"],
+        &[("PATH", &no_gh)],
+    );
+
+    assert_eq!(line, "");
+    assert!(sandbox.state_files("pr_").is_empty());
+}
