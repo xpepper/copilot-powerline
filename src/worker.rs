@@ -1,6 +1,7 @@
 //! Shared plumbing for the detached background workers (`--fetch-pr-cache`,
-//! `--fetch-cycle-usage`): a throttled claim so only one worker runs per
-//! cache file, and a deadline on the external command a worker runs.
+//! `--fetch-cycle-usage`): a check that the program a worker runs is
+//! installed, a throttled claim so only one worker runs per cache file, and a
+//! deadline on the external command it runs.
 
 use std::fs::{self, File};
 use std::io::Read;
@@ -16,6 +17,21 @@ pub const THROTTLE_SECONDS: u64 = 15;
 /// throttle, so a hung call is killed before the next worker can start.
 pub const WORKER_TIMEOUT: Duration = Duration::from_secs(10);
 const _: () = assert!(WORKER_TIMEOUT.as_secs() < THROTTLE_SECONDS);
+
+/// Whether `program` is a file in one of the `PATH` directories, checked
+/// without spawning it.
+pub fn is_on_path(program: &str) -> bool {
+    let Some(paths) = std::env::var_os("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&paths).any(|dir| {
+        #[cfg(windows)]
+        let candidate = dir.join(format!("{program}.exe"));
+        #[cfg(not(windows))]
+        let candidate = dir.join(program);
+        candidate.is_file()
+    })
+}
 
 /// Runs `command` and returns its stdout, or `None` when it cannot start or
 /// is still running after `timeout` (it is killed). stderr is discarded.
@@ -139,6 +155,21 @@ fn create_lock(lock_path: &Path) -> bool {
 mod tests {
     use super::*;
     use crate::github::current_timestamp;
+
+    #[cfg(unix)]
+    #[test]
+    fn test_a_program_in_a_path_directory_is_found() {
+        let found = is_on_path("sh");
+
+        assert!(found);
+    }
+
+    #[test]
+    fn test_a_program_in_no_path_directory_is_not_found() {
+        let found = is_on_path("copilot-powerline-no-such-command");
+
+        assert!(!found);
+    }
 
     #[cfg(unix)]
     #[test]

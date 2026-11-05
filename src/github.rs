@@ -42,18 +42,7 @@ pub fn current_timestamp() -> u64 {
 }
 
 pub fn is_gh_available() -> bool {
-    if let Some(paths) = std::env::var_os("PATH") {
-        for path in std::env::split_paths(&paths) {
-            let candidate = path.join("gh");
-            #[cfg(windows)]
-            let candidate = path.join("gh.exe");
-
-            if candidate.is_file() {
-                return true;
-            }
-        }
-    }
-    false
+    crate::worker::is_on_path("gh")
 }
 
 pub fn get_cache_file_path(repo_dir: &Path, branch: &str) -> PathBuf {
