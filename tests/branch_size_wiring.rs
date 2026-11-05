@@ -7,7 +7,8 @@
 //! cache rules and rendering.
 //!
 //! A `git` wrapper on `PATH` logs the command line of the process that ran
-//! each call, so a test can tell the worker's calls from the refresh's.
+//! each call, so a test can tell the worker's calls from the refresh's. It
+//! hangs instead while a `git-hangs` file exists in `HOME`.
 #![cfg(unix)]
 
 mod common;
@@ -57,6 +58,7 @@ struct Repo {
     _origin: TempDir,
     bin: PathBuf,
     log: PathBuf,
+    hang: PathBuf,
 }
 
 impl Repo {
@@ -81,13 +83,16 @@ impl Repo {
         let bin = home.join("bin");
         fs::create_dir_all(&bin).unwrap();
         let log = home.join("git-calls.log");
+        let hang = home.join("git-hangs");
         let wrapper = bin.join("git");
         fs::write(
             &wrapper,
             format!(
                 "#!/bin/sh\n\
+                 [ -f '{hang}' ] && exec /bin/sleep 60\n\
                  /bin/ps -o args= -p \"$PPID\" >> '{log}'\n\
                  exec '{git}' \"$@\"\n",
+                hang = hang.display(),
                 log = log.display(),
                 git = real_git().display(),
             ),
@@ -100,6 +105,7 @@ impl Repo {
             _origin: origin,
             bin,
             log,
+            hang,
         }
     }
 
@@ -125,19 +131,20 @@ impl Repo {
         )
     }
 
-    /// Waits for the detached worker a refresh spawned: done once it has
-    /// written the cache and released its claim lock.
-    fn wait_for_worker(&self) {
-        let deadline = Instant::now() + Duration::from_secs(10);
+    /// Waits for the detached worker a refresh spawned: done once `caches`
+    /// branch sizes are cached and no claim lock is held.
+    fn wait_for_worker(&self, caches: usize) {
+        let deadline = Instant::now() + Duration::from_secs(20);
         loop {
             let files = self.sandbox.state_files("branch_size_");
             let cached = files
                 .iter()
-                .any(|p| p.extension().is_some_and(|e| e == "json"));
+                .filter(|p| p.extension().is_some_and(|e| e == "json"))
+                .count();
             let claimed = files
                 .iter()
                 .any(|p| p.extension().is_some_and(|e| e == "lock"));
-            if cached && !claimed {
+            if cached == caches && !claimed {
                 return;
             }
             assert!(
@@ -146,6 +153,14 @@ impl Repo {
             );
             std::thread::sleep(Duration::from_millis(20));
         }
+    }
+
+    /// Refreshes, waits for the worker that refresh started, and refreshes
+    /// again to show what it cached.
+    fn shown_after_fetch(&self, caches: usize) -> String {
+        self.refresh();
+        self.wait_for_worker(caches);
+        self.refresh()
     }
 
     /// The command line of the process behind each `git` call so far.
@@ -167,7 +182,7 @@ fn test_shows_the_committed_size_after_the_background_refresh() {
     repo.advance_origin_main();
 
     let before = repo.refresh();
-    repo.wait_for_worker();
+    repo.wait_for_worker(1);
     let after = repo.refresh();
 
     assert_eq!(before, "");
@@ -178,4 +193,75 @@ fn test_shows_the_committed_size_after_the_background_refresh() {
         callers.iter().all(|c| c.contains("--fetch-branch-size")),
         "git ran outside the worker: {callers:?}"
     );
+}
+
+#[test]
+fn test_each_branch_shows_its_own_size() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(SHOWN);
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    repo.shown_after_fetch(1);
+    git(repo.home(), &["switch", "-q", "-c", "second", "main"]);
+    commit_file(repo.home(), "d.txt", "d\n");
+
+    let before = repo.refresh();
+    repo.wait_for_worker(2);
+    let after = repo.refresh();
+
+    assert_eq!(before, "");
+    assert_eq!(after, "+1 -0 · 1 files vs main");
+}
+
+#[test]
+fn test_a_fresh_size_is_shown_without_measuring_again() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(&format!(
+        "{SHOWN}\n[branch_size]\ncache_ttl_seconds = 3600\n"
+    ));
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    repo.shown_after_fetch(1);
+    let calls = repo.git_callers().len();
+    commit_file(repo.home(), "d.txt", "d\n");
+
+    let line = repo.refresh();
+
+    assert_eq!(line, "+3 -0 · 1 files vs main");
+    assert_eq!(repo.git_callers().len(), calls, "measured again");
+}
+
+#[test]
+fn test_a_stale_size_is_shown_until_the_next_refresh_replaces_it() {
+    let repo = Repo::new();
+    repo.sandbox
+        .write_config(&format!("{SHOWN}\n[branch_size]\ncache_ttl_seconds = 0\n"));
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    repo.shown_after_fetch(1);
+    commit_file(repo.home(), "d.txt", "d\n");
+
+    let stale = repo.refresh();
+    repo.wait_for_worker(1);
+    let replaced = repo.refresh();
+
+    assert_eq!(stale, "+3 -0 · 1 files vs main");
+    assert_eq!(replaced, "+4 -0 · 2 files vs main");
+}
+
+/// `WORKER_TIMEOUT` in `src/worker.rs` is 10 s, and the throttle lets the
+/// next worker start 15 s after the previous one.
+const THROTTLE: Duration = Duration::from_secs(15);
+
+#[test]
+fn test_a_hung_git_is_stopped_before_the_next_refresh_may_start() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(SHOWN);
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    fs::write(&repo.hang, "").unwrap();
+
+    let started = Instant::now();
+    repo.refresh();
+    repo.wait_for_worker(1);
+    let elapsed = started.elapsed();
+
+    assert!(elapsed < THROTTLE, "the worker ran for {elapsed:?}");
+    assert_eq!(repo.refresh(), "");
 }
