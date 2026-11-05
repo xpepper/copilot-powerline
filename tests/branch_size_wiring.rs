@@ -222,6 +222,31 @@ fn test_shows_the_committed_size_after_the_background_refresh() {
 }
 
 #[test]
+fn test_adds_staged_and_unstaged_changes_as_uncommitted() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(SHOWN);
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    fs::write(repo.home().join("a.txt"), "one\nTWO\n").unwrap();
+    fs::write(repo.home().join("d.txt"), "d\ne\n").unwrap();
+    git(repo.home(), &["add", "d.txt"]);
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "+3 -0 · 1 files vs main · +3 -1 uncommitted");
+}
+
+#[test]
+fn test_only_uncommitted_changes_show_an_empty_committed_part() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(SHOWN);
+    fs::write(repo.home().join("a.txt"), "one\nTWO\n").unwrap();
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "+0 -0 · 0 files vs main · +1 -1 uncommitted");
+}
+
+#[test]
 fn test_each_branch_shows_its_own_size() {
     let repo = Repo::new();
     repo.sandbox.write_config(SHOWN);
