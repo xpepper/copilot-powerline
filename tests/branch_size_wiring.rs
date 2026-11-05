@@ -168,28 +168,8 @@ impl Repo {
         )
     }
 
-    /// Waits for the detached worker a refresh spawned: done once `caches`
-    /// branch sizes are cached and no claim lock is held.
     fn wait_for_worker(&self, caches: usize) {
-        let deadline = Instant::now() + Duration::from_secs(20);
-        loop {
-            let files = self.sandbox.state_files("branch_size_");
-            let cached = files
-                .iter()
-                .filter(|p| p.extension().is_some_and(|e| e == "json"))
-                .count();
-            let claimed = files
-                .iter()
-                .any(|p| p.extension().is_some_and(|e| e == "lock"));
-            if cached == caches && !claimed {
-                return;
-            }
-            assert!(
-                Instant::now() < deadline,
-                "the branch size worker never finished"
-            );
-            std::thread::sleep(Duration::from_millis(20));
-        }
+        self.sandbox.wait_for_worker("branch_size_", caches);
     }
 
     /// Refreshes, waits for the worker that refresh started, and refreshes

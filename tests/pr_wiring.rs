@@ -14,7 +14,6 @@ use common::{SESSION, SESSION_SPEND, Sandbox, payload};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
 
 const URL: &str = "https://github.com/org/repo/pull/50";
 
@@ -94,32 +93,9 @@ fn refresh(sandbox: &Sandbox, gh: &FakeGh) -> String {
     )
 }
 
-/// Waits for the detached worker the first refresh spawned: done once it
-/// has written the cache and released its claim lock.
-fn wait_for_worker(sandbox: &Sandbox) {
-    let deadline = Instant::now() + Duration::from_secs(10);
-    loop {
-        let files = sandbox.state_files("pr_");
-        let cached = files
-            .iter()
-            .any(|p| p.extension().is_some_and(|e| e == "json"));
-        let claimed = files
-            .iter()
-            .any(|p| p.extension().is_some_and(|e| e == "lock"));
-        if cached && !claimed {
-            return;
-        }
-        assert!(
-            Instant::now() < deadline,
-            "the PR cache worker never finished"
-        );
-        std::thread::sleep(Duration::from_millis(20));
-    }
-}
-
 fn shown_after_fetch(sandbox: &Sandbox, gh: &FakeGh) -> String {
     refresh(sandbox, gh);
-    wait_for_worker(sandbox);
+    sandbox.wait_for_worker("pr_", 1);
     refresh(sandbox, gh)
 }
 
