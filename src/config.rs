@@ -631,6 +631,11 @@ pub struct BranchSizeConfig {
     /// `origin/HEAD`, and the segment is hidden when that does not exist.
     #[serde(default)]
     pub default_branch: Option<String>,
+    /// Show the segment in the alert color once the committed and
+    /// uncommitted lines added and removed go strictly above this. Unset by
+    /// default: a good size depends on the project.
+    #[serde(default)]
+    pub alert_above_lines: Option<u64>,
 }
 
 fn default_branch_size_cache_ttl() -> u64 {
@@ -643,6 +648,7 @@ impl Default for BranchSizeConfig {
             enabled: true,
             cache_ttl_seconds: default_branch_size_cache_ttl(),
             default_branch: None,
+            alert_above_lines: None,
         }
     }
 }
@@ -793,6 +799,7 @@ mod tests {
         assert!(!cfg.compact_segments.iter().any(|s| s == "branch_size"));
         assert!(cfg.branch_size.enabled);
         assert_eq!(cfg.branch_size.cache_ttl_seconds, 60);
+        assert_eq!(cfg.branch_size.alert_above_lines, None);
     }
 
     #[test]
@@ -802,6 +809,7 @@ mod tests {
         assert!(cfg.branch_size.enabled);
         assert_eq!(cfg.branch_size.cache_ttl_seconds, 60);
         assert_eq!(cfg.branch_size.default_branch, None);
+        assert_eq!(cfg.branch_size.alert_above_lines, None);
     }
 
     #[test]
@@ -809,6 +817,13 @@ mod tests {
         let cfg = Config::from_toml("[branch_size]\ndefault_branch = \"develop\"\n").unwrap();
 
         assert_eq!(cfg.branch_size.default_branch.as_deref(), Some("develop"));
+    }
+
+    #[test]
+    fn test_branch_size_reads_the_line_alert_limit() {
+        let cfg = Config::from_toml("[branch_size]\nalert_above_lines = 400\n").unwrap();
+
+        assert_eq!(cfg.branch_size.alert_above_lines, Some(400));
     }
 
     #[test]
