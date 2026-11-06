@@ -370,6 +370,28 @@ mod tests {
     }
 
     #[test]
+    fn test_a_guard_left_by_a_crashed_reclaimer_is_cleared_for_the_next_claim() {
+        let cache_path = unique_cache_path("claim_stale_guard");
+        let lock_path = lock_file_path(&cache_path);
+        let guard_path = lock_path.with_extension("lock.reclaim");
+        let now = current_timestamp();
+        for path in [&lock_path, &guard_path] {
+            File::create(path)
+                .unwrap()
+                .set_modified(UNIX_EPOCH + Duration::from_secs(now - 100))
+                .unwrap();
+        }
+
+        let blocked = try_claim_spawn(&cache_path, now, 15);
+        let next = try_claim_spawn(&cache_path, now, 15);
+
+        let _ = fs::remove_file(&lock_path);
+        let _ = fs::remove_file(&guard_path);
+        assert!(!blocked, "a claim that finds a guard must not reclaim");
+        assert!(next, "the stale guard should be gone for the next claim");
+    }
+
+    #[test]
     fn test_try_claim_spawn_does_not_touch_cache_entry() {
         let cache_path = unique_cache_path("claim_no_touch");
         fs::write(&cache_path, b"cached").unwrap();
