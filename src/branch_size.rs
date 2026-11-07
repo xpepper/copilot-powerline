@@ -122,8 +122,8 @@ fn measure(repo_dir: &Path, default_branch: Option<&str>) -> Option<BranchSize> 
         None => default_branch_from(&git(&["symbolic-ref", "refs/remotes/origin/HEAD"])?)?,
     };
     let range = format!("{ORIGIN_REFS}{default_branch}...HEAD");
-    let committed = parse_numstat(&git(&["diff", "--numstat", &range])?)?;
-    let uncommitted = parse_numstat(&git(&["diff", "--numstat", "HEAD"])?)?;
+    let committed = parse_numstat(&git(&["diff", "--numstat", &range, "--"])?)?;
+    let uncommitted = parse_numstat(&git(&["diff", "--numstat", "HEAD", "--"])?)?;
     Some(BranchSize {
         default_branch,
         committed,

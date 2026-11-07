@@ -238,6 +238,18 @@ fn test_only_uncommitted_changes_show_an_empty_committed_part() {
 }
 
 #[test]
+fn test_a_file_named_head_is_not_mistaken_for_the_head_commit() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(SHOWN);
+    commit_file(repo.home(), "HEAD", "h\n");
+    fs::write(repo.home().join("a.txt"), "one\nTWO\n").unwrap();
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "+1 -0 · 1 file vs main · +1 -1 uncommitted");
+}
+
+#[test]
 fn test_each_branch_shows_its_own_size() {
     let repo = Repo::new();
     repo.sandbox.write_config(SHOWN);
