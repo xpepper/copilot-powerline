@@ -116,6 +116,8 @@ pub struct Config {
     #[serde(default)]
     pub pr: PrConfig,
     #[serde(default)]
+    pub branch_size: BranchSizeConfig,
+    #[serde(default)]
     pub model: ModelConfig,
     #[serde(default)]
     pub fusion: FusionConfig,
@@ -493,6 +495,7 @@ impl Default for Config {
             total_tokens: TotalTokensConfig::default(),
             cache_expiry: CacheExpiryConfig::default(),
             pr: PrConfig::default(),
+            branch_size: BranchSizeConfig::default(),
             model: ModelConfig::default(),
             fusion: FusionConfig::default(),
             tool_overhead: ToolOverheadConfig::default(),
@@ -607,6 +610,45 @@ impl Default for PrConfig {
             cache_ttl_seconds: default_pr_cache_ttl(),
             show_review_state: false,
             show_unresolved: false,
+        }
+    }
+}
+
+/// Optional size of the current branch compared with the remote default
+/// branch (e.g. `+420 -80 · 12 files vs main`).
+///
+/// Not in the default `segments` list: add `"branch_size"` to opt in. The
+/// size comes from `git diff`, run in a throttled background process and
+/// cached to disk, like the `pr` segment.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BranchSizeConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// How long a measured size is considered fresh.
+    #[serde(default = "default_branch_size_cache_ttl")]
+    pub cache_ttl_seconds: u64,
+    /// The branch on `origin` to compare with. Unset, it is read from
+    /// `origin/HEAD`, and the segment is hidden when that does not exist.
+    #[serde(default)]
+    pub default_branch: Option<String>,
+    /// Show the segment in the alert color once the committed and
+    /// uncommitted lines added and removed go strictly above this. Unset by
+    /// default: a good size depends on the project.
+    #[serde(default)]
+    pub alert_above_lines: Option<u64>,
+}
+
+fn default_branch_size_cache_ttl() -> u64 {
+    60
+}
+
+impl Default for BranchSizeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            cache_ttl_seconds: default_branch_size_cache_ttl(),
+            default_branch: None,
+            alert_above_lines: None,
         }
     }
 }
@@ -747,6 +789,41 @@ mod tests {
         let cfg = Config::from_toml("theme = \"nord\"\n").unwrap();
         assert!(cfg.tool_overhead.enabled);
         assert_eq!(cfg.tool_overhead.min_tokens, 0);
+    }
+
+    #[test]
+    fn test_branch_size_is_opt_in_and_fresh_for_a_minute() {
+        let cfg = Config::default();
+
+        assert!(!cfg.segments.iter().any(|s| s == "branch_size"));
+        assert!(!cfg.compact_segments.iter().any(|s| s == "branch_size"));
+        assert!(cfg.branch_size.enabled);
+        assert_eq!(cfg.branch_size.cache_ttl_seconds, 60);
+        assert_eq!(cfg.branch_size.alert_above_lines, None);
+    }
+
+    #[test]
+    fn test_branch_size_section_without_keys_gets_defaults() {
+        let cfg = Config::from_toml("[branch_size]\n").unwrap();
+
+        assert!(cfg.branch_size.enabled);
+        assert_eq!(cfg.branch_size.cache_ttl_seconds, 60);
+        assert_eq!(cfg.branch_size.default_branch, None);
+        assert_eq!(cfg.branch_size.alert_above_lines, None);
+    }
+
+    #[test]
+    fn test_branch_size_reads_the_default_branch() {
+        let cfg = Config::from_toml("[branch_size]\ndefault_branch = \"develop\"\n").unwrap();
+
+        assert_eq!(cfg.branch_size.default_branch.as_deref(), Some("develop"));
+    }
+
+    #[test]
+    fn test_branch_size_reads_the_line_alert_limit() {
+        let cfg = Config::from_toml("[branch_size]\nalert_above_lines = 400\n").unwrap();
+
+        assert_eq!(cfg.branch_size.alert_above_lines, Some(400));
     }
 
     #[test]
@@ -914,6 +991,8 @@ mod tests {
         all.model.prefix = prefix.clone();
         all.fusion.prefix = prefix.clone();
         all.tool_overhead.prefix = prefix.clone();
+        all.branch_size.default_branch = Some("main".to_string());
+        all.branch_size.alert_above_lines = Some(1);
         all.pr.prefix = prefix;
         let known: toml::Table = toml::from_str(&all.to_toml_string().unwrap()).unwrap();
 

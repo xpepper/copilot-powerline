@@ -144,3 +144,15 @@ _Avoid_: Review status, PR status
 **Unresolved Thread**:
 A review conversation on a pull request not yet marked resolved, including ones on code that has since changed.
 _Avoid_: Open comment, pending review
+
+**Branch Size**:
+How much the current branch changed compared with the remote default branch: its Committed Part, followed by its Uncommitted Part. It warns that a pull request is growing too big to review.
+_Avoid_: Diff size, PR size, branch changes
+
+**Committed Part**:
+The lines added and removed, and the files changed, by the branch's commits since its merge base with the remote default branch. It matches what the pull request shows.
+_Avoid_: Branch diff
+
+**Uncommitted Part**:
+The lines added and removed in tracked files, staged or not, that are not committed yet. Untracked files do not count.
+_Avoid_: Working changes, pending changes

@@ -1,3 +1,4 @@
 /target
 /.gem-pr-cache/
 /mutants.out*/
+/.claude/

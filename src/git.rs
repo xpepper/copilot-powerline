@@ -1,10 +1,27 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Resolves the current git branch name without spawning a subprocess.
-pub fn get_git_branch(start_path: &Path) -> Option<String> {
+/// What `HEAD` points at.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Head {
+    Branch(String),
+    /// The short SHA of the checked-out commit.
+    Detached(String),
+}
+
+/// Reads `HEAD` without spawning a subprocess.
+pub fn read_head(start_path: &Path) -> Option<Head> {
     let (_, git_dir) = find_git_dir(start_path)?;
-    get_branch_from_git_dir(&git_dir)
+    let content = fs::read_to_string(git_dir.join("HEAD")).ok()?;
+    let line = content.trim();
+
+    if let Some(branch) = line.strip_prefix("ref: refs/heads/") {
+        Some(Head::Branch(branch.to_string()))
+    } else if line.len() >= 7 {
+        Some(Head::Detached(line[..7].to_string()))
+    } else {
+        None
+    }
 }
 
 /// Resolves the repository root (the directory containing the `.git` entry)
@@ -49,46 +66,41 @@ fn find_git_dir(start_path: &Path) -> Option<(PathBuf, PathBuf)> {
     None
 }
 
-fn get_branch_from_git_dir(git_dir: &Path) -> Option<String> {
-    let head_path = git_dir.join("HEAD");
-    let content = fs::read_to_string(head_path).ok()?;
-    let line = content.trim();
-
-    if let Some(ref_path) = line.strip_prefix("ref: refs/heads/") {
-        Some(ref_path.to_string())
-    } else if line.len() >= 7 {
-        // Detached HEAD: return short SHA
-        Some(line[..7].to_string())
-    } else {
-        None
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
-    use std::io::Write;
 
     #[test]
     fn test_non_git_directory() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let branch = get_git_branch(temp_dir.path());
-        assert!(branch.is_none());
+        let head = read_head(temp_dir.path());
+        assert!(head.is_none());
     }
 
-    #[test]
-    fn test_git_branch_resolution() {
+    fn repo_with_head(head: &str) -> tempfile::TempDir {
         let temp_dir = tempfile::tempdir().unwrap();
         let dot_git = temp_dir.path().join(".git");
         fs::create_dir_all(&dot_git).unwrap();
+        fs::write(dot_git.join("HEAD"), head).unwrap();
+        temp_dir
+    }
 
-        let mut head = File::create(dot_git.join("HEAD")).unwrap();
-        head.write_all(b"ref: refs/heads/feature-awesome\n")
-            .unwrap();
+    #[test]
+    fn test_head_on_a_branch_names_the_branch() {
+        let repo = repo_with_head("ref: refs/heads/feature-awesome\n");
 
-        let branch = get_git_branch(temp_dir.path());
-        assert_eq!(branch.as_deref(), Some("feature-awesome"));
+        let head = read_head(repo.path());
+
+        assert_eq!(head, Some(Head::Branch("feature-awesome".to_string())));
+    }
+
+    #[test]
+    fn test_a_detached_head_gives_the_short_sha() {
+        let repo = repo_with_head("d58460183921abc456\n");
+
+        let head = read_head(repo.path());
+
+        assert_eq!(head, Some(Head::Detached("d584601".to_string())));
     }
 
     #[test]
@@ -104,18 +116,5 @@ mod tests {
 
         assert_eq!(root_from_top, root_from_nested);
         assert_eq!(root_from_top.unwrap(), temp_dir.path());
-    }
-
-    #[test]
-    fn test_detached_head_resolution() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let dot_git = temp_dir.path().join(".git");
-        fs::create_dir_all(&dot_git).unwrap();
-
-        let mut head = File::create(dot_git.join("HEAD")).unwrap();
-        head.write_all(b"d58460183921abc456\n").unwrap();
-
-        let branch = get_git_branch(temp_dir.path());
-        assert_eq!(branch.as_deref(), Some("d584601"));
     }
 }

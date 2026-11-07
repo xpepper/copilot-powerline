@@ -7,7 +7,7 @@ style = "minimal"        # Layout style: "minimal", "powerline", "capsule", "pla
 icon_set = "nerd"        # Glyph style: "nerd" (Nerd Font), "emoji", "plain" (text labels) (default: "plain")
 theme = "colorblind"     # Color palette: "colorblind", "github", "nord", "tokyo-night", "plain" (default: "colorblind")
 mode = "full"            # "full" shows `segments`, "compact" shows `compact_segments`; `--toggle` switches (default: "full")
-segments = [             # Full mode segments in display order (default list excludes "pr", "model", "fusion", "cycle_cost", "tool_overhead")
+segments = [             # Full mode segments in display order (default list excludes "pr", "model", "fusion", "cycle_cost", "tool_overhead", "branch_size")
     "tokens",            # Active context tokens used vs model limit and percentage
     "session_cost",      # Current session spend in USD
     "cache",             # Prompt cache hit rate or token count
@@ -20,6 +20,7 @@ segments = [             # Full mode segments in display order (default list exc
     # "model",           # Active model, and where `auto` routing sent the request
     # "fusion",          # Fusion pattern, observed models/roles, handoffs and outcome
     # "tool_overhead",   # Size of the tool definitions sent with every request, and their share of the window
+    # "branch_size",     # Lines and files the branch changed vs the remote default branch, plus uncommitted lines (requires `git`)
 ]
 compact_segments = [     # Compact mode segments (default: tokens, session_cost, month_cost, cache_expiry)
     "tokens",
@@ -107,3 +108,9 @@ enabled = true           # Enable Fusion routing segment (default: true; still n
 [tool_overhead]
 enabled = true           # Enable tool overhead segment (default: true; still needs "tool_overhead" in `segments`)
 min_tokens = 0           # Show only at or above this many tokens, e.g. 30000; the median session uses about 9k (default: 0, always shown)
+
+[branch_size]
+enabled = true           # Enable branch size segment (default: true; still needs "branch_size" in `segments`)
+cache_ttl_seconds = 60   # Freshness TTL in seconds before measuring again with background `git diff` (default: 60)
+alert_above_lines = 400  # Show the alert color once committed plus uncommitted lines added and removed strictly exceed this (default: unset / disabled)
+# default_branch = "main" # Branch on `origin` to compare with; the segment is hidden if it does not exist there (default: unset, read from `origin/HEAD`)

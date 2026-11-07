@@ -12,8 +12,9 @@ use std::time::{Duration, SystemTime};
 
 /// Kinds of per-session or per-branch files that pruning may delete. Anything
 /// else in the state directory (the `mode` override, the prune marker) is
-/// never touched. `session_file` asserts its kind is listed here.
-const PRUNABLE_KINDS: [&str; 5] = ["spend", "cache", "idle", "month", "pr"];
+/// never touched. `session_file` and `branch_file` assert their kind is listed
+/// here.
+const PRUNABLE_KINDS: [&str; 6] = ["spend", "cache", "idle", "month", "pr", "branch_size"];
 
 /// A session idle longer than this loses its snapshots; resuming it only
 /// re-creates the baselines (idle time restarts from zero).
@@ -78,11 +79,25 @@ pub fn session_hash(session_id: &str) -> String {
 /// Path of a per-session state file, e.g. `spend_<hash>.json`. The session id
 /// is hashed so arbitrary ids can never escape the state directory.
 pub fn session_file(kind: &str, session_id: &str) -> PathBuf {
+    debug_assert_prunable(kind);
+    base_dir().join(format!("{kind}_{}.json", session_hash(session_id)))
+}
+
+fn debug_assert_prunable(kind: &str) {
     debug_assert!(
         PRUNABLE_KINDS.contains(&kind),
         "unknown state kind {kind:?}: add it to PRUNABLE_KINDS or it is never pruned"
     );
-    base_dir().join(format!("{kind}_{}.json", session_hash(session_id)))
+}
+
+/// Path of a per-branch state file, e.g. `pr_<hash>.json`, keyed by the
+/// repository root and the branch name.
+pub fn branch_file(kind: &str, repo_dir: &Path, branch: &str) -> PathBuf {
+    debug_assert_prunable(kind);
+    let mut hasher = DefaultHasher::new();
+    repo_dir.to_string_lossy().hash(&mut hasher);
+    branch.hash(&mut hasher);
+    base_dir().join(format!("{kind}_{:016x}.json", hasher.finish()))
 }
 
 /// Loads the snapshot at `path` (if readable), lets `assess` derive the next
@@ -179,12 +194,35 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_state_lives_in_the_private_cache_dir_not_the_shared_temp_dir() {
+        if let Some(cache_dir) = dirs::cache_dir() {
+            let dir = base_dir();
+
+            assert!(dir.starts_with(&cache_dir));
+            assert!(!dir.starts_with(std::env::temp_dir()));
+        }
+    }
+
+    #[test]
     fn test_session_file_is_private_and_per_session_and_kind() {
         let a = session_file("spend", "sess-a");
         assert!(a.starts_with(base_dir()));
         assert_eq!(a, session_file("spend", "sess-a"));
         assert_ne!(a, session_file("spend", "sess-b"));
         assert_ne!(a, session_file("cache", "sess-a"));
+    }
+
+    #[test]
+    fn test_branch_file_is_private_and_per_repo_branch_and_kind() {
+        let repo = Path::new("/some/repo");
+
+        let a = branch_file("pr", repo, "feature-x");
+
+        assert!(a.starts_with(base_dir()));
+        assert_eq!(a, branch_file("pr", repo, "feature-x"));
+        assert_ne!(a, branch_file("pr", repo, "feature-y"));
+        assert_ne!(a, branch_file("pr", Path::new("/other/repo"), "feature-x"));
+        assert_ne!(a, branch_file("spend", repo, "feature-x"));
     }
 
     const DAY: Duration = Duration::from_secs(24 * 60 * 60);
@@ -340,6 +378,7 @@ mod tests {
             crate::idle::snapshot_path("s"),
             crate::month_spend::snapshot_path("s"),
             crate::github::get_cache_file_path(Path::new("repo"), "branch"),
+            crate::branch_size::cache_path(Path::new("repo"), "branch"),
         ]
         .map(|path| path.file_name().unwrap().to_string_lossy().into_owned());
 

@@ -7,9 +7,9 @@
 //! refresh (this binary re-invoked with `--fetch-cycle-usage`).
 
 use serde::{Deserialize, Serialize};
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CycleUsage {
@@ -25,9 +25,6 @@ struct CacheEntry {
     /// `None` when the last refresh failed, which hides the segment.
     usage: Option<CycleUsage>,
 }
-
-/// Minimum time between two background refreshes, even while failing.
-const THROTTLE_SECONDS: u64 = 15;
 
 pub fn cache_path() -> PathBuf {
     crate::state::base_dir().join("cycle_usage.json")
@@ -45,13 +42,8 @@ pub fn get_cycle_usage(
     spawn_refresh: impl FnOnce(&Path),
 ) -> Option<CycleUsage> {
     let entry = read_entry(cache_path);
-
-    let fresh = entry
-        .as_ref()
-        .is_some_and(|e| now.saturating_sub(e.timestamp) < ttl_seconds);
-    if !fresh && crate::github::try_claim_spawn(cache_path, now, THROTTLE_SECONDS) {
-        spawn_refresh(cache_path);
-    }
+    let cached_at = entry.as_ref().map(|e| e.timestamp);
+    crate::worker::refresh_if_stale(cache_path, cached_at, ttl_seconds, now, spawn_refresh);
 
     entry
         .and_then(|e| e.usage)
@@ -66,15 +58,7 @@ fn read_entry(cache_path: &Path) -> Option<CacheEntry> {
 
 /// Re-invokes this binary as a detached `--fetch-cycle-usage` worker.
 pub fn spawn_background_fetch(cache_path: &Path) {
-    if let Ok(exe) = std::env::current_exe() {
-        let _ = Command::new(exe)
-            .arg("--fetch-cycle-usage")
-            .arg(cache_path)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn();
-    }
+    crate::worker::spawn_detached(&[OsStr::new("--fetch-cycle-usage"), cache_path.as_os_str()]);
 }
 
 /// Calls the API and writes the result to the cache.
@@ -85,14 +69,12 @@ pub fn fetch_and_write_cycle_cache(cache_path: &Path) {
     let now = crate::github::current_timestamp();
     let previous = read_entry(cache_path);
     let mut command = api_command(std::env::var_os("COPILOT_GITHUB_TOKEN"));
-    let entry = match crate::github::output_with_timeout(&mut command, crate::github::GH_TIMEOUT) {
-        Some(out) => entry_from(out.status.success(), &out.stdout, now, previous.as_ref()),
-        None => entry_from(false, &[], now, previous.as_ref()),
-    };
-    if let Ok(json) = serde_json::to_string(&entry) {
-        let _ = crate::state::write_private_atomic(cache_path, json.as_bytes());
-    }
-    let _ = std::fs::remove_file(crate::github::lock_file_path(cache_path));
+    let entry =
+        match crate::worker::output_with_timeout(&mut command, crate::worker::WORKER_TIMEOUT) {
+            Some(out) => entry_from(out.status.success(), &out.stdout, now, previous.as_ref()),
+            None => entry_from(false, &[], now, previous.as_ref()),
+        };
+    crate::worker::finish_refresh(cache_path, &entry);
 }
 
 /// `gh api` for the Copilot user endpoint. gh picks its token from

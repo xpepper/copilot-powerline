@@ -8,6 +8,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
+use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
 /// SQLite date arguments for `insert_usage`. A fixed past date is always in
@@ -144,6 +145,31 @@ impl Sandbox {
                     .is_some_and(|name| name.starts_with(prefix))
             })
             .collect()
+    }
+
+    /// Waits for the detached worker a refresh spawned: done once `caches`
+    /// state files starting with `prefix` are cached and no claim lock is
+    /// held.
+    pub fn wait_for_worker(&self, prefix: &str, caches: usize) {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            let files = self.state_files(prefix);
+            let cached = files
+                .iter()
+                .filter(|p| p.extension().is_some_and(|e| e == "json"))
+                .count();
+            let claimed = files
+                .iter()
+                .any(|p| p.extension().is_some_and(|e| e == "lock"));
+            if cached == caches && !claimed {
+                return;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "the {prefix} worker never finished"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
     }
 }
 
