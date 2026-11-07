@@ -105,6 +105,14 @@ pub fn output_with_timeout(command: &mut Command, timeout: Duration) -> Option<O
     })
 }
 
+/// Caches `entry` best-effort, then releases its refresh claim.
+pub fn finish_refresh(cache_path: &Path, entry: &impl serde::Serialize) {
+    if let Ok(json) = serde_json::to_string(entry) {
+        let _ = crate::state::write_private_atomic(cache_path, json.as_bytes());
+    }
+    let _ = fs::remove_file(lock_file_path(cache_path));
+}
+
 /// Starts a background refresh of `cache_path` through `spawn_refresh` when
 /// the cache, written at `cached_at`, is missing or `cache_ttl_seconds` old. At
 /// most one refresh starts per throttle window.

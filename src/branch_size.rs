@@ -94,10 +94,7 @@ pub fn fetch_and_write_branch_size(
         timestamp: crate::github::current_timestamp(),
         size: measure(repo_dir, default_branch),
     };
-    if let Ok(json) = serde_json::to_string(&entry) {
-        let _ = crate::state::write_private_atomic(cache_path, json.as_bytes());
-    }
-    let _ = std::fs::remove_file(crate::worker::lock_file_path(cache_path));
+    crate::worker::finish_refresh(cache_path, &entry);
 }
 
 /// The committed size since the merge base with `origin/<default>`, as a

@@ -74,10 +74,7 @@ pub fn fetch_and_write_cycle_cache(cache_path: &Path) {
             Some(out) => entry_from(out.status.success(), &out.stdout, now, previous.as_ref()),
             None => entry_from(false, &[], now, previous.as_ref()),
         };
-    if let Ok(json) = serde_json::to_string(&entry) {
-        let _ = crate::state::write_private_atomic(cache_path, json.as_bytes());
-    }
-    let _ = std::fs::remove_file(crate::worker::lock_file_path(cache_path));
+    crate::worker::finish_refresh(cache_path, &entry);
 }
 
 /// `gh api` for the Copilot user endpoint. gh picks its token from
