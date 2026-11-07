@@ -5,7 +5,7 @@
 //! throttled, detached refresh (this binary re-invoked with
 //! `--fetch-branch-size`).
 
-use crate::worker::{Deadline, output_with_timeout};
+use crate::worker::{Deadline, Timestamped, output_with_timeout};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -39,6 +39,12 @@ struct CacheEntry {
     size: Option<BranchSize>,
 }
 
+impl Timestamped for CacheEntry {
+    fn cached_at(&self) -> u64 {
+        self.timestamp
+    }
+}
+
 /// Where the size of `branch` in the repository at `repo_dir` is cached.
 pub fn cache_path(repo_dir: &Path, branch: &str) -> PathBuf {
     crate::state::branch_file("branch_size", repo_dir, branch)
@@ -54,17 +60,10 @@ pub fn get_branch_size(
     now: u64,
     spawn_refresh: impl FnOnce(&Path),
 ) -> Option<BranchSize> {
-    let entry = read_entry(cache_path);
-    let cached_at = entry.as_ref().map(|e| e.timestamp);
-    crate::worker::refresh_if_stale(cache_path, cached_at, cache_ttl_seconds, now, spawn_refresh);
+    let entry: Option<CacheEntry> =
+        crate::worker::read_cache_refreshing(cache_path, cache_ttl_seconds, now, spawn_refresh);
 
     entry.and_then(|e| e.size)
-}
-
-fn read_entry(cache_path: &Path) -> Option<CacheEntry> {
-    std::fs::read_to_string(cache_path)
-        .ok()
-        .and_then(|content| serde_json::from_str(&content).ok())
 }
 
 /// Re-invokes this binary as a detached `--fetch-branch-size` worker.

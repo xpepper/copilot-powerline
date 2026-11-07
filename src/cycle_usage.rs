@@ -26,6 +26,12 @@ struct CacheEntry {
     usage: Option<CycleUsage>,
 }
 
+impl crate::worker::Timestamped for CacheEntry {
+    fn cached_at(&self) -> u64 {
+        self.timestamp
+    }
+}
+
 pub fn cache_path() -> PathBuf {
     crate::state::base_dir().join("cycle_usage.json")
 }
@@ -41,19 +47,12 @@ pub fn get_cycle_usage(
     now: u64,
     spawn_refresh: impl FnOnce(&Path),
 ) -> Option<CycleUsage> {
-    let entry = read_entry(cache_path);
-    let cached_at = entry.as_ref().map(|e| e.timestamp);
-    crate::worker::refresh_if_stale(cache_path, cached_at, ttl_seconds, now, spawn_refresh);
+    let entry: Option<CacheEntry> =
+        crate::worker::read_cache_refreshing(cache_path, ttl_seconds, now, spawn_refresh);
 
     entry
         .and_then(|e| e.usage)
         .filter(|usage| now < usage.resets_at)
-}
-
-fn read_entry(cache_path: &Path) -> Option<CacheEntry> {
-    std::fs::read_to_string(cache_path)
-        .ok()
-        .and_then(|content| serde_json::from_str(&content).ok())
 }
 
 /// Re-invokes this binary as a detached `--fetch-cycle-usage` worker.
@@ -67,7 +66,7 @@ pub fn spawn_background_fetch(cache_path: &Path) {
 /// worker started by `spawn_background_fetch`, never on the hot path.
 pub fn fetch_and_write_cycle_cache(cache_path: &Path) {
     let now = crate::github::current_timestamp();
-    let previous = read_entry(cache_path);
+    let previous: Option<CacheEntry> = crate::worker::read_cache(cache_path);
     let mut command = api_command(std::env::var_os("COPILOT_GITHUB_TOKEN"));
     let entry =
         match crate::worker::output_with_timeout(&mut command, crate::worker::WORKER_TIMEOUT) {

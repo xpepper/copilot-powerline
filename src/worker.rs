@@ -113,10 +113,38 @@ pub fn finish_refresh(cache_path: &Path, entry: &impl serde::Serialize) {
     let _ = fs::remove_file(lock_file_path(cache_path));
 }
 
+/// A worker's cache entry, which records when it was written.
+pub trait Timestamped: serde::de::DeserializeOwned {
+    /// When the entry was written, in Unix seconds.
+    fn cached_at(&self) -> u64;
+}
+
+/// Reads the cache entry at `cache_path`, `None` when missing or unreadable.
+pub fn read_cache<E: serde::de::DeserializeOwned>(cache_path: &Path) -> Option<E> {
+    let content = fs::read_to_string(cache_path).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+/// Reads the cache entry at `cache_path` and, when it is missing or
+/// `cache_ttl_seconds` old, starts a refresh through `spawn_refresh` (see
+/// `refresh_if_stale`). Never waits for the refresh: returns whatever was
+/// cached.
+pub fn read_cache_refreshing<E: Timestamped>(
+    cache_path: &Path,
+    cache_ttl_seconds: u64,
+    now: u64,
+    spawn_refresh: impl FnOnce(&Path),
+) -> Option<E> {
+    let entry: Option<E> = read_cache(cache_path);
+    let cached_at = entry.as_ref().map(Timestamped::cached_at);
+    refresh_if_stale(cache_path, cached_at, cache_ttl_seconds, now, spawn_refresh);
+    entry
+}
+
 /// Starts a background refresh of `cache_path` through `spawn_refresh` when
 /// the cache, written at `cached_at`, is missing or `cache_ttl_seconds` old. At
 /// most one refresh starts per throttle window.
-pub fn refresh_if_stale(
+fn refresh_if_stale(
     cache_path: &Path,
     cached_at: Option<u64>,
     cache_ttl_seconds: u64,
@@ -285,6 +313,68 @@ mod tests {
         let spawned = refreshed(&cache_path, Some(100), 159);
 
         assert!(!spawned);
+    }
+
+    #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+    struct Entry {
+        timestamp: u64,
+        value: u32,
+    }
+
+    impl Timestamped for Entry {
+        fn cached_at(&self) -> u64 {
+            self.timestamp
+        }
+    }
+
+    /// Calls `read_cache_refreshing` with a 60 s TTL and returns what it
+    /// read and whether it started a refresh.
+    fn read_refreshing(cache_path: &Path, now: u64) -> (Option<Entry>, bool) {
+        let mut spawned = false;
+        let entry = read_cache_refreshing(cache_path, 60, now, |_| spawned = true);
+        let _ = fs::remove_file(lock_file_path(cache_path));
+        (entry, spawned)
+    }
+
+    #[test]
+    fn test_a_fresh_cache_is_read_without_a_refresh() {
+        let cache_path = unique_cache_path("read_fresh");
+        let entry = Entry {
+            timestamp: 100,
+            value: 7,
+        };
+        finish_refresh(&cache_path, &entry);
+
+        let read = read_refreshing(&cache_path, 159);
+
+        let _ = fs::remove_file(&cache_path);
+        assert_eq!(read, (Some(entry), false));
+    }
+
+    #[test]
+    fn test_a_stale_cache_is_read_and_refreshed() {
+        let cache_path = unique_cache_path("read_stale");
+        let entry = Entry {
+            timestamp: 100,
+            value: 7,
+        };
+        finish_refresh(&cache_path, &entry);
+
+        let read = read_refreshing(&cache_path, 160);
+
+        let _ = fs::remove_file(&cache_path);
+        assert_eq!(read, (Some(entry), true));
+    }
+
+    #[test]
+    fn test_an_unreadable_cache_is_refreshed() {
+        let cache_path = unique_cache_path("read_corrupt");
+        fs::write(&cache_path, "not json").unwrap();
+
+        let read = read_refreshing(&cache_path, 100);
+
+        let _ = fs::remove_file(&cache_path);
+        assert_eq!(read, (None, true));
     }
 
     #[test]
