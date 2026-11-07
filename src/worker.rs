@@ -106,16 +106,16 @@ pub fn output_with_timeout(command: &mut Command, timeout: Duration) -> Option<O
 }
 
 /// Starts a background refresh of `cache_path` through `spawn_refresh` when
-/// the cache, written at `cached_at`, is missing or `ttl_seconds` old. At
+/// the cache, written at `cached_at`, is missing or `cache_ttl_seconds` old. At
 /// most one refresh starts per throttle window.
 pub fn refresh_if_stale(
     cache_path: &Path,
     cached_at: Option<u64>,
-    ttl_seconds: u64,
+    cache_ttl_seconds: u64,
     now: u64,
     spawn_refresh: impl FnOnce(&Path),
 ) {
-    let fresh = cached_at.is_some_and(|at| now.saturating_sub(at) < ttl_seconds);
+    let fresh = cached_at.is_some_and(|at| now.saturating_sub(at) < cache_ttl_seconds);
     if !fresh && try_claim_spawn(cache_path, now, THROTTLE_SECONDS) {
         spawn_refresh(cache_path);
     }

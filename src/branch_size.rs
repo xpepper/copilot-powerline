@@ -50,13 +50,13 @@ pub fn cache_path(repo_dir: &Path, branch: &str) -> PathBuf {
 /// most once per throttle window) and returns whatever was cached.
 pub fn get_branch_size(
     cache_path: &Path,
-    ttl_seconds: u64,
+    cache_ttl_seconds: u64,
     now: u64,
     spawn_refresh: impl FnOnce(&Path),
 ) -> Option<BranchSize> {
     let entry = read_entry(cache_path);
     let cached_at = entry.as_ref().map(|e| e.timestamp);
-    crate::worker::refresh_if_stale(cache_path, cached_at, ttl_seconds, now, spawn_refresh);
+    crate::worker::refresh_if_stale(cache_path, cached_at, cache_ttl_seconds, now, spawn_refresh);
 
     entry.and_then(|e| e.size)
 }
