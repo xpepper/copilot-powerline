@@ -1,8 +1,7 @@
 use crate::config::PrConfig;
-use crate::worker::{Deadline, finish_refresh, output_with_timeout, refresh_if_stale};
+use crate::worker::{Deadline, Timestamped, finish_refresh, output_with_timeout};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -33,6 +32,12 @@ pub struct PrCacheEntry {
     pub pr: Option<PullRequestInfo>,
 }
 
+impl Timestamped for PrCacheEntry {
+    fn cached_at(&self) -> u64 {
+        self.timestamp
+    }
+}
+
 pub fn current_timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -46,11 +51,6 @@ pub fn is_gh_available() -> bool {
 
 pub fn get_cache_file_path(repo_dir: &Path, branch: &str) -> PathBuf {
     crate::state::branch_file("pr", repo_dir, branch)
-}
-
-pub fn read_cache_entry(cache_path: &Path) -> Option<PrCacheEntry> {
-    let content = fs::read_to_string(cache_path).ok()?;
-    serde_json::from_str(&content).ok()
 }
 
 #[derive(Deserialize)]
@@ -285,11 +285,8 @@ pub fn get_pr_info(
     }
 
     let cache_path = get_cache_file_path(repo_dir, branch);
-    let entry = read_cache_entry(&cache_path);
-    let cached_at = entry.as_ref().map(|e| e.timestamp);
-    refresh_if_stale(
+    let entry: Option<PrCacheEntry> = crate::worker::read_cache_refreshing(
         &cache_path,
-        cached_at,
         config.cache_ttl_seconds,
         current_timestamp(),
         |path| spawn_background_fetch(repo_dir, path, config.show_unresolved),
@@ -301,6 +298,8 @@ pub fn get_pr_info(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::worker::read_cache;
+    use std::fs;
 
     #[test]
     fn test_cache_entry_roundtrip() {
@@ -321,7 +320,7 @@ mod tests {
         };
 
         finish_refresh(&temp_file, &entry);
-        let loaded = read_cache_entry(&temp_file).unwrap();
+        let loaded = read_cache::<PrCacheEntry>(&temp_file).unwrap();
         assert_eq!(loaded, entry);
 
         let _ = fs::remove_file(&temp_file);
@@ -341,7 +340,7 @@ mod tests {
         };
 
         finish_refresh(&temp_file, &entry);
-        let loaded = read_cache_entry(&temp_file).unwrap();
+        let loaded = read_cache::<PrCacheEntry>(&temp_file).unwrap();
         assert_eq!(loaded, entry);
 
         let _ = fs::remove_file(&temp_file);
@@ -454,7 +453,7 @@ mod tests {
         )
         .unwrap();
 
-        let loaded = read_cache_entry(&temp_file).unwrap();
+        let loaded = read_cache::<PrCacheEntry>(&temp_file).unwrap();
         let _ = fs::remove_file(&temp_file);
 
         assert_eq!(loaded.pr.unwrap().review_state, None);
