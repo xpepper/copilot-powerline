@@ -274,11 +274,16 @@ fn test_a_fresh_size_is_shown_without_measuring_again() {
 #[test]
 fn test_a_stale_size_is_shown_until_the_next_refresh_replaces_it() {
     let repo = Repo::new();
-    repo.sandbox
-        .write_config(&format!("{SHOWN}\n[branch_size]\ncache_ttl_seconds = 0\n"));
+    let with_ttl = |seconds: u64| {
+        repo.sandbox.write_config(&format!(
+            "{SHOWN}\n[branch_size]\ncache_ttl_seconds = {seconds}\n"
+        ))
+    };
+    with_ttl(3600);
     commit_file(repo.home(), "c.txt", "x\ny\nz\n");
     repo.shown_after_fetch(1);
     commit_file(repo.home(), "d.txt", "d\n");
+    with_ttl(0);
 
     let stale = repo.refresh();
     repo.wait_for_worker(1);
