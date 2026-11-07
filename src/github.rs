@@ -1,5 +1,5 @@
 use crate::config::PrConfig;
-use crate::worker::{Deadline, lock_file_path, output_with_timeout, refresh_if_stale};
+use crate::worker::{Deadline, finish_refresh, output_with_timeout, refresh_if_stale};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::fs;
@@ -51,12 +51,6 @@ pub fn get_cache_file_path(repo_dir: &Path, branch: &str) -> PathBuf {
 pub fn read_cache_entry(cache_path: &Path) -> Option<PrCacheEntry> {
     let content = fs::read_to_string(cache_path).ok()?;
     serde_json::from_str(&content).ok()
-}
-
-pub fn write_cache_entry(cache_path: &Path, entry: &PrCacheEntry) -> std::io::Result<()> {
-    let json = serde_json::to_string(entry)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-    crate::state::write_private_atomic(cache_path, json.as_bytes())
 }
 
 #[derive(Deserialize)]
@@ -229,8 +223,7 @@ pub fn fetch_and_write_pr_cache(repo_dir: &Path, cache_path: &Path, fetch_unreso
     });
     let entry = PrCacheEntry { timestamp: now, pr };
 
-    let _ = write_cache_entry(cache_path, &entry);
-    let _ = fs::remove_file(lock_file_path(cache_path));
+    finish_refresh(cache_path, &entry);
 }
 
 /// Counts the PR's Unresolved Threads with `gh api graphql`, since
@@ -327,7 +320,7 @@ mod tests {
             }),
         };
 
-        write_cache_entry(&temp_file, &entry).unwrap();
+        finish_refresh(&temp_file, &entry);
         let loaded = read_cache_entry(&temp_file).unwrap();
         assert_eq!(loaded, entry);
 
@@ -347,7 +340,7 @@ mod tests {
             pr: None,
         };
 
-        write_cache_entry(&temp_file, &entry).unwrap();
+        finish_refresh(&temp_file, &entry);
         let loaded = read_cache_entry(&temp_file).unwrap();
         assert_eq!(loaded, entry);
 
