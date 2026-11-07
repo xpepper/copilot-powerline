@@ -331,6 +331,32 @@ fn test_compares_with_the_configured_default_branch() {
 }
 
 #[test]
+fn test_a_local_branch_named_like_the_remote_one_is_ignored() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(SHOWN);
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    git(repo.home(), &["branch", "origin/main"]);
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "+3 -0 · 1 file vs main");
+}
+
+#[test]
+fn test_a_local_branch_named_like_the_configured_remote_one_is_ignored() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(&format!(
+        "{SHOWN}\n[branch_size]\ndefault_branch = \"main\"\n"
+    ));
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    git(repo.home(), &["branch", "origin/main"]);
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "+3 -0 · 1 file vs main");
+}
+
+#[test]
 fn test_reads_the_default_branch_in_a_linked_worktree() {
     let repo = Repo::linked_worktree();
     repo.sandbox.write_config(SHOWN);

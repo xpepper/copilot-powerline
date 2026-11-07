@@ -119,13 +119,9 @@ fn measure(repo_dir: &Path, default_branch: Option<&str>) -> Option<BranchSize> 
 
     let default_branch = match default_branch {
         Some(branch) => branch.to_string(),
-        None => default_branch_from(&git(&[
-            "symbolic-ref",
-            "--short",
-            "refs/remotes/origin/HEAD",
-        ])?)?,
+        None => default_branch_from(&git(&["symbolic-ref", "refs/remotes/origin/HEAD"])?)?,
     };
-    let range = format!("origin/{default_branch}...HEAD");
+    let range = format!("{ORIGIN_REFS}{default_branch}...HEAD");
     let committed = parse_numstat(&git(&["diff", "--numstat", &range])?)?;
     let uncommitted = parse_numstat(&git(&["diff", "--numstat", "HEAD"])?)?;
     Some(BranchSize {
@@ -135,10 +131,14 @@ fn measure(repo_dir: &Path, default_branch: Option<&str>) -> Option<BranchSize> 
     })
 }
 
-/// The default branch named by the stdout of `git symbolic-ref --short
-/// refs/remotes/origin/HEAD`, e.g. `main` from `origin/main`.
+/// Where `origin`'s branches live. Spelled out in full, because a local
+/// branch named `origin/main` would win over the short `origin/main`.
+const ORIGIN_REFS: &str = "refs/remotes/origin/";
+
+/// The default branch named by the stdout of `git symbolic-ref
+/// refs/remotes/origin/HEAD`, e.g. `main` from `refs/remotes/origin/main`.
 fn default_branch_from(stdout: &str) -> Option<String> {
-    stdout.trim().strip_prefix("origin/").map(str::to_string)
+    stdout.trim().strip_prefix(ORIGIN_REFS).map(str::to_string)
 }
 
 /// Lines added and removed, and files changed, in a diff.
@@ -312,7 +312,7 @@ mod tests {
 
     #[test]
     fn test_the_default_branch_drops_the_remote_name() {
-        let branch = default_branch_from("origin/main\n");
+        let branch = default_branch_from("refs/remotes/origin/main\n");
 
         assert_eq!(branch.as_deref(), Some("main"));
     }
