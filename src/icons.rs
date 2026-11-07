@@ -1,135 +1,167 @@
 use crate::config::IconSet;
 
-pub fn tokens_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
+/// One segment's icon in each icon set.
+struct Icons {
+    plain: &'static str,
+    nerd: &'static str,
+    emoji: &'static str,
+}
+
+/// The icon to show: the user's custom prefix when set, otherwise the
+/// segment's icon in `icon_set`.
+fn pick(icon_set: IconSet, custom: Option<&str>, icons: Icons) -> &str {
     if let Some(c) = custom {
         return c;
     }
     match icon_set {
-        IconSet::Plain => "Tokens:",
-        IconSet::Nerd => "󰮚",
-        IconSet::Emoji => "🪙",
+        IconSet::Plain => icons.plain,
+        IconSet::Nerd => icons.nerd,
+        IconSet::Emoji => icons.emoji,
     }
+}
+
+pub fn tokens_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
+    pick(
+        icon_set,
+        custom,
+        Icons {
+            plain: "Tokens:",
+            nerd: "󰮚",
+            emoji: "🪙",
+        },
+    )
 }
 
 pub fn session_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
-    if let Some(c) = custom {
-        return c;
-    }
-    match icon_set {
-        IconSet::Plain => "Session:",
-        IconSet::Nerd => "󰄬",
-        IconSet::Emoji => "💰",
-    }
+    pick(
+        icon_set,
+        custom,
+        Icons {
+            plain: "Session:",
+            nerd: "󰄬",
+            emoji: "💰",
+        },
+    )
 }
 
 pub fn month_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
-    if let Some(c) = custom {
-        return c;
-    }
-    match icon_set {
-        IconSet::Plain => "Month:",
-        IconSet::Nerd => "󰠠",
-        IconSet::Emoji => "📅",
-    }
+    pick(
+        icon_set,
+        custom,
+        Icons {
+            plain: "Month:",
+            nerd: "󰠠",
+            emoji: "📅",
+        },
+    )
 }
 
 pub fn cycle_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
-    if let Some(c) = custom {
-        return c;
-    }
-    match icon_set {
-        IconSet::Plain => "Cycle:",
-        IconSet::Nerd => "\u{f02a4}", // nf-md-github
-        IconSet::Emoji => "🐙",
-    }
+    pick(
+        icon_set,
+        custom,
+        Icons {
+            plain: "Cycle:",
+            nerd: "\u{f02a4}", // nf-md-github
+            emoji: "🐙",
+        },
+    )
 }
 
 pub fn cache_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
-    if let Some(c) = custom {
-        return c;
-    }
-    match icon_set {
-        IconSet::Plain => "Cache:",
-        IconSet::Nerd => "󰘸",
-        IconSet::Emoji => "⚡",
-    }
+    pick(
+        icon_set,
+        custom,
+        Icons {
+            plain: "Cache:",
+            nerd: "󰘸",
+            emoji: "⚡",
+        },
+    )
 }
 
 pub fn reasoning_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
-    if let Some(c) = custom {
-        return c;
-    }
-    match icon_set {
-        IconSet::Plain => "Think:",
-        IconSet::Nerd => "󰚩",
-        IconSet::Emoji => "🧠",
-    }
+    pick(
+        icon_set,
+        custom,
+        Icons {
+            plain: "Think:",
+            nerd: "󰚩",
+            emoji: "🧠",
+        },
+    )
 }
 
 pub fn total_tokens_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
-    if let Some(c) = custom {
-        return c;
-    }
-    match icon_set {
-        IconSet::Plain => "Total:",
-        IconSet::Nerd => "󰓅",
-        IconSet::Emoji => "📊",
-    }
+    pick(
+        icon_set,
+        custom,
+        Icons {
+            plain: "Total:",
+            nerd: "󰓅",
+            emoji: "📊",
+        },
+    )
 }
 
 pub fn model_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
-    if let Some(c) = custom {
-        return c;
-    }
-    match icon_set {
-        IconSet::Plain => "Model:",
-        IconSet::Nerd => "\u{f061a}", // nf-md-chip
-        IconSet::Emoji => "🤖",
-    }
+    pick(
+        icon_set,
+        custom,
+        Icons {
+            plain: "Model:",
+            nerd: "\u{f061a}", // nf-md-chip
+            emoji: "🤖",
+        },
+    )
 }
 
 pub fn fusion_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
-    if let Some(c) = custom {
-        return c;
-    }
-    match icon_set {
-        IconSet::Plain => "Fusion:",
-        IconSet::Nerd => "\u{f061a}",
-        IconSet::Emoji => "\u{1f500}",
-    }
+    pick(
+        icon_set,
+        custom,
+        Icons {
+            plain: "Fusion:",
+            nerd: "\u{f061a}",
+            emoji: "\u{1f500}",
+        },
+    )
 }
 
 pub fn pr_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
-    if let Some(c) = custom {
-        return c;
-    }
-    match icon_set {
-        IconSet::Plain => "PR",
-        IconSet::Nerd => "",
-        IconSet::Emoji => "🔀",
-    }
+    pick(
+        icon_set,
+        custom,
+        Icons {
+            plain: "PR",
+            nerd: "",
+            emoji: "🔀",
+        },
+    )
 }
 
 pub fn cache_expiry_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
-    if let Some(c) = custom {
-        return c;
-    }
-    match icon_set {
-        IconSet::Plain => "Idle:",
-        IconSet::Nerd => "\u{f051f}", // nf-md-timer_sand
-        IconSet::Emoji => "⏳",
-    }
+    pick(
+        icon_set,
+        custom,
+        Icons {
+            plain: "Idle:",
+            nerd: "\u{f051f}", // nf-md-timer_sand
+            emoji: "⏳",
+        },
+    )
 }
 
 pub fn tool_overhead_icon(icon_set: IconSet, custom: Option<&str>) -> &str {
-    if let Some(c) = custom {
-        return c;
-    }
-    match icon_set {
-        IconSet::Plain => "Tools:",
-        IconSet::Nerd => "\u{f1064}", // nf-md-tools
-        IconSet::Emoji => "🧰",
-    }
+    pick(
+        icon_set,
+        custom,
+        Icons {
+            plain: "Tools:",
+            nerd: "\u{f1064}", // nf-md-tools
+            emoji: "🧰",
+        },
+    )
 }
 
 #[cfg(test)]
