@@ -32,3 +32,7 @@ install-updater = false
 global = "ubuntu-24.04"
 x86_64-unknown-linux-gnu = "ubuntu-24.04"
 aarch64-unknown-linux-gnu = "ubuntu-24.04-arm"
+# dist's default, macos-14, is no longer accepted by GitHub. ci.yml runs on
+# macos-latest too, so a problem with this image shows up on a pull request
+# instead of at tag time.
+aarch64-apple-darwin = "macos-latest"

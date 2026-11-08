@@ -43,7 +43,9 @@ The manual steps follow, for when the script cannot be used.
    dist plan
    ```
 
-   If you changed `dist-workspace.toml` or upgraded dist, run `dist generate` and commit the regenerated workflow; the release workflow fails when it is out of date.
+   `dist` must be the exact version in `dist-workspace.toml` or it refuses to run. `mise.toml` pins it: run [`mise install`](https://mise.jdx.dev/) once in this repository.
+
+   If you changed `dist-workspace.toml` or upgraded dist, run `dist generate` and commit the regenerated workflow; the release workflow fails when it is out of date. To upgrade dist, change `cargo-dist-version` and `mise.toml` together.
 
 5. Open and merge the version-bump pull request.
 
