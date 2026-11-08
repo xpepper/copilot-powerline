@@ -26,31 +26,42 @@ pub fn render_branch_size_segment(
     if size.is_empty() {
         return None;
     }
-    let text = describe(size);
     if config
         .alert_above_lines
         .is_some_and(|limit| size.changed_lines() > limit)
     {
+        // The alert colors the whole text, so the diff colors would hide it.
+        let text = describe(size, &Palette::for_theme("plain"));
         return Some(format!("{}{text}{}", palette.tokens_alert, palette.reset));
     }
-    Some(text)
+    Some(describe(size, palette))
 }
 
-fn describe(size: &BranchSize) -> String {
+fn describe(size: &BranchSize, palette: &Palette) -> String {
     let committed = format!(
         "{} · {} vs {}",
-        lines(&size.committed),
+        lines(&size.committed, palette),
         files(size.committed.files),
         size.default_branch
     );
     if size.uncommitted.is_empty() {
         return committed;
     }
-    format!("{committed} · {} uncommitted", lines(&size.uncommitted))
+    format!(
+        "{committed} · {} uncommitted",
+        lines(&size.uncommitted, palette)
+    )
 }
 
-fn lines(stat: &DiffStat) -> String {
-    format!("+{} -{}", stat.added, stat.removed)
+fn lines(stat: &DiffStat, palette: &Palette) -> String {
+    format!(
+        "{}+{}{r} {}-{}{r}",
+        palette.diff_added,
+        stat.added,
+        palette.diff_removed,
+        stat.removed,
+        r = palette.reset
+    )
 }
 
 fn files(count: u64) -> String {
@@ -204,32 +215,73 @@ mod tests {
     #[test]
     fn test_no_alert_color_at_the_line_limit() {
         let size = with_uncommitted(size(3, 1, 1), 1, 0, 1);
+        let p = Palette::for_theme("github");
 
-        let rendered = render_branch_size_segment(
-            Some(&size),
-            "feature",
-            &alert_above(5),
-            &Palette::for_theme("github"),
-        );
+        let rendered = render_branch_size_segment(Some(&size), "feature", &alert_above(5), &p);
 
+        let (add, del, r) = (p.diff_added, p.diff_removed, p.reset);
         assert_eq!(
-            rendered.as_deref(),
-            Some("+3 -1 · 1 file vs main · +1 -0 uncommitted")
+            rendered,
+            Some(format!(
+                "{add}+3{r} {del}-1{r} · 1 file vs main · {add}+1{r} {del}-0{r} uncommitted"
+            ))
         );
     }
 
     #[test]
     fn test_no_alert_color_without_a_line_limit() {
         let size = size(100_000, 0, 1);
+        let p = Palette::for_theme("github");
 
-        let rendered = render_branch_size_segment(
-            Some(&size),
-            "feature",
-            &BranchSizeConfig::default(),
-            &Palette::for_theme("github"),
+        let rendered =
+            render_branch_size_segment(Some(&size), "feature", &BranchSizeConfig::default(), &p);
+
+        let (add, del, r) = (p.diff_added, p.diff_removed, p.reset);
+        assert_eq!(
+            rendered,
+            Some(format!("{add}+100000{r} {del}-0{r} · 1 file vs main"))
         );
+    }
 
-        assert_eq!(rendered.as_deref(), Some("+100000 -0 · 1 file vs main"));
+    #[test]
+    fn test_added_lines_are_green_and_removed_lines_red() {
+        let size = with_uncommitted(size(420, 80, 12), 35, 2, 3);
+        let p = Palette::for_theme("github");
+
+        let rendered =
+            render_branch_size_segment(Some(&size), "feature", &BranchSizeConfig::default(), &p);
+
+        let (add, del, r) = (p.diff_added, p.diff_removed, p.reset);
+        assert_eq!(
+            rendered,
+            Some(format!(
+                "{add}+420{r} {del}-80{r} · 12 files vs main · {add}+35{r} {del}-2{r} uncommitted"
+            ))
+        );
+    }
+
+    #[test]
+    fn test_colorblind_diff_colors_are_not_green_and_red() {
+        let p = Palette::for_theme("colorblind");
+
+        assert_eq!(p.diff_added, "\x1b[94m");
+        assert_eq!(p.diff_removed, "\x1b[38;5;208m");
+    }
+
+    #[test]
+    fn test_alert_color_covers_the_whole_text_instead_of_the_diff_colors() {
+        let size = size(3, 1, 1);
+        let p = Palette::for_theme("github");
+
+        let rendered = render_branch_size_segment(Some(&size), "feature", &alert_above(2), &p);
+
+        assert_eq!(
+            rendered,
+            Some(format!(
+                "{}+3 -1 · 1 file vs main{}",
+                p.tokens_alert, p.reset
+            ))
+        );
     }
 
     #[test]
