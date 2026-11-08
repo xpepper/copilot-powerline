@@ -57,7 +57,7 @@ fn lines(stat: &DiffStat, palette: &Palette) -> String {
     let r = palette.reset;
     format!(
         "{}+{}{r} {}-{}{r}",
-        palette.trend_up, stat.added, palette.trend_down, stat.removed
+        palette.lines_added, stat.added, palette.lines_removed, stat.removed
     )
 }
 

@@ -14,6 +14,8 @@ pub struct Palette {
     pub pr_draft: &'static str,
     pub trend_up: &'static str,
     pub trend_down: &'static str,
+    pub lines_added: &'static str,
+    pub lines_removed: &'static str,
 }
 
 impl Palette {
@@ -34,6 +36,8 @@ impl Palette {
                 pr_draft: "\x1b[90m", // Grey
                 trend_up: "\x1b[92m",   // Bright green
                 trend_down: "\x1b[91m", // Bright red
+                lines_added: "\x1b[92m",   // Bright green
+                lines_removed: "\x1b[91m", // Bright red
             },
             "nord" => Self {
                 reset: "\x1b[0m",
@@ -50,6 +54,8 @@ impl Palette {
                 pr_draft: "\x1b[90m", // Grey
                 trend_up: "\x1b[92m",
                 trend_down: "\x1b[91m",
+                lines_added: "\x1b[92m",
+                lines_removed: "\x1b[91m",
             },
             "tokyo-night" => Self {
                 reset: "\x1b[0m",
@@ -66,6 +72,8 @@ impl Palette {
                 pr_draft: "\x1b[90m", // Grey
                 trend_up: "\x1b[92m",
                 trend_down: "\x1b[91m",
+                lines_added: "\x1b[92m",
+                lines_removed: "\x1b[91m",
             },
             "plain" => Self {
                 reset: "",
@@ -82,6 +90,8 @@ impl Palette {
                 pr_draft: "",
                 trend_up: "",
                 trend_down: "",
+                lines_added: "",
+                lines_removed: "",
             },
             _ /* "colorblind" or any other */ => Self {
                 reset: "\x1b[0m",
@@ -101,6 +111,9 @@ impl Palette {
                 // red-green color blindness; the arrow carries the meaning too.
                 trend_up: "\x1b[94m",          // Bright blue
                 trend_down: "\x1b[38;5;208m",  // Orange
+                // Blue/orange instead of green/red, like the trend arrows.
+                lines_added: "\x1b[94m",         // Bright blue
+                lines_removed: "\x1b[38;5;208m", // Orange
             },
         }
     }
