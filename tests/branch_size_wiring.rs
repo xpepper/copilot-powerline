@@ -483,6 +483,19 @@ fn test_shows_the_alert_icon_above_the_line_limit() {
 }
 
 #[test]
+fn test_shows_the_configured_alert_icon() {
+    let repo = Repo::new();
+    repo.sandbox.write_config(
+        "theme = \"plain\"\nsegments = [\"branch_size\"]\n\n[branch_size]\nalert_above_lines = 2\nalert_icon = \"BIG \"\n",
+    );
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(line, "BIG +3 -0 · 1 file vs main");
+}
+
+#[test]
 fn test_colors_the_added_and_removed_lines() {
     let repo = Repo::new();
     repo.sandbox
