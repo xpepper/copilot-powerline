@@ -26,17 +26,15 @@ pub fn render_branch_size_segment(
     if size.is_empty() {
         return None;
     }
-    if config
+    let is_too_big = config
         .alert_above_lines
-        .is_some_and(|limit| size.changed_lines() > limit)
-    {
-        let uncolored = describe(size, &Palette::for_theme("plain"));
-        return Some(format!(
-            "{}{uncolored}{}",
-            palette.tokens_alert, palette.reset
-        ));
-    }
-    Some(describe(size, palette))
+        .is_some_and(|limit| size.changed_lines() > limit);
+    let alert_icon = if is_too_big {
+        config.alert_icon.as_str()
+    } else {
+        ""
+    };
+    Some(format!("{alert_icon}{}", describe(size, palette)))
 }
 
 fn describe(size: &BranchSize, palette: &Palette) -> String {
@@ -273,23 +271,40 @@ mod tests {
     }
 
     #[test]
-    fn test_alert_color_above_the_line_limit() {
+    fn test_starts_with_the_alert_icon_above_the_line_limit() {
         let size = with_uncommitted(size(3, 1, 1), 1, 0, 1);
-        let p = Palette::for_theme("github");
 
-        let rendered = render_branch_size_segment(Some(&size), "feature", &alert_above(4), &p);
+        let rendered = render_branch_size_segment(
+            Some(&size),
+            "feature",
+            &alert_above(4),
+            &Palette::for_theme("github"),
+        );
 
         assert_eq!(
-            rendered,
-            Some(format!(
-                "{}+3 -1 · 1 file vs main · +1 -0 uncommitted{}",
-                p.tokens_alert, p.reset
-            ))
+            rendered.as_deref(),
+            Some(
+                "🐘 \x1b[92m+3\x1b[0m \x1b[91m-1\x1b[0m · 1 file vs main · \
+                 \x1b[92m+1\x1b[0m \x1b[91m-0\x1b[0m uncommitted"
+            )
         );
     }
 
     #[test]
-    fn test_no_alert_color_at_the_line_limit() {
+    fn test_shows_the_configured_alert_icon_in_the_plain_theme() {
+        let config = BranchSizeConfig {
+            alert_icon: "BIG ".to_string(),
+            ..alert_above(4)
+        };
+
+        let rendered =
+            render_branch_size_segment(Some(&size(3, 2, 1)), "feature", &config, &plain());
+
+        assert_eq!(rendered.as_deref(), Some("BIG +3 -2 · 1 file vs main"));
+    }
+
+    #[test]
+    fn test_no_alert_icon_at_the_line_limit() {
         let size = with_uncommitted(size(3, 1, 1), 1, 0, 1);
 
         let rendered = render_branch_size_segment(
@@ -309,7 +324,7 @@ mod tests {
     }
 
     #[test]
-    fn test_no_alert_color_without_a_line_limit() {
+    fn test_no_alert_icon_without_a_line_limit() {
         let size = size(100_000, 0, 1);
 
         let rendered = render_branch_size_segment(

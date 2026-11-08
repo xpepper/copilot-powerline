@@ -465,7 +465,7 @@ fn test_hidden_when_the_default_branch_is_not_on_origin() {
 }
 
 #[test]
-fn test_shows_the_alert_color_above_the_line_limit() {
+fn test_shows_the_alert_icon_above_the_line_limit() {
     let repo = Repo::new();
     repo.sandbox.write_config(
         "theme = \"github\"\nsegments = [\"branch_size\"]\n\n[branch_size]\nalert_above_lines = 3\n",
@@ -477,7 +477,8 @@ fn test_shows_the_alert_color_above_the_line_limit() {
 
     assert_eq!(
         line,
-        "\x1b[1;31m+3 -0 · 1 file vs main · +1 -0 uncommitted\x1b[0m"
+        "🐘 \x1b[92m+3\x1b[0m \x1b[91m-0\x1b[0m · 1 file vs main · \
+         \x1b[92m+1\x1b[0m \x1b[91m-0\x1b[0m uncommitted"
     );
 }
 
