@@ -17,3 +17,7 @@ A function takes at most one `bool` parameter. When two or more travel together,
 ## Comments describe the code
 
 A comment states what the code does or why, in terms that stay true wherever the code runs. Observations about this repository's own PRs, history or data belong in the commit message.
+
+## Repeated setup
+
+A setup sequence that two or more tests repeat (write config, commit, refresh, assert) moves into a named helper on the fixture (e.g. `Repo::shown_with_config_after_commit` in `tests/branch_size_wiring.rs`). A test keeps inline only the steps that make it differ.
