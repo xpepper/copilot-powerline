@@ -482,6 +482,23 @@ fn test_shows_the_alert_color_above_the_line_limit() {
 }
 
 #[test]
+fn test_colors_the_added_and_removed_lines() {
+    let repo = Repo::new();
+    repo.sandbox
+        .write_config("theme = \"github\"\nsegments = [\"branch_size\"]\n");
+    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
+    fs::write(repo.home().join("a.txt"), "one\nTWO\n").unwrap();
+
+    let line = repo.shown_after_fetch(1);
+
+    assert_eq!(
+        line,
+        "\x1b[92m+3\x1b[0m \x1b[91m-0\x1b[0m · 1 file vs main · \
+         \x1b[92m+1\x1b[0m \x1b[91m-1\x1b[0m uncommitted"
+    );
+}
+
+#[test]
 fn test_the_branch_lookup_starts_no_pr_worker() {
     let repo = Repo::new();
     repo.sandbox.write_config(SHOWN);
