@@ -631,15 +631,21 @@ pub struct BranchSizeConfig {
     /// `origin/HEAD`, and the segment is hidden when that does not exist.
     #[serde(default)]
     pub default_branch: Option<String>,
-    /// Show the segment in the alert color once the committed and
+    /// Start the segment with `alert_icon` once the committed and
     /// uncommitted lines added and removed go strictly above this. Unset by
     /// default: a good size depends on the project.
     #[serde(default)]
     pub alert_above_lines: Option<u64>,
+    #[serde(default = "default_branch_size_alert_icon")]
+    pub alert_icon: String,
 }
 
 fn default_branch_size_cache_ttl() -> u64 {
     60
+}
+
+fn default_branch_size_alert_icon() -> String {
+    "🐘 ".to_string()
 }
 
 impl Default for BranchSizeConfig {
@@ -649,6 +655,7 @@ impl Default for BranchSizeConfig {
             cache_ttl_seconds: default_branch_size_cache_ttl(),
             default_branch: None,
             alert_above_lines: None,
+            alert_icon: default_branch_size_alert_icon(),
         }
     }
 }
@@ -817,6 +824,13 @@ mod tests {
         let cfg = Config::from_toml("[branch_size]\ndefault_branch = \"develop\"\n").unwrap();
 
         assert_eq!(cfg.branch_size.default_branch.as_deref(), Some("develop"));
+    }
+
+    #[test]
+    fn test_branch_size_alert_icon_defaults_to_an_elephant() {
+        let cfg = Config::from_toml("[branch_size]\n").unwrap();
+
+        assert_eq!(cfg.branch_size.alert_icon, "🐘 ");
     }
 
     #[test]

@@ -112,5 +112,6 @@ min_tokens = 0           # Show only at or above this many tokens, e.g. 30000; t
 [branch_size]
 enabled = true           # Enable branch size segment (default: true; still needs "branch_size" in `segments`)
 cache_ttl_seconds = 60   # Freshness TTL in seconds before measuring again with background `git diff` (default: 60)
-alert_above_lines = 400  # Show the alert color once committed plus uncommitted lines added and removed strictly exceed this (default: unset / disabled)
+alert_above_lines = 400  # Show alert_icon once committed plus uncommitted lines added and removed strictly exceed this (default: unset / disabled)
+alert_icon = "🐘 "       # Icon prepended above alert_above_lines (default: "🐘 ")
 # default_branch = "main" # Branch on `origin` to compare with; the segment is hidden if it does not exist there (default: unset, read from `origin/HEAD`)
