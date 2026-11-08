@@ -180,6 +180,21 @@ impl Repo {
         self.refresh()
     }
 
+    /// Configures, adds a 3-line commit to the feature branch, and shows the
+    /// segment once the worker has cached its numbers.
+    fn shown_with_config_after_commit(&self, config: &str) -> String {
+        self.sandbox.write_config(config);
+        commit_file(self.home(), "c.txt", "x\ny\nz\n");
+        self.shown_after_fetch(1)
+    }
+
+    /// Like `shown_with_config_after_commit`, with one changed line left
+    /// uncommitted in `a.txt`.
+    fn shown_with_config_after_commit_and_edit(&self, config: &str) -> String {
+        fs::write(self.home().join("a.txt"), "one\nTWO\n").unwrap();
+        self.shown_with_config_after_commit(config)
+    }
+
     /// The command line of the process behind each `git` call so far.
     fn git_callers(&self) -> Vec<String> {
         fs::read_to_string(&self.log)
@@ -345,11 +360,9 @@ fn test_compares_with_the_configured_default_branch() {
 #[test]
 fn test_a_local_branch_named_like_the_remote_one_is_ignored() {
     let repo = Repo::new();
-    repo.sandbox.write_config(SHOWN);
-    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
     git(repo.home(), &["branch", "origin/main"]);
 
-    let line = repo.shown_after_fetch(1);
+    let line = repo.shown_with_config_after_commit(SHOWN);
 
     assert_eq!(line, "+3 -0 · 1 file vs main");
 }
@@ -357,13 +370,11 @@ fn test_a_local_branch_named_like_the_remote_one_is_ignored() {
 #[test]
 fn test_a_local_branch_named_like_the_configured_remote_one_is_ignored() {
     let repo = Repo::new();
-    repo.sandbox.write_config(&format!(
-        "{SHOWN}\n[branch_size]\ndefault_branch = \"main\"\n"
-    ));
-    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
     git(repo.home(), &["branch", "origin/main"]);
 
-    let line = repo.shown_after_fetch(1);
+    let line = repo.shown_with_config_after_commit(&format!(
+        "{SHOWN}\n[branch_size]\ndefault_branch = \"main\"\n"
+    ));
 
     assert_eq!(line, "+3 -0 · 1 file vs main");
 }
@@ -394,12 +405,9 @@ fn test_hidden_without_a_default_branch() {
 #[test]
 fn test_hidden_on_the_default_branch() {
     let repo = Repo::new();
-    repo.sandbox.write_config(SHOWN);
     git(repo.home(), &["switch", "-q", "main"]);
-    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
-    fs::write(repo.home().join("a.txt"), "one\nTWO\n").unwrap();
 
-    let line = repo.shown_after_fetch(1);
+    let line = repo.shown_with_config_after_commit_and_edit(SHOWN);
 
     assert_eq!(line, "");
 }
@@ -453,19 +461,15 @@ fn test_hidden_without_git_and_never_starts_a_worker() {
 #[test]
 fn test_hidden_when_the_default_branch_is_not_on_origin() {
     let repo = Repo::new();
-    repo.sandbox.write_config(&format!(
+    let line = repo.shown_with_config_after_commit_and_edit(&format!(
         "{SHOWN}\n[branch_size]\ndefault_branch = \"develop\"\n"
     ));
-    commit_file(repo.home(), "c.txt", "x\ny\nz\n");
-    fs::write(repo.home().join("a.txt"), "one\nTWO\n").unwrap();
-
-    let line = repo.shown_after_fetch(1);
 
     assert_eq!(line, "");
 }
 
 #[test]
-fn test_shows_the_alert_color_above_the_line_limit() {
+fn test_shows_the_alert_icon_above_the_line_limit() {
     let repo = Repo::new();
     repo.sandbox.write_config(
         "theme = \"github\"\nsegments = [\"branch_size\"]\n\n[branch_size]\nalert_above_lines = 3\n",
@@ -477,7 +481,32 @@ fn test_shows_the_alert_color_above_the_line_limit() {
 
     assert_eq!(
         line,
-        "\x1b[1;31m+3 -0 · 1 file vs main · +1 -0 uncommitted\x1b[0m"
+        "🐘 \x1b[92m+3\x1b[0m \x1b[91m-0\x1b[0m · 1 file vs main · \
+         \x1b[92m+1\x1b[0m \x1b[91m-0\x1b[0m uncommitted"
+    );
+}
+
+#[test]
+fn test_shows_the_configured_alert_icon() {
+    let repo = Repo::new();
+    let line = repo.shown_with_config_after_commit(
+        "theme = \"plain\"\nsegments = [\"branch_size\"]\n\n[branch_size]\nalert_above_lines = 2\nalert_icon = \"BIG \"\n",
+    );
+
+    assert_eq!(line, "BIG +3 -0 · 1 file vs main");
+}
+
+#[test]
+fn test_colors_the_added_and_removed_lines() {
+    let repo = Repo::new();
+    let line = repo.shown_with_config_after_commit_and_edit(
+        "theme = \"github\"\nsegments = [\"branch_size\"]\n",
+    );
+
+    assert_eq!(
+        line,
+        "\x1b[92m+3\x1b[0m \x1b[91m-0\x1b[0m · 1 file vs main · \
+         \x1b[92m+1\x1b[0m \x1b[91m-1\x1b[0m uncommitted"
     );
 }
 

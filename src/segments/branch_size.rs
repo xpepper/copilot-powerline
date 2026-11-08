@@ -26,31 +26,39 @@ pub fn render_branch_size_segment(
     if size.is_empty() {
         return None;
     }
-    let text = describe(size);
-    if config
+    let is_too_big = config
         .alert_above_lines
-        .is_some_and(|limit| size.changed_lines() > limit)
-    {
-        return Some(format!("{}{text}{}", palette.tokens_alert, palette.reset));
-    }
-    Some(text)
+        .is_some_and(|limit| size.changed_lines() > limit);
+    let alert_icon = if is_too_big {
+        config.alert_icon.as_str()
+    } else {
+        ""
+    };
+    Some(format!("{alert_icon}{}", describe(size, palette)))
 }
 
-fn describe(size: &BranchSize) -> String {
+fn describe(size: &BranchSize, palette: &Palette) -> String {
     let committed = format!(
         "{} · {} vs {}",
-        lines(&size.committed),
+        lines(&size.committed, palette),
         files(size.committed.files),
         size.default_branch
     );
     if size.uncommitted.is_empty() {
         return committed;
     }
-    format!("{committed} · {} uncommitted", lines(&size.uncommitted))
+    format!(
+        "{committed} · {} uncommitted",
+        lines(&size.uncommitted, palette)
+    )
 }
 
-fn lines(stat: &DiffStat) -> String {
-    format!("+{} -{}", stat.added, stat.removed)
+fn lines(stat: &DiffStat, palette: &Palette) -> String {
+    let r = palette.reset;
+    format!(
+        "{}+{}{r} {}-{}{r}",
+        palette.lines_added, stat.added, palette.lines_removed, stat.removed
+    )
 }
 
 fn files(count: u64) -> String {
@@ -162,6 +170,83 @@ mod tests {
     }
 
     #[test]
+    fn test_colors_the_added_lines_green_and_the_removed_lines_red() {
+        let size = size(420, 80, 12);
+
+        for theme in ["github", "nord", "tokyo-night"] {
+            let rendered = render_branch_size_segment(
+                Some(&size),
+                "feature",
+                &BranchSizeConfig::default(),
+                &Palette::for_theme(theme),
+            );
+
+            assert_eq!(
+                rendered.as_deref(),
+                Some("\x1b[92m+420\x1b[0m \x1b[91m-80\x1b[0m · 12 files vs main"),
+                "{theme}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_colors_the_counts_blue_and_orange_in_the_colorblind_theme() {
+        let size = size(420, 80, 12);
+
+        let rendered = render_branch_size_segment(
+            Some(&size),
+            "feature",
+            &BranchSizeConfig::default(),
+            &Palette::for_theme("colorblind"),
+        );
+
+        assert_eq!(
+            rendered.as_deref(),
+            Some("\x1b[94m+420\x1b[0m \x1b[38;5;208m-80\x1b[0m · 12 files vs main")
+        );
+    }
+
+    #[test]
+    fn test_colors_the_uncommitted_counts_like_the_committed_ones() {
+        let size = with_uncommitted(size(420, 80, 12), 35, 2, 3);
+
+        let rendered = render_branch_size_segment(
+            Some(&size),
+            "feature",
+            &BranchSizeConfig::default(),
+            &Palette::for_theme("github"),
+        );
+
+        assert_eq!(
+            rendered.as_deref(),
+            Some(
+                "\x1b[92m+420\x1b[0m \x1b[91m-80\x1b[0m · 12 files vs main · \
+                 \x1b[92m+35\x1b[0m \x1b[91m-2\x1b[0m uncommitted"
+            )
+        );
+    }
+
+    #[test]
+    fn test_colors_a_zero_count_like_any_other() {
+        let size = with_uncommitted(size(3, 0, 1), 0, 2, 1);
+
+        let rendered = render_branch_size_segment(
+            Some(&size),
+            "feature",
+            &BranchSizeConfig::default(),
+            &Palette::for_theme("github"),
+        );
+
+        assert_eq!(
+            rendered.as_deref(),
+            Some(
+                "\x1b[92m+3\x1b[0m \x1b[91m-0\x1b[0m · 1 file vs main · \
+                 \x1b[92m+0\x1b[0m \x1b[91m-2\x1b[0m uncommitted"
+            )
+        );
+    }
+
+    #[test]
     fn test_hidden_without_changes() {
         let size = size(0, 0, 0);
 
@@ -186,23 +271,40 @@ mod tests {
     }
 
     #[test]
-    fn test_alert_color_above_the_line_limit() {
+    fn test_starts_with_the_alert_icon_above_the_line_limit() {
         let size = with_uncommitted(size(3, 1, 1), 1, 0, 1);
-        let p = Palette::for_theme("github");
 
-        let rendered = render_branch_size_segment(Some(&size), "feature", &alert_above(4), &p);
+        let rendered = render_branch_size_segment(
+            Some(&size),
+            "feature",
+            &alert_above(4),
+            &Palette::for_theme("github"),
+        );
 
         assert_eq!(
-            rendered,
-            Some(format!(
-                "{}+3 -1 · 1 file vs main · +1 -0 uncommitted{}",
-                p.tokens_alert, p.reset
-            ))
+            rendered.as_deref(),
+            Some(
+                "🐘 \x1b[92m+3\x1b[0m \x1b[91m-1\x1b[0m · 1 file vs main · \
+                 \x1b[92m+1\x1b[0m \x1b[91m-0\x1b[0m uncommitted"
+            )
         );
     }
 
     #[test]
-    fn test_no_alert_color_at_the_line_limit() {
+    fn test_shows_the_configured_alert_icon_in_the_plain_theme() {
+        let config = BranchSizeConfig {
+            alert_icon: "BIG ".to_string(),
+            ..alert_above(4)
+        };
+
+        let rendered =
+            render_branch_size_segment(Some(&size(3, 2, 1)), "feature", &config, &plain());
+
+        assert_eq!(rendered.as_deref(), Some("BIG +3 -2 · 1 file vs main"));
+    }
+
+    #[test]
+    fn test_no_alert_icon_at_the_line_limit() {
         let size = with_uncommitted(size(3, 1, 1), 1, 0, 1);
 
         let rendered = render_branch_size_segment(
@@ -214,12 +316,15 @@ mod tests {
 
         assert_eq!(
             rendered.as_deref(),
-            Some("+3 -1 · 1 file vs main · +1 -0 uncommitted")
+            Some(
+                "\x1b[92m+3\x1b[0m \x1b[91m-1\x1b[0m · 1 file vs main · \
+                 \x1b[92m+1\x1b[0m \x1b[91m-0\x1b[0m uncommitted"
+            )
         );
     }
 
     #[test]
-    fn test_no_alert_color_without_a_line_limit() {
+    fn test_no_alert_icon_without_a_line_limit() {
         let size = size(100_000, 0, 1);
 
         let rendered = render_branch_size_segment(
@@ -229,7 +334,10 @@ mod tests {
             &Palette::for_theme("github"),
         );
 
-        assert_eq!(rendered.as_deref(), Some("+100000 -0 · 1 file vs main"));
+        assert_eq!(
+            rendered.as_deref(),
+            Some("\x1b[92m+100000\x1b[0m \x1b[91m-0\x1b[0m · 1 file vs main")
+        );
     }
 
     #[test]
