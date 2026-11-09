@@ -91,7 +91,7 @@ Inspired by [`claude-powerline`](https://github.com/Owloops/claude-powerline).
 
 ## Features
 
-- **Context Window Monitoring**: Real-time context tracking with percentage and warning alert threshold (`>100k`).
+- **Context Window Monitoring**: Real-time context tracking with percentage, a warning color above `>100k` tokens, and an alert icon above `>200k`.
 - **Prompt Cache Tracking**: Real-time cache hit rate (or token count), automatically hidden when zero.
 - **Long-Break Reminder**: After 30 idle minutes, shows how long the session has been idle and that the prompt cache is likely cold, so the next step re-reads the whole context at full price (e.g. `54m · cache likely cold`).
 - **Reasoning Tokens**: Tracks the thinking tokens spent by reasoning models, or models with extended thinking enabled.
@@ -161,7 +161,7 @@ cargo install --path .
 
 | Segment | Icon (`nerd`) | Icon (`emoji`) | Text (`plain`) | Example Value | Description |
 |---|:---:|:---:|---|---|---|
-| `tokens` | `󰮚` | `🪙` | `Tokens:` | `89k/400k (22%)` / `🔥 145k/400k (36%)` | **Context Window**: Active context tokens vs model limit (and percentage used). Above the configured alert threshold (default `>100k`), adds `🔥` (`alert_icon`) after the icon and shows the token count in the alert color. |
+| `tokens` | `󰮚` | `🪙` | `Tokens:` | `89k/400k (22%)` / `🔥 260k/400k (65%)` | **Context Window**: Active context tokens vs model limit (and percentage used). Above `warning_threshold` (default `>100k`), shows the token count in the warning color (bright yellow). Above `alert_threshold` (default `>200k`), adds `🔥` (`alert_icon`) after the icon and shows the token count in the alert color. |
 | `session_cost` | `󰄬` | `💰` | `Session:` | `$8.64` / `💸 $9.10` / `📈 $9.10` | **Current Session Cost**: Real-time spend accumulated in the active session in USD (optional AIC credit display). With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the session costs more than that limit. With `spike_alert = true` *(opt-in)*, shows `📈` and the alert color when the latest step cost much more per token than the session average, a hint of expensive model routing or a cache miss on a large context. Both icons appear when both apply. |
 | `month_cost` | `󰠠` | `📅` | `Month:` | `$281.66` / `💸 $312.40` | **Month-to-Date Cost**: Total cumulative monthly spend across all sessions, queried directly from Copilot's `~/.copilot/session-store.db`. The current session updates live; other sessions' spend is re-read at most once a minute. With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the month costs more than that limit. |
 | `cycle_cost` | `󰊤` | `🐙` | `Cycle:` | `$159.48` / `💸 $159.48` | **GitHub Cycle Usage** *(optional, not in the default `segments` list)*: The AI credits GitHub counts for your current billing cycle, in USD at list price (1 credit = $0.01), across every Copilot surface, not just this CLI. With a per-user budget, it shows the part of the budget used. Read from GitHub's internal `/copilot_internal/user` API, refreshed every `cache_ttl_seconds` (default 300). Requires an authenticated `gh` CLI; hidden until the first fetch completes, and after the cycle resets until the next fetch. When a fetch fails, it keeps showing the last value. With `alert_above_usd` set *(opt-in)*, shows `💸` and the alert color once the cycle costs more than that limit. |
