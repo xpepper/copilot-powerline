@@ -169,7 +169,7 @@ impl Default for TokensConfig {
             enabled: true,
             prefix: None,
             show_percentage: true,
-            alert_threshold: 100_000,
+            alert_threshold: default_alert_threshold(),
             alert_icon: default_tokens_alert_icon(),
         }
     }
