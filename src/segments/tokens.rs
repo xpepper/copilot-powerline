@@ -43,11 +43,15 @@ pub fn render_tokens_segment(
     let tok_curr_str = format_tokens(Some(curr_tokens));
     let tok_max_str = format_tokens(Some(max_tokens));
 
-    let is_alert = curr_tokens > config.alert_threshold;
-    let (alert_icon, curr_styled) = if is_alert {
+    let (alert_icon, curr_styled) = if curr_tokens > config.alert_threshold {
         (
             config.alert_icon.as_str(),
             format!("{}{}{}", palette.tokens_alert, tok_curr_str, r),
+        )
+    } else if curr_tokens > config.warning_threshold {
+        (
+            "",
+            format!("{}{}{}", palette.tokens_warning, tok_curr_str, r),
         )
     } else {
         (
@@ -121,15 +125,71 @@ mod tests {
     #[test]
     fn test_render_tokens_alert() {
         let ctx = ContextWindow {
-            current_context_tokens: Some(150_000),
+            current_context_tokens: Some(250_000),
             displayed_context_limit: Some(200_000),
-            current_context_used_percentage: Some(75.0),
+            current_context_used_percentage: Some(125.0),
             ..Default::default()
         };
         let cfg = TokensConfig::default();
         let p = Palette::for_theme("plain");
 
         let rendered = render_tokens_segment(&ctx, &cfg, IconSet::Plain, &p).unwrap();
-        assert_eq!(rendered, "Tokens: 🔥 150k/200k (75%)");
+        assert_eq!(rendered, "Tokens: 🔥 250k/200k (125%)");
+    }
+
+    fn render_github(tokens: u64, cfg: &TokensConfig) -> String {
+        let ctx = ContextWindow {
+            current_context_tokens: Some(tokens),
+            displayed_context_limit: Some(400_000),
+            current_context_used_percentage: Some(0.0),
+            ..Default::default()
+        };
+        let p = Palette::for_theme("github");
+        render_tokens_segment(&ctx, cfg, IconSet::Plain, &p).unwrap()
+    }
+
+    #[test]
+    fn test_render_tokens_at_warning_threshold_is_normal() {
+        let rendered = render_github(100_000, &TokensConfig::default());
+        assert!(rendered.contains("\x1b[97m100k"), "{rendered}");
+        assert!(!rendered.contains('🔥'), "{rendered}");
+    }
+
+    #[test]
+    fn test_render_tokens_above_warning_threshold_is_warning_without_icon() {
+        let rendered = render_github(150_000, &TokensConfig::default());
+        assert!(rendered.contains("\x1b[93m150k"), "{rendered}");
+        assert!(!rendered.contains('🔥'), "{rendered}");
+    }
+
+    #[test]
+    fn test_render_tokens_at_alert_threshold_is_warning() {
+        let rendered = render_github(200_000, &TokensConfig::default());
+        assert!(rendered.contains("\x1b[93m200k"), "{rendered}");
+        assert!(!rendered.contains('🔥'), "{rendered}");
+    }
+
+    #[test]
+    fn test_render_tokens_above_alert_threshold_is_alert_with_icon() {
+        let rendered = render_github(200_001, &TokensConfig::default());
+        assert!(rendered.contains("🔥 "), "{rendered}");
+        assert!(rendered.contains("\x1b[1;31m200k"), "{rendered}");
+    }
+
+    #[test]
+    fn test_render_tokens_reversed_thresholds_have_no_warning() {
+        let cfg = TokensConfig {
+            warning_threshold: 300_000,
+            alert_threshold: 200_000,
+            ..Default::default()
+        };
+
+        let normal = render_github(150_000, &cfg);
+        assert!(normal.contains("\x1b[97m150k"), "{normal}");
+        assert!(!normal.contains('🔥'), "{normal}");
+
+        let alert = render_github(250_000, &cfg);
+        assert!(alert.contains("🔥 "), "{alert}");
+        assert!(alert.contains("\x1b[1;31m250k"), "{alert}");
     }
 }

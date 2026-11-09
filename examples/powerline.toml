@@ -35,7 +35,8 @@ compact_segments = [     # Compact mode segments (default: tokens, session_cost,
 [tokens]
 enabled = true           # Enable context tokens segment (default: true)
 show_percentage = true   # Display percentage of context limit used, e.g. (36%) (default: true)
-alert_threshold = 100000 # Token count above which the alert icon/color activates (default: 100000)
+warning_threshold = 100000 # Token count above which the warning color activates (default: 100000)
+alert_threshold = 200000 # Token count above which the alert icon/color activates (default: 200000)
 alert_icon = "🔥 "       # Icon added after the segment icon above the threshold (default: "🔥 ")
 
 [session_cost]

@@ -157,6 +157,8 @@ pub struct TokensConfig {
     pub prefix: Option<String>,
     #[serde(default = "default_true")]
     pub show_percentage: bool,
+    #[serde(default = "default_warning_threshold")]
+    pub warning_threshold: u64,
     #[serde(default = "default_alert_threshold")]
     pub alert_threshold: u64,
     #[serde(default = "default_tokens_alert_icon")]
@@ -169,14 +171,19 @@ impl Default for TokensConfig {
             enabled: true,
             prefix: None,
             show_percentage: true,
+            warning_threshold: default_warning_threshold(),
             alert_threshold: default_alert_threshold(),
             alert_icon: default_tokens_alert_icon(),
         }
     }
 }
 
-fn default_alert_threshold() -> u64 {
+fn default_warning_threshold() -> u64 {
     100_000
+}
+
+fn default_alert_threshold() -> u64 {
+    200_000
 }
 
 fn default_tokens_alert_icon() -> String {
@@ -769,7 +776,15 @@ mod tests {
     fn test_tokens_section_without_alert_threshold_gets_default() {
         let cfg = Config::from_toml("[tokens]\nshow_percentage = false\n").unwrap();
         assert!(!cfg.tokens.show_percentage);
-        assert_eq!(cfg.tokens.alert_threshold, 100_000);
+        assert_eq!(cfg.tokens.alert_threshold, 200_000);
+        assert_eq!(cfg.tokens.warning_threshold, 100_000);
+    }
+
+    #[test]
+    fn test_tokens_section_with_only_alert_threshold_keeps_it() {
+        let cfg = Config::from_toml("[tokens]\nalert_threshold = 150000\n").unwrap();
+        assert_eq!(cfg.tokens.alert_threshold, 150_000);
+        assert_eq!(cfg.tokens.warning_threshold, 100_000);
     }
 
     #[test]

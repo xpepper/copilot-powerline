@@ -5,6 +5,7 @@ pub struct Palette {
     pub sep: &'static str,
     pub spend: &'static str,
     pub tokens_normal: &'static str,
+    pub tokens_warning: &'static str,
     pub tokens_alert: &'static str,
     #[allow(dead_code)]
     pub badge: &'static str,
@@ -28,6 +29,7 @@ impl Palette {
                 sep: "\x1b[90m  │  \x1b[0m",
                 spend: "\x1b[92m", // Bright green
                 tokens_normal: "\x1b[97m", // Bright white
+                tokens_warning: "\x1b[93m", // Bright yellow
                 tokens_alert: "\x1b[1;31m", // Bold red
                 badge: "\x1b[93m", // Bright yellow
                 pr: "\x1b[33m",    // Yellow
@@ -46,6 +48,7 @@ impl Palette {
                 sep: "\x1b[90m  │  \x1b[0m",
                 spend: "\x1b[36m", // Cyan (Frost)
                 tokens_normal: "\x1b[97m",
+                tokens_warning: "\x1b[93m",
                 tokens_alert: "\x1b[1;31m",
                 badge: "\x1b[93m",
                 pr: "\x1b[33m", // Yellow
@@ -64,6 +67,7 @@ impl Palette {
                 sep: "\x1b[90m  │  \x1b[0m",
                 spend: "\x1b[95m", // Bright magenta / violet
                 tokens_normal: "\x1b[97m",
+                tokens_warning: "\x1b[93m",
                 tokens_alert: "\x1b[1;31m",
                 badge: "\x1b[93m",
                 pr: "\x1b[93m", // Bright yellow
@@ -82,6 +86,7 @@ impl Palette {
                 sep: "  |  ",
                 spend: "",
                 tokens_normal: "",
+                tokens_warning: "",
                 tokens_alert: "",
                 badge: "",
                 pr: "",
@@ -100,6 +105,7 @@ impl Palette {
                 sep: "\x1b[90m  │  \x1b[0m",
                 spend: "\x1b[94m", // Bright blue
                 tokens_normal: "\x1b[97m", // Bright white
+                tokens_warning: "\x1b[93m", // Bright yellow
                 tokens_alert: "\x1b[1;31m", // Bold red
                 badge: "\x1b[93m", // Bright yellow
                 pr: "\x1b[93m",    // Bright yellow
@@ -161,5 +167,17 @@ mod tests {
         assert_eq!(plain.pr_approved, "");
         assert_eq!(plain.pr_changes_requested, "");
         assert_eq!(plain.pr_draft, "");
+    }
+
+    #[test]
+    fn test_tokens_warning_colour_is_set_in_every_theme_except_plain() {
+        for theme in ["github", "nord", "tokyo-night", "colorblind"] {
+            assert_eq!(
+                Palette::for_theme(theme).tokens_warning,
+                "\x1b[93m",
+                "{theme}"
+            );
+        }
+        assert_eq!(Palette::for_theme("plain").tokens_warning, "");
     }
 }
