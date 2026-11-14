@@ -1,0 +1,8 @@
+# The Rust toolchain this repository is built, linted and tested with.
+#
+# Both local `rustup` and `actions-rust-lang/setup-rust-toolchain@v1` in CI
+# read this file. Keep `channel` and `rust-version` in `Cargo.toml` in step
+# when bumping.
+[toolchain]
+channel = "1.100.0"
+components = ["clippy", "rustfmt"]
